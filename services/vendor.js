@@ -266,7 +266,7 @@ async function GetVendor(vendor) {
       return helper.getErrorResponse(
         false,
         "error",
-        "Querystring Invalid error. Please provide th valid querystring.",
+        "Querystring Invalid error. Please provide the valid querystring.",
         "FETCH VENDOR",
         secret
       );
