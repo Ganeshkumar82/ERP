@@ -629,6 +629,47 @@ let uploadFile13 = multer({
 
 let uploadVoucher = util.promisify(uploadFile13);
 
+//#############################################################################################################################################################################################
+//#############################################################################################################################################################################################
+//#############################################################################################################################################################################################
+//#############################################################################################################################################################################################
+
+// Dynamically set the storage path for vendor quotations
+let storageVendorQuotation = multer.diskStorage({
+  destination: async (req, file, cb) => {
+    try {
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = now.toLocaleString("default", { month: "long" }); // e.g., December
+      const day = now.getDate();
+      let folder = config.filestorage; // Default folder
+
+      folder = `${folder}/${year}/${month}/${day}/VendorQuotation`;
+
+      // Ensure the folder exists
+      await fs.ensureDir(folder);
+
+      cb(null, folder);
+    } catch (err) {
+      cb(err);
+    }
+  },
+  filename: (req, file, cb) => {
+    const timestamp = Date.now();
+    cb(null, `${timestamp}_${file.originalname}`); // Use timestamp to avoid duplicate filenames
+  },
+});
+
+// Set max file size to 5MB
+const maxSizeVendorQuotation = 5 * 1024 * 1024;
+
+let uploadFileVendorQuotation = multer({
+  storage: storageVendorQuotation,
+  limits: { fileSize: maxSizeVendorQuotation },
+}).single("file");
+
+let uploadVendorQuotation = util.promisify(uploadFileVendorQuotation);
+
 module.exports = {
   uploadFileMOR,
   uploadFileInvoice,
@@ -644,4 +685,5 @@ module.exports = {
   uploadSubQuotationp,
   uploadcustominvoicepdf,
   uploadVoucher,
+  uploadVendorQuotation,
 };
