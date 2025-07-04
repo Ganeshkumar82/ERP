@@ -670,6 +670,47 @@ let uploadFileVendorQuotation = multer({
 
 let uploadVendorQuotation = util.promisify(uploadFileVendorQuotation);
 
+//#############################################################################################################################################################################################
+//#############################################################################################################################################################################################
+//#############################################################################################################################################################################################
+//#############################################################################################################################################################################################
+
+// Dynamically set the storage path for RFQ posting
+let storagePostRFQ = multer.diskStorage({
+  destination: async (req, file, cb) => {
+    try {
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = now.toLocaleString("default", { month: "long" }); // e.g., December
+      const day = now.getDate();
+      let folder = config.filestorage; // Default folder
+
+      folder = `${folder}/${year}/${month}/${day}/PostRFQ`;
+
+      // Ensure the folder exists
+      await fs.ensureDir(folder);
+
+      cb(null, folder);
+    } catch (err) {
+      cb(err);
+    }
+  },
+  filename: (req, file, cb) => {
+    const timestamp = Date.now();
+    cb(null, `${timestamp}_${file.originalname}`); // Use timestamp to avoid duplicate filenames
+  },
+});
+
+// Set max file size to 10MB for RFQ documents
+const maxSizePostRFQ = 10 * 1024 * 1024;
+
+let uploadFilePostRFQ = multer({
+  storage: storagePostRFQ,
+  limits: { fileSize: maxSizePostRFQ },
+}).single("file");
+
+let uploadPostRFQ = util.promisify(uploadFilePostRFQ);
+
 module.exports = {
   uploadFileMOR,
   uploadFileInvoice,
@@ -686,4 +727,5 @@ module.exports = {
   uploadcustominvoicepdf,
   uploadVoucher,
   uploadVendorQuotation,
+  uploadPostRFQ,
 };

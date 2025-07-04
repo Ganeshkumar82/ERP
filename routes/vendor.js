@@ -38,5 +38,22 @@ router.post('/detailspreloader', async function(req, res, next) {
     next(er);
   }
 });
+router.post('/getprocesslist', async function(req, res, next) {
+  try {
+    res.json(await vendor.GetProcessList(req.body));
+  } catch (er) {
+    console.log(`Error in vendor process list -> ${er}`);
+    next(er);
+  }
+});
+
+router.post('/postrfq', async function(req, res, next) {
+  try {
+    res.json(await vendor.PostRFQ(req, res));
+  } catch (er) {
+    console.log(`Error posting RFQ -> ${er}`);
+    next(er);
+  }
+});
 
 module.exports = router;

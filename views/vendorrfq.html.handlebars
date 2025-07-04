@@ -1,0 +1,167 @@
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <style>
+      body, .body-wrap { 
+        width: 100% !important; 
+        height: 100%; 
+        background-color: #f4f4f4; 
+        margin: 0; 
+        padding: 0; 
+        font-family: Arial, sans-serif; 
+      }
+      .container { 
+        width: 100%; 
+        max-width: 600px; 
+        margin: 0 auto; 
+        background: #ffffff; 
+        padding: 20px; 
+        border-radius: 8px; 
+        box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.1); 
+      } 
+      .header { 
+        background-color: #2c5aa0; 
+        color: #ffffff; 
+        padding: 20px; 
+        text-align: center; 
+        border-top-left-radius: 8px; 
+        border-top-right-radius: 8px; 
+      } 
+      .header h1 { 
+        font-size: 24px; 
+        margin: 0; 
+      } 
+      .content { 
+        padding: 20px; 
+        font-size: 16px; 
+        color: #333333; 
+      } 
+      .content p { 
+        margin-bottom: 15px; 
+        line-height: 1.6; 
+      } 
+      .rfq-details { 
+        background: #f9f9f9; 
+        padding: 15px; 
+        border-radius: 6px; 
+        margin: 20px 0; 
+        border-left: 4px solid #2c5aa0;
+      } 
+      .rfq-details p { 
+        margin: 5px 0; 
+        font-size: 14px; 
+      } 
+      .rfq-details strong {
+        color: #2c5aa0;
+      }
+      .action-section {
+        background: #e8f4fd;
+        padding: 20px;
+        border-radius: 6px;
+        margin: 20px 0;
+        text-align: center;
+      }
+      .action-section h3 {
+        color: #2c5aa0;
+        margin-top: 0;
+      }
+      .footer { 
+        text-align: center; 
+        font-size: 12px; 
+        color: #777777; 
+        padding: 20px; 
+        background-color: #f4f4f4; 
+        border-bottom-left-radius: 8px;
+        border-bottom-right-radius: 8px;
+      } 
+      .footer a { 
+        color: #2c5aa0; 
+        text-decoration: none; 
+      } 
+      .footer img { 
+        margin: 20px auto; 
+        width: 150px; 
+      }
+      .notes-section {
+        background: #fff9e6;
+        padding: 15px;
+        border-radius: 6px;
+        margin: 15px 0;
+        border-left: 4px solid #ffa500;
+      }
+    </style>
+  </head>
+  <body>
+    <table class="body-wrap">
+      <tr>
+        <td>
+          <div class="container">
+            <!-- Header -->
+            <div class="header">
+              <h1>Request for Quotation</h1>
+              <p style="margin: 0; font-size: 16px;">{{company_name}}</p>
+            </div>
+
+            <!-- Content -->
+            <div class="content">
+              <p>Dear {{vendor_name}},</p>
+              
+              <p>Greetings from <strong>{{company_name}}</strong>!</p>
+              
+              <p>We hope this email finds you in good health and high spirits. We are reaching out to request a quotation for the products/services outlined in the attached RFQ document.</p>
+
+              <!-- RFQ Details -->
+              <div class="rfq-details">
+                <h3 style="margin-top: 0; color: #2c5aa0;">RFQ Details</h3>
+                <p><strong>RFQ ID:</strong> {{rfq_id}}</p>
+                <p><strong>Request Date:</strong> {{request_date}}</p>
+                <p><strong>Company:</strong> {{company_name}}</p>
+              </div>
+
+              {{#if notes}}
+              <div class="notes-section">
+                <h4 style="margin-top: 0; color: #ff8c00;">Additional Notes:</h4>
+                <p>{{notes}}</p>
+              </div>
+              {{/if}}
+
+              <!-- Action Section -->
+              <div class="action-section">
+                <h3>What's Next?</h3>
+                <p>Please review the attached RFQ document carefully and provide us with your best quotation including:</p>
+                <ul style="text-align: left; display: inline-block; margin: 10px 0;">
+                  <li>Detailed pricing for each item</li>
+                  <li>Delivery timeline</li>
+                  <li>Terms and conditions</li>
+                  <li>Validity of the quotation</li>
+                </ul>
+              </div>
+
+              <p>We value our partnership with you and look forward to your competitive quotation. Should you have any questions or require clarification on any aspect of this RFQ, please don't hesitate to contact us.</p>
+
+              <p>Thank you for your time and consideration. We anticipate your prompt response.</p>
+
+              <p>Best regards,<br />
+              <strong>{{company_name}} Procurement Team</strong><br />
+              Email: procurement@sporadasecure.com<br />
+              Phone: +91 XXX XXX XXXX</p>
+            </div>
+
+            <!-- Footer -->
+            <div class="footer">
+              <p>This is an automated email from {{company_name}}. Please do not reply to this email address.</p>
+              <p>
+                <a href="mailto:support@sporadasecure.com">Contact Support</a> | 
+                <a href="https://www.sporadasecure.com">Visit Our Website</a>
+              </p>
+              <p style="margin-top: 15px; font-size: 11px;">
+                © {{company_name}}. All rights reserved.
+              </p>
+            </div>
+          </div>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

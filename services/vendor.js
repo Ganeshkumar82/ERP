@@ -565,54 +565,563 @@ async function AddQuotation(req, res) {
 
 //##################################################################################################################################################################################################
 //##################################################################################################################################################################################################
-//########################################### REQUEST BODY FOR VENDOR DETAILS PRELOADER #########################################################################
+//########################################### REQUEST BODY FOR VENDOR DETAILS PRELOADER (RFQ ID GENERATOR) ###################################################
 // {
-//   "event_id": "some_event_uid",
-//   "event_type": "some_event_type"
+//   "STOKEN": "your_session_token"
 // }
 //####################################################################### RESPONSE BODY FOR VENDOR DETAILS PRELOADER ##########################################
 // {
 //   "code": true,
-//   "message": "RFQ ID fetched successfully",
-//   "rfq_gen_id": "ssipl/rfq250301"
+//   "message": "RFQ ID generated successfully",
+//   "rfq_id": "SSIPL-RFQ/250704001"
 // }
 //##################################################################################################################################################################################################
 //##################################################################################################################################################################################################
 
 async function vendorDetailsPreLoader(req, res) {
   try {
-    const { event_id, event_type } = req.body;
-    if (!event_id || !event_type) {
+    const { STOKEN } = req.body;
+    if (!STOKEN) {
       return res.json({
         code: false,
-        message: "event_id and event_type are required",
-        rfq_gen_id: null
+        message: "Session token (STOKEN) is required",
+        rfq_id: null
       });
     }
-    // Fetch the rfq_gen_id from your table (assuming vprocesslist or similar)
-    const result = await db.query(
-      `SELECT vprocess_gen_id FROM vprocesslist WHERE event_id = ? AND event_type = ? LIMIT 1`,
-      [event_id, event_type]
+    // Validate session token length
+    if (STOKEN.length > 50 || STOKEN.length < 30) {
+      return res.json({
+        code: false,
+        message: "Session token size invalid. Please provide a valid session token",
+        rfq_id: null
+      });
+    }
+    // Validate session token
+    const [result] = await db.spcall(
+      "CALL SP_STOKEN_CHECK(?,@result); SELECT @result;",
+      [STOKEN]
     );
-    if (result && result.length > 0) {
-      return res.json({
-        code: true,
-        message: "RFQ ID fetched successfully",
-        rfq_gen_id: result[0].vprocess_gen_id
-      });
-    } else {
+    const objectvalue = result[1][0];
+    const userid = objectvalue["@result"];
+    if (!userid) {
       return res.json({
         code: false,
-        message: "No RFQ ID found for the given event_id and event_type",
-        rfq_gen_id: null
+        message: "Session token invalid. Please provide a valid session token",
+        rfq_id: null
       });
     }
+    // Generate a unique RFQ ID using Gen_vendor_rfqId SP with slash delimiter
+    let newRfqId;
+    try {
+      const [rfqResult] = await db.spcall(
+        `CALL Gen_vendor_rfqId(?, '/', @out); SELECT @out;`,
+        [userid]
+      );
+      const objectValue = rfqResult[1][0];
+      newRfqId = objectValue["@out"];
+    } catch (e) {
+      return res.json({
+        code: false,
+        message: "Failed to generate RFQ ID using stored procedure.",
+        rfq_id: null
+      });
+    }
+    // Ensure uniqueness in generatevrfqids table
+    const exists = await db.query(
+      `SELECT rfq_id FROM generatevrfqids WHERE rfq_id = ?`,
+      [newRfqId]
+    );
+    if (exists && exists.length > 0) {
+      return res.json({
+        code: false,
+        message: "RFQ ID collision, please try again",
+        rfq_id: null
+      });
+    }
+    // Insert into generatevrfqids
+    await db.query(
+      `INSERT INTO generatevrfqids (rfq_id, status, created_by) VALUES (?, 0, ?)`,
+      [newRfqId, userid]
+    );
+    return res.json({
+      code: true,
+      message: "RFQ ID generated successfully",
+      rfq_id: newRfqId
+    });
   } catch (er) {
     return res.json({
       code: false,
       message: "Internal error. Please contact Administration",
-      rfq_gen_id: null
+      rfq_id: null
     });
+  }
+}
+
+//##################################################################################################################################################################################################
+//##################################################################################################################################################################################################
+//########################################### REQUEST BODY FOR GET PROCESS LIST #####################################################################################
+// {
+//   "STOKEN": "your_session_token",
+//   "querystring": "encrypted_data_containing_optional_filters"
+// }
+// Optional filters in querystring:
+// {
+//   "vprocess_id": 1,  // Optional - specific process ID
+//   "vendor_id": 1,    // Optional - filter by vendor
+//   "status": 1        // Optional - filter by status
+// }
+//####################################################################### RESPONSE BODY FOR GET PROCESS LIST #######################################################
+// {
+//   "code": true,
+//   "message": "Process list fetched successfully",
+//   "Value": [
+//     {
+//       "vprocess_id": 1,
+//       "vendor_name": "JK constructiond",
+//       "Process_date": "2025-03-04",
+//       "Vendor_id": 1,
+//       "Customer_id": null,
+//       "Row_updated_date": "2025-03-04 15:50:53",
+//       "status": 1,
+//       "deleted_flag": 0,
+//       "archive_data": 0,
+//       "Created_by": 4,
+//       "cprocess_id": 4,
+//       "feedback": null,
+//       "vprocess_gen_id": "ssipl/rfq250301"
+//     }
+//   ]
+// }
+//##################################################################################################################################################################################################
+//##################################################################################################################################################################################################
+
+async function GetProcessList(processData) {
+  try {
+    // Check if the session token exists
+    if (!processData.hasOwnProperty("STOKEN")) {
+      return helper.getErrorResponse(
+        false,
+        "Login session token missing. Please provide the Login session token",
+        "GET PROCESS LIST",
+        ""
+      );
+    }
+
+    // Validate session token length
+    if (processData.STOKEN.length > 50 || processData.STOKEN.length < 30) {
+      return helper.getErrorResponse(
+        false,
+        "Login session token size invalid. Please provide the valid Session token",
+        "GET PROCESS LIST",
+        ""
+      );
+    }
+
+    // Validate session token
+    const [result] = await db.spcall(
+      "CALL SP_STOKEN_CHECK(?,@result); SELECT @result;",
+      [processData.STOKEN]
+    );
+    const objectvalue = result[1][0];
+    const userid = objectvalue["@result"];
+
+    if (userid == null) {
+      return helper.getErrorResponse(
+        false,
+        "Login session token Invalid. Please provide the valid session token",
+        "GET PROCESS LIST",
+        ""
+      );
+    }
+
+    // Check if querystring is provided
+    if (!processData.hasOwnProperty("querystring")) {
+      return helper.getErrorResponse(
+        false,
+        "Querystring missing. Please provide the querystring",
+        "GET PROCESS LIST",
+        ""
+      );
+    }
+
+    var secret = processData.STOKEN.substring(0, 16);
+    var querydata;
+
+    // Decrypt querystring
+    try {
+      querydata = await helper.decrypt(processData.querystring, secret);
+    } catch (ex) {
+      return helper.getErrorResponse(
+        false,
+        "Querystring Invalid error. Please provide the valid querystring.",
+        "GET PROCESS LIST",
+        secret
+      );
+    }
+
+    // Parse the decrypted querystring
+    try {
+      querydata = JSON.parse(querydata);
+    } catch (ex) {
+      return helper.getErrorResponse(
+        false,
+        "Querystring JSON error. Please provide valid JSON",
+        "GET PROCESS LIST",
+        secret
+      );
+    }
+
+    try {
+      let sql;
+      let queryParams = [];
+      
+      // Base query with JOIN to get vendor name
+      let baseQuery = `
+        SELECT 
+          vpm.vprocess_id,
+          vm.vendor_name,
+          vpm.Process_date,
+          vpm.Vendor_id,
+          vpm.Customer_id,
+          vpm.Row_updated_date,
+          vpm.status,
+          vpm.deleted_flag,
+          vpm.archive_data,
+          vpm.Created_by,
+          vpm.cprocess_id,
+          vpm.feedback,
+          vpm.vprocess_gen_id
+        FROM vendorprocessmaster vpm
+        LEFT JOIN vendormaster vm ON vpm.Vendor_id = vm.vendor_id
+        WHERE vpm.deleted_flag = 0
+      `;
+
+      // Add filters based on querydata
+      if (querydata.hasOwnProperty("vprocess_id") && querydata.vprocess_id != null && querydata.vprocess_id !== "") {
+        baseQuery += " AND vpm.vprocess_id = ?";
+        queryParams.push(querydata.vprocess_id);
+      }
+
+      if (querydata.hasOwnProperty("vendor_id") && querydata.vendor_id != null && querydata.vendor_id !== "") {
+        baseQuery += " AND vpm.Vendor_id = ?";
+        queryParams.push(querydata.vendor_id);
+      }
+
+      if (querydata.hasOwnProperty("status") && querydata.status != null && querydata.status !== "") {
+        baseQuery += " AND vpm.status = ?";
+        queryParams.push(querydata.status);
+      }
+
+      // Order by latest first
+      baseQuery += " ORDER BY vpm.Row_updated_date DESC";
+
+      // Execute the query
+      sql = await db.query(baseQuery, queryParams);
+
+      return helper.getSuccessResponse(
+        true,
+        "Process list fetched successfully",
+        sql,
+        secret
+      );
+    } catch (er) {
+      return helper.getErrorResponse(
+        false,
+        "Internal error. Please contact Administration",
+        er.message,
+        secret
+      );
+    }
+  } catch (er) {
+    return helper.getErrorResponse(
+      false,
+      "Internal error. Please contact Administration",
+      er.message,
+      secret
+    );
+  }
+}
+
+//##################################################################################################################################################################################################
+//##################################################################################################################################################################################################
+//########################################### REQUEST BODY FOR POST RFQ #####################################################################################
+// {
+//   "STOKEN": "your_session_token",
+//   "querystring": "encrypted_data_containing_rfq_details"
+// }
+// File upload in form-data with key "file"
+// Optional querystring data:
+// {
+//   "rfq_id": "RFQ/2507/01",
+//   "vendor_id": 1,
+//   "vendor_email": "vendor@example.com",
+//   "cc_email": "cc@example.com",
+//   "notes": "Additional notes"
+// }
+//####################################################################### RESPONSE BODY FOR POST RFQ #######################################################
+// {"code":true,"message":"RFQ Posted Successfully","Value":{"vprocess_id": 1, "process_id": 2}}
+//##################################################################################################################################################################################################
+//##################################################################################################################################################################################################
+
+async function PostRFQ(req, res) {
+  try {
+    // Upload the PDF file first using dedicated RFQ upload function
+    try {
+      await uploadFile.uploadPostRFQ(req, res);
+
+      if (!req.file) {
+        return helper.getErrorResponse(
+          false,
+          "Please upload a PDF file!",
+          "POST RFQ",
+          ""
+        );
+      }
+    } catch (er) {
+      return helper.getErrorResponse(
+        false,
+        `Could not upload the file. ${er.message}`,
+        "POST RFQ",
+        ""
+      );
+    }
+
+    let rfqData = req.body;
+
+    // Check if the session token exists
+    if (!rfqData.hasOwnProperty("STOKEN")) {
+      return helper.getErrorResponse(
+        false,
+        "Login session token missing. Please provide the Login session token",
+        "POST RFQ",
+        ""
+      );
+    }
+
+    // Validate session token length
+    if (rfqData.STOKEN.length > 50 || rfqData.STOKEN.length < 30) {
+      return helper.getErrorResponse(
+        false,
+        "Login session token size invalid. Please provide the valid Session token",
+        "POST RFQ",
+        ""
+      );
+    }
+
+    // Validate session token
+    const [result] = await db.spcall(
+      "CALL SP_STOKEN_CHECK(?,@result); SELECT @result;",
+      [rfqData.STOKEN]
+    );
+    const objectvalue = result[1][0];
+    const userid = objectvalue["@result"];
+
+    if (userid == null) {
+      return helper.getErrorResponse(
+        false,
+        "Login session token Invalid. Please provide the valid session token",
+        "POST RFQ",
+        ""
+      );
+    }
+
+    // Check if querystring is provided
+    if (!rfqData.hasOwnProperty("querystring")) {
+      return helper.getErrorResponse(
+        false,
+        "Querystring missing. Please provide the querystring",
+        "POST RFQ",
+        ""
+      );
+    }
+
+    var secret = rfqData.STOKEN.substring(0, 16);
+    var querydata;
+
+    // Decrypt querystring
+    try {
+      querydata = await helper.decrypt(rfqData.querystring, secret);
+    } catch (ex) {
+      return helper.getErrorResponse(
+        false,
+        "Querystring Invalid error. Please provide the valid querystring.",
+        "POST RFQ",
+        secret
+      );
+    }
+
+    // Parse the decrypted querystring
+    try {
+      querydata = JSON.parse(querydata);
+    } catch (ex) {
+      return helper.getErrorResponse(
+        false,
+        "Querystring JSON error. Please provide valid JSON",
+        "POST RFQ",
+        secret
+      );
+    }
+
+    // Validate required fields
+    if (!querydata.hasOwnProperty("rfq_id") || querydata.rfq_id == "") {
+      return helper.getErrorResponse(
+        false,
+        "RFQ ID missing. Please provide the RFQ ID",
+        "POST RFQ",
+        secret
+      );
+    }
+
+    if (!querydata.hasOwnProperty("vendor_id") || querydata.vendor_id == "") {
+      return helper.getErrorResponse(
+        false,
+        "Vendor ID missing. Please provide the Vendor ID",
+        "POST RFQ",
+        secret
+      );
+    }
+
+    try {
+      // Get vendor details
+      const vendorDetails = await db.query(
+        `SELECT vendor_name, vendor_mail, vendor_address FROM vendormaster WHERE vendor_id = ? AND status = 1 AND deleted_flag = 0`,
+        [querydata.vendor_id]
+      );
+
+      if (!vendorDetails || vendorDetails.length === 0) {
+        return helper.getErrorResponse(
+          false,
+          "Vendor not found or inactive",
+          "POST RFQ",
+          secret
+        );
+      }
+
+      const vendor = vendorDetails[0];
+      const filePath = req.file.path;
+      const currentDate = new Date();
+      const formattedDate = currentDate.toISOString().slice(0, 10); // YYYY-MM-DD
+
+      // Insert into vendorprocessmaster
+      const vprocessResult = await db.query(
+        `INSERT INTO vendorprocessmaster (
+          vendor_name,
+          Process_date,
+          Vendor_id,
+          Customer_id,
+          status,
+          deleted_flag,
+          archive_data,
+          Created_by,
+          vprocess_gen_id,
+          Row_updated_date
+        ) VALUES (?, ?, ?, NULL, 1, 0, 0, ?, ?, NOW())`,
+        [
+          vendor.vendor_name,
+          formattedDate,
+          querydata.vendor_id,
+          userid,
+          querydata.rfq_id
+        ]
+      );
+
+      const vprocess_id = vprocessResult.insertId;
+
+      // Insert into vprocesslist
+      const processResult = await db.query(
+        `INSERT INTO vprocesslist (
+          process_name,
+          Process_filepath,
+          Process_date,
+          Approved_status,
+          status,
+          deleted_flag,
+          Created_by,
+          vprocess_gen_id,
+          process_type,
+          vendor_address,
+          vendor_name,
+          Row_updated_date
+        ) VALUES (?, ?, ?, 0, 1, 0, ?, ?, 'RFQ', ?, ?, NOW())`,
+        [
+          'RFQ',
+          filePath,
+          formattedDate,
+          userid,
+          querydata.rfq_id,
+          vendor.vendor_address,
+          vendor.vendor_name
+        ]
+      );
+
+      const process_id = processResult.insertId;
+
+      // Send email to vendor
+      try {
+        const mailer = require("../mailer");
+        
+        // For now, hardcoded email as requested
+        const vendorEmail = "kishorekkumar34@gmail.com";
+        const ccEmail = querydata.cc_email || "";
+        
+        const subject = `Request for Quotation - ${querydata.rfq_id}`;
+        const notes = querydata.notes || "Please review the attached RFQ document and provide your best quotation.";
+        
+        // Send email with PDF attachment using vendor-specific function
+        const emailSent = await mailer.sendVendorRFQ(
+          vendor.vendor_name,
+          vendorEmail,
+          subject,
+          "VENDORRFQ", // module tag for email settings
+          filePath, // file path for attachment
+          querydata.rfq_id, // RFQ ID
+          notes, // additional notes
+          ccEmail // CC email
+        );
+
+        if (!emailSent) {
+          console.log("Warning: Email sending failed, but RFQ was saved successfully");
+        }
+      } catch (emailError) {
+        console.log("Warning: Email sending error:", emailError);
+        // Continue execution even if email fails
+      }
+
+      if (vprocess_id != null && process_id != null) {
+        return helper.getSuccessResponse(
+          true,
+          "RFQ Posted Successfully",
+          {
+            vprocess_id: vprocess_id,
+            process_id: process_id,
+            vendor_name: vendor.vendor_name,
+            rfq_id: querydata.rfq_id
+          },
+          secret
+        );
+      } else {
+        return helper.getErrorResponse(
+          false,
+          "Error while posting the RFQ.",
+          "POST RFQ",
+          secret
+        );
+      }
+    } catch (er) {
+      return helper.getErrorResponse(
+        false,
+        "Internal error. Please contact Administration",
+        er.message,
+        secret
+      );
+    }
+  } catch (er) {
+    return helper.getErrorResponse(
+      false,
+      "Internal error. Please contact Administration",
+      er.message,
+      ""
+    );
   }
 }
 
@@ -620,7 +1129,9 @@ module.exports = {
   AddVendor,
   GetVendor,
   AddQuotation,
-  vendorDetailsPreLoader
+  vendorDetailsPreLoader,
+  GetProcessList,
+  PostRFQ
 };
 
 //##################################################################################################################################################################################################
