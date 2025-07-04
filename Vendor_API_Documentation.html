@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vendor Management API Documentation</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            margin: 40px;
+            color: #333;
+        }
+        h1 {
+            color: #2c3e50;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #34495e;
+            margin-top: 30px;
+            border-left: 4px solid #3498db;
+            padding-left: 15px;
+        }
+        h3 {
+            color: #2980b9;
+            margin-top: 25px;
+        }
+        h4 {
+            color: #27ae60;
+            margin-top: 20px;
+        }
+        .route {
+            background-color: #ecf0f1;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            color: #e74c3c;
+        }
+        .json {
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 5px;
+            padding: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+        }
+        .success {
+            border-left: 4px solid #27ae60;
+            background-color: #d5f4e6;
+        }
+        .error {
+            border-left: 4px solid #e74c3c;
+            background-color: #fdf2f2;
+        }
+        .info {
+            background-color: #ebf3fd;
+            border: 1px solid #bee5eb;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        ul {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        li {
+            margin: 5px 0;
+        }
+        .table-container {
+            overflow-x: auto;
+            margin: 20px 0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+        }
+        .page-break {
+            page-break-before: always;
+        }
+        .toc {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .toc ul {
+            list-style-type: none;
+            padding-left: 0;
+        }
+        .toc li {
+            margin: 8px 0;
+            padding-left: 20px;
+        }
+        .toc a {
+            text-decoration: none;
+            color: #3498db;
+        }
+        .toc a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+
+<h1>Vendor Management API Documentation</h1>
+
+<div class="info">
+    <strong>Overview:</strong> This document provides comprehensive information about the Vendor Management APIs including routes, request bodies, and response bodies.
+</div>
+
+<div class="toc">
+    <h2>Table of Contents</h2>
+    <ul>
+        <li><a href="#add-vendor">1. Add Vendor</a></li>
+        <li><a href="#get-vendor">2. Get Vendor</a></li>
+        <li><a href="#add-quotation">3. Add Quotation</a></li>
+        <li><a href="#vendor-details-preloader">4. Vendor Details Preloader (RFQ ID Generator)</a></li>
+        <li><a href="#get-process-list">5. Get Process List</a></li>
+        <li><a href="#post-rfq">6. Post RFQ</a></li>
+        <li><a href="#common-response-codes">7. Common Response Codes</a></li>
+        <li><a href="#authentication">8. Authentication</a></li>
+        <li><a href="#security">9. Security</a></li>
+        <li><a href="#error-handling">10. Error Handling</a></li>
+    </ul>
+</div>
+
+<div class="page-break"></div>
+
+<h2 id="add-vendor">1. Add Vendor</h2>
+
+<h3>Route</h3>
+<div class="route">POST /vendor/addvendor</div>
+
+<h3>Description</h3>
+<p>Creates a new vendor with associated products in the system.</p>
+
+<h3>Request Body</h3>
+<div class="json">{
+  "STOKEN": "your_session_token_here",
+  "querystring": "encrypted_data_containing_vendor_details"
+}</div>
+
+<h3>Decrypted Querystring Data</h3>
+<div class="json">{
+  "vendorname": "JK constructiond",
+  "vendormailid": "jk@gmail.com",
+  "vendorphoneno": "8393923242",
+  "vendoraddress": "chinnverampatti,udumallai",
+  "vendorgst": "33ABCD43wsd123",
+  "vendorproducts": [
+    {
+      "productname": "Cement",
+      "gstpercent": 18.0,
+      "hsn": "2523",
+      "price": 350.00
+    },
+    {
+      "productname": "Steel",
+      "gstpercent": 18.0,
+      "hsn": "7207",
+      "price": 600.00
+    }
+  ]
+}</div>
+
+<h3>Response Body</h3>
+<h4>Success Response</h4>
+<div class="json success">{
+  "code": true,
+  "message": "Vendor Added Successfully",
+  "Value": 13
+}</div>
+
+<h4>Error Response</h4>
+<div class="json error">{
+  "code": false,
+  "message": "Error message describing the issue",
+  "Value": "ADD VENDOR"
+}</div>
+
+<h3>Required Fields</h3>
+<ul>
+    <li><strong>vendorname:</strong> Vendor company name</li>
+    <li><strong>vendormailid:</strong> Vendor email address</li>
+    <li><strong>vendorphoneno:</strong> Vendor phone number</li>
+    <li><strong>vendoraddress:</strong> Vendor business address</li>
+    <li><strong>vendorgst:</strong> Vendor GST number</li>
+    <li><strong>vendorproducts:</strong> Array of products (optional)</li>
+</ul>
+
+<div class="page-break"></div>
+
+<h2 id="get-vendor">2. Get Vendor</h2>
+
+<h3>Route</h3>
+<div class="route">POST /vendor/getvendor</div>
+
+<h3>Description</h3>
+<p>Retrieves vendor information along with their products. Can fetch all vendors or a specific vendor.</p>
+
+<h3>Request Body</h3>
+<div class="json">{
+  "STOKEN": "your_session_token_here",
+  "querystring": "encrypted_data_containing_filter_criteria"
+}</div>
+
+<h3>Decrypted Querystring Data</h3>
+<div class="json">{
+  "vendorid": 1
+}</div>
+<div class="info"><strong>Note:</strong> Use vendorid: 0 to fetch all vendors.</div>
+
+<h3>Response Body</h3>
+<h4>Success Response</h4>
+<div class="json success">{
+  "code": true,
+  "message": "Vendor Fetched Successfully",
+  "Value": [
+    {
+      "vendor_id": 1,
+      "vendor_name": "JK constructiond",
+      "vendor_mail": "jk@gmail.com",
+      "vendor_phoneno": "8393923242",
+      "vendor_gstno": "33ABCD43wsd123",
+      "vendor_address": "chinnverampatti,udumallai",
+      "Logo_path": "base64_encoded_logo_data_or_null",
+      "vendorproducts": [
+        {
+          "id": 1,
+          "productname": "Cement",
+          "gstpercent": 18.0,
+          "hsn": "2523",
+          "price": 350.00
+        },
+        {
+          "id": 2,
+          "productname": "Steel",
+          "gstpercent": 18.0,
+          "hsn": "7207",
+          "price": 600.00
+        }
+      ]
+    }
+  ]
+}</div>
+
+<h4>Error Response</h4>
+<div class="json error">{
+  "code": false,
+  "message": "Error message describing the issue",
+  "Value": "FETCH VENDOR"
+}</div>
+
+<div class="page-break"></div>
+
+<h2 id="add-quotation">3. Add Quotation</h2>
+
+<h3>Route</h3>
+<div class="route">POST /vendor/addquotation</div>
+
+<h3>Description</h3>
+<p>Uploads a vendor quotation PDF file and associates it with an RFQ ID.</p>
+
+<h3>Request Body</h3>
+<ul>
+    <li><strong>Content-Type:</strong> multipart/form-data</li>
+    <li><strong>File Field:</strong> file (PDF file, max 5MB)</li>
+    <li><strong>Form Fields:</strong>
+        <ul>
+            <li>STOKEN: Session token</li>
+            <li>querystring: Encrypted data containing RFQ details</li>
+        </ul>
+    </li>
+</ul>
+
+<h3>Decrypted Querystring Data</h3>
+<div class="json">{
+  "rfqid": "SSIPL-RFQ/2507/01"
+}</div>
+
+<h3>Response Body</h3>
+<h4>Success Response</h4>
+<div class="json success">{
+  "code": true,
+  "message": "Quotation Added Successfully",
+  "Value": 1
+}</div>
+
+<h4>Error Response</h4>
+<div class="json error">{
+  "code": false,
+  "message": "Error message describing the issue",
+  "Value": "ADD QUOTATION"
+}</div>
+
+<h3>File Requirements</h3>
+<ul>
+    <li><strong>Format:</strong> PDF only</li>
+    <li><strong>Size:</strong> Maximum 5MB</li>
+    <li><strong>Storage:</strong> Saved in /filestorage/YYYY/Month/DD/VendorQuotation/</li>
+</ul>
+
+<div class="page-break"></div>
+
+<h2 id="vendor-details-preloader">4. Vendor Details Preloader (RFQ ID Generator)</h2>
+
+<h3>Route</h3>
+<div class="route">POST /vendor/detailspreloader</div>
+
+<h3>Description</h3>
+<p>Generates a unique RFQ ID for creating new RFQ processes.</p>
+
+<h3>Request Body</h3>
+<div class="json">{
+  "STOKEN": "your_session_token_here"
+}</div>
+
+<h3>Response Body</h3>
+<h4>Success Response</h4>
+<div class="json success">{
+  "code": true,
+  "message": "RFQ ID generated successfully",
+  "rfq_id": "SSIPL-RFQ/2507/01"
+}</div>
+
+<h4>Error Response</h4>
+<div class="json error">{
+  "code": false,
+  "message": "Error message describing the issue",
+  "rfq_id": null
+}</div>
+
+<h3>RFQ ID Format</h3>
+<ul>
+    <li><strong>Pattern:</strong> SSIPL-RFQ/{YYMM}/{counter}</li>
+    <li><strong>YYMM:</strong> Year-Month (e.g., 2507 for July 2025)</li>
+    <li><strong>Counter:</strong> 2-digit sequential number (01, 02, etc.)</li>
+    <li><strong>Generated By:</strong> Gen_vendor_rfqId stored procedure</li>
+    <li><strong>Storage:</strong> vendor_rfq_ids table</li>
+</ul>
+
+<div class="page-break"></div>
+
+<h2 id="get-process-list">5. Get Process List</h2>
+
+<h3>Route</h3>
+<div class="route">POST /vendor/getprocesslist</div>
+
+<h3>Description</h3>
+<p>Retrieves vendor process records with optional filtering capabilities.</p>
+
+<h3>Request Body</h3>
+<div class="json">{
+  "STOKEN": "your_session_token_here",
+  "querystring": "encrypted_data_containing_optional_filters"
+}</div>
+
+<h3>Decrypted Querystring Data (Optional Filters)</h3>
+<div class="json">{
+  "vprocess_id": 1,
+  "vendor_id": 1,
+  "status": 1
+}</div>
+
+<h3>Response Body</h3>
+<h4>Success Response</h4>
+<div class="json success">{
+  "code": true,
+  "message": "Process list fetched successfully",
+  "Value": [
+    {
+      "vprocess_id": 1,
+      "vendor_name": "JK constructiond",
+      "Process_date": "2025-07-04",
+      "Vendor_id": 1,
+      "Customer_id": null,
+      "Row_updated_date": "2025-07-04 15:50:53",
+      "status": 1,
+      "deleted_flag": 0,
+      "archive_data": 0,
+      "Created_by": 4,
+      "cprocess_id": 4,
+      "feedback": null,
+      "vprocess_gen_id": "SSIPL-RFQ/2507/01"
+    }
+  ]
+}</div>
+
+<h4>Error Response</h4>
+<div class="json error">{
+  "code": false,
+  "message": "Error message describing the issue",
+  "Value": "GET PROCESS LIST"
+}</div>
+
+<h3>Filter Options</h3>
+<ul>
+    <li><strong>vprocess_id:</strong> Specific process ID</li>
+    <li><strong>vendor_id:</strong> Filter by vendor</li>
+    <li><strong>status:</strong> Filter by status (1 = active, 0 = inactive)</li>
+</ul>
+
+<div class="page-break"></div>
+
+<h2 id="post-rfq">6. Post RFQ</h2>
+
+<h3>Route</h3>
+<div class="route">POST /vendor/postrfq</div>
+
+<h3>Description</h3>
+<p>Posts an RFQ to a vendor including PDF upload, database storage, and email notification.</p>
+
+<h3>Request Body</h3>
+<ul>
+    <li><strong>Content-Type:</strong> multipart/form-data</li>
+    <li><strong>File Field:</strong> file (PDF file, max 10MB)</li>
+    <li><strong>Form Fields:</strong>
+        <ul>
+            <li>STOKEN: Session token</li>
+            <li>querystring: Encrypted data containing RFQ details</li>
+        </ul>
+    </li>
+</ul>
+
+<h3>Decrypted Querystring Data</h3>
+<div class="json">{
+  "rfq_id": "SSIPL-RFQ/2507/01",
+  "vendor_id": 1,
+  "vendor_email": "vendor@example.com",
+  "cc_email": "cc@example.com",
+  "notes": "Please review the attached RFQ document and provide your best quotation."
+}</div>
+
+<h3>Response Body</h3>
+<h4>Success Response</h4>
+<div class="json success">{
+  "code": true,
+  "message": "RFQ Posted Successfully",
+  "Value": {
+    "vprocess_id": 1,
+    "process_id": 2,
+    "vendor_name": "JK constructiond",
+    "rfq_id": "SSIPL-RFQ/2507/01"
+  }
+}</div>
+
+<h4>Error Response</h4>
+<div class="json error">{
+  "code": false,
+  "message": "Error message describing the issue",
+  "Value": "POST RFQ"
+}</div>
+
+<h3>Process Flow</h3>
+<ol>
+    <li><strong>File Upload:</strong> PDF saved to /filestorage/YYYY/Month/DD/PostRFQ/</li>
+    <li><strong>Database Storage:</strong>
+        <ul>
+            <li>Creates record in vendorprocessmaster</li>
+            <li>Creates record in vprocesslist</li>
+        </ul>
+    </li>
+    <li><strong>Email Notification:</strong>
+        <ul>
+            <li>Sends RFQ email to vendor using VENDORRFQ template</li>
+            <li>Includes PDF attachment</li>
+            <li>Uses module tag VENDORRFQ for email settings</li>
+        </ul>
+    </li>
+</ol>
+
+<h3>Required Fields</h3>
+<ul>
+    <li><strong>rfq_id:</strong> Valid RFQ ID (generated from preloader)</li>
+    <li><strong>vendor_id:</strong> Valid vendor ID</li>
+    <li><strong>vendor_email:</strong> Vendor email address (currently hardcoded to kishorekkumar34@gmail.com)</li>
+    <li><strong>cc_email:</strong> CC email address (optional)</li>
+    <li><strong>notes:</strong> Additional notes (optional)</li>
+</ul>
+
+<h3>File Requirements</h3>
+<ul>
+    <li><strong>Format:</strong> PDF recommended</li>
+    <li><strong>Size:</strong> Maximum 10MB</li>
+    <li><strong>Storage:</strong> /filestorage/YYYY/Month/DD/PostRFQ/</li>
+</ul>
+
+<div class="page-break"></div>
+
+<h2 id="common-response-codes">7. Common Response Codes</h2>
+
+<h3>Success Response Structure</h3>
+<div class="json success">{
+  "code": true,
+  "message": "Success message",
+  "Value": "Response data"
+}</div>
+
+<h3>Error Response Structure</h3>
+<div class="json error">{
+  "code": false,
+  "message": "Error description",
+  "Value": "Error context"
+}</div>
+
+<h2 id="authentication">8. Authentication</h2>
+
+<p>All endpoints require a valid session token (STOKEN) that:</p>
+<ul>
+    <li>Must be between 30-50 characters in length</li>
+    <li>Is validated against the database using SP_STOKEN_CHECK stored procedure</li>
+    <li>First 16 characters are used as encryption key for querystring data</li>
+</ul>
+
+<h2 id="security">9. Security</h2>
+
+<ul>
+    <li>All sensitive data in querystring is encrypted using AES encryption</li>
+    <li>Session tokens are validated on every request</li>
+    <li>File uploads are restricted by size and type</li>
+    <li>SQL injection protection through parameterized queries</li>
+</ul>
+
+<h2 id="error-handling">10. Error Handling</h2>
+
+<p>Common error scenarios:</p>
+<ul>
+    <li>Invalid or missing session token</li>
+    <li>Malformed or invalid querystring data</li>
+    <li>Missing required fields</li>
+    <li>File upload failures</li>
+    <li>Database connection issues</li>
+    <li>Vendor not found or inactive</li>
+</ul>
+
+<hr style="margin-top: 40px; border: 1px solid #ddd;">
+
+<div style="text-align: center; margin-top: 30px; color: #666; font-size: 14px;">
+    <p><strong>Generated on:</strong> July 4, 2025</p>
+    <p><strong>API Version:</strong> 1.0</p>
+    <p><strong>Base URL:</strong> /vendor/</p>
+</div>
+
+</body>
+</html>

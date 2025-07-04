@@ -573,8 +573,12 @@ async function AddQuotation(req, res) {
 // {
 //   "code": true,
 //   "message": "RFQ ID generated successfully",
-//   "rfq_id": "SSIPL-RFQ/250704001"
+//   "rfq_id": "SSIPL-RFQ/2507/01"
 // }
+// Note: RFQ ID format is SSIPL-RFQ/{YYMM}/{counter} where:
+// - YYMM is year-month (e.g., 2507 for July 2025)
+// - counter is 2-digit sequential number (01, 02, etc.)
+// Generated using Gen_vendor_rfqId stored procedure and stored in vendor_rfq_ids table
 //##################################################################################################################################################################################################
 //##################################################################################################################################################################################################
 
@@ -626,9 +630,9 @@ async function vendorDetailsPreLoader(req, res) {
         rfq_id: null
       });
     }
-    // Ensure uniqueness in generatevrfqids table
+    // Ensure uniqueness in vendor_rfq_ids table
     const exists = await db.query(
-      `SELECT rfq_id FROM generatevrfqids WHERE rfq_id = ?`,
+      `SELECT rfq_id FROM vendor_rfq_ids WHERE rfq_id = ?`,
       [newRfqId]
     );
     if (exists && exists.length > 0) {
@@ -638,11 +642,8 @@ async function vendorDetailsPreLoader(req, res) {
         rfq_id: null
       });
     }
-    // Insert into generatevrfqids
-    await db.query(
-      `INSERT INTO generatevrfqids (rfq_id, status, created_by) VALUES (?, 0, ?)`,
-      [newRfqId, userid]
-    );
+    // Insert into vendor_rfq_ids (handled by stored procedure)
+    // Note: The stored procedure already inserts into vendor_rfq_ids table
     return res.json({
       code: true,
       message: "RFQ ID generated successfully",
@@ -852,7 +853,7 @@ async function GetProcessList(processData) {
 // File upload in form-data with key "file"
 // Optional querystring data:
 // {
-//   "rfq_id": "RFQ/2507/01",
+//   "rfq_id": "SSIPL-RFQ/2507/01",
 //   "vendor_id": 1,
 //   "vendor_email": "vendor@example.com",
 //   "cc_email": "cc@example.com",
