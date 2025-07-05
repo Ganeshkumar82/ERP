@@ -29,6 +29,7 @@ async function AddVendor(vendor) {
         false,
         "Login session token missing. Please provide the Login session token",
         "ADD VENDOR",
+        "",
         ""
       );
     }
@@ -39,6 +40,7 @@ async function AddVendor(vendor) {
         false,
         "Login session token size invalid. Please provide the valid Session token",
         "ADD VENDOR",
+        "",
         ""
       );
     }
@@ -56,6 +58,7 @@ async function AddVendor(vendor) {
         false,
         "Login session token Invalid. Please provide the valid session token",
         "ADD VENDOR",
+        "",
         ""
       );
     }
@@ -66,6 +69,7 @@ async function AddVendor(vendor) {
         false,
         "Querystring missing. Please provide the querystring",
         "ADD VENDOR",
+        "",
         ""
       );
     }
@@ -405,6 +409,7 @@ async function AddQuotation(req, res) {
           false,
           "Please upload a PDF file!",
           "ADD QUOTATION",
+          "",
           ""
         );
       }
@@ -413,6 +418,7 @@ async function AddQuotation(req, res) {
         false,
         `Could not upload the file. ${er.message}`,
         "ADD QUOTATION",
+        "",
         ""
       );
     }
@@ -425,6 +431,7 @@ async function AddQuotation(req, res) {
         false,
         "Login session token missing. Please provide the Login session token",
         "ADD QUOTATION",
+        "",
         ""
       );
     }
@@ -435,6 +442,7 @@ async function AddQuotation(req, res) {
         false,
         "Login session token size invalid. Please provide the valid Session token",
         "ADD QUOTATION",
+        "",
         ""
       );
     }
@@ -450,9 +458,10 @@ async function AddQuotation(req, res) {
     if (userid == null) {
       return helper.getErrorResponse(
         false,
+        "error",
         "Login session token Invalid. Please provide the valid session token",
         "ADD QUOTATION",
-        ""
+        quotation.STOKEN.substring(0, 16)
       );
     }
 
@@ -460,9 +469,10 @@ async function AddQuotation(req, res) {
     if (!quotation.hasOwnProperty("querystring")) {
       return helper.getErrorResponse(
         false,
+        "error",
         "Querystring missing. Please provide the querystring",
         "ADD QUOTATION",
-        ""
+        quotation.STOKEN.substring(0, 16)
       );
     }
 
@@ -556,11 +566,14 @@ async function AddQuotation(req, res) {
       );
     }
   } catch (er) {
+    // Extract secret if available from request body
+    const secret = (req && req.body && req.body.STOKEN) ? req.body.STOKEN.substring(0, 16) : "";
     return helper.getErrorResponse(
       false,
+      "error",
       "Internal error. Please contact Administration",
       er.message,
-      ""
+      secret
     );
   }
 }
@@ -712,6 +725,7 @@ async function GetProcessList(processData) {
         false,
         "Login session token missing. Please provide the Login session token",
         "GET PROCESS LIST",
+        "",
         ""
       );
     }
@@ -722,6 +736,7 @@ async function GetProcessList(processData) {
         false,
         "Login session token size invalid. Please provide the valid Session token",
         "GET PROCESS LIST",
+        "",
         ""
       );
     }
@@ -739,6 +754,7 @@ async function GetProcessList(processData) {
         false,
         "Login session token Invalid. Please provide the valid session token",
         "GET PROCESS LIST",
+        "",
         ""
       );
     }
@@ -749,6 +765,7 @@ async function GetProcessList(processData) {
         false,
         "Querystring missing. Please provide the querystring",
         "GET PROCESS LIST",
+        "",
         ""
       );
     }
@@ -929,9 +946,10 @@ async function PostRFQ(req, res) {
     if (userid == null) {
       return helper.getErrorResponse(
         false,
+        "error",
         "Login session token Invalid. Please provide the valid session token",
         "POST RFQ",
-        ""
+        rfqData.STOKEN.substring(0, 16)
       );
     }
 
@@ -939,9 +957,10 @@ async function PostRFQ(req, res) {
     if (!rfqData.hasOwnProperty("querystring")) {
       return helper.getErrorResponse(
         false,
+        "error",
         "Querystring missing. Please provide the querystring",
         "POST RFQ",
-        ""
+        rfqData.STOKEN.substring(0, 16)
       );
     }
 
@@ -1180,6 +1199,7 @@ async function GetSubProcessList(processData) {
         false,
         "Login session token missing. Please provide the Login session token",
         "GET SUB PROCESS LIST",
+        "",
         ""
       );
     }
@@ -1190,6 +1210,7 @@ async function GetSubProcessList(processData) {
         false,
         "Login session token size invalid. Please provide the valid Session token",
         "GET SUB PROCESS LIST",
+        "",
         ""
       );
     }
@@ -1207,6 +1228,7 @@ async function GetSubProcessList(processData) {
         false,
         "Login session token Invalid. Please provide the valid session token",
         "GET SUB PROCESS LIST",
+        "",
         ""
       );
     }
@@ -1215,9 +1237,10 @@ async function GetSubProcessList(processData) {
     if (!processData.hasOwnProperty("querystring")) {
       return helper.getErrorResponse(
         false,
+        "error",
         "Querystring missing. Please provide the querystring",
         "GET SUB PROCESS LIST",
-        ""
+        processData.STOKEN.substring(0, 16)
       );
     }
 

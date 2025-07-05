@@ -2767,7 +2767,7 @@ async function GSTLedger(billing) {
       querydata.invoicetype != undefined
     ) {
       if (querydata.invoicetype == "sales") {
-        sql += ` and cvm.invoice_type like '%sales%')`;
+        sql += ` and cvm.invoice_type like '%sales%'`;
         query1 += ` and gl.voucher_id IN (select voucher_id from clientvouchermaster where invoice_type like '%sales%')`;
         query2 += ` and gl.voucher_id IN (select voucher_id from clientvouchermaster where invoice_type like '%sales%')`;
       } else if (querydata.invoicetype == "subscription") {
@@ -2789,6 +2789,22 @@ async function GSTLedger(billing) {
       query1 += ` and gl.voucher_id IN (select voucher_id from clientvouchermaster where customer_id = ?)`;
       query2 += ` and gl.voucher_id IN (select voucher_id from clientvouchermaster where customer_id = ?)`;
       sqlParams.push(querydata.customerid);
+    }
+    if (
+      querydata.plantype != null &&
+      querydata.plantype != 0 &&
+      querydata.plantype != undefined &&
+      querydata.invoicetype === "subscription"
+    ) {
+      if (querydata.plantype.toLowerCase() === "prepaid") {
+        sql += ` and gl.invoice_number IN (SELECT g.invoice_number FROM gstledger g JOIN clientvouchermaster c ON g.invoice_number = c.invoice_number JOIN subscriptionbillgenerated sbg ON sbg.Invoice_no = g.invoice_number JOIN subscriptionbillmaster sbm ON sbm.Customer_id = sbg.Customer_id WHERE LOWER(TRIM(sbm.plantype)) = 'prepaid' AND sbg.Invoice_no IS NOT NULL)`;
+        query1 += ` and gl.invoice_number IN (SELECT g.invoice_number FROM gstledger g JOIN clientvouchermaster c ON g.invoice_number = c.invoice_number JOIN subscriptionbillgenerated sbg ON sbg.Invoice_no = g.invoice_number JOIN subscriptionbillmaster sbm ON sbm.Customer_id = sbg.Customer_id WHERE LOWER(TRIM(sbm.plantype)) = 'prepaid' AND sbg.Invoice_no IS NOT NULL)`;
+        query2 += ` and gl.invoice_number IN (SELECT g.invoice_number FROM gstledger g JOIN clientvouchermaster c ON g.invoice_number = c.invoice_number JOIN subscriptionbillgenerated sbg ON sbg.Invoice_no = g.invoice_number JOIN subscriptionbillmaster sbm ON sbm.Customer_id = sbg.Customer_id WHERE LOWER(TRIM(sbm.plantype)) = 'prepaid' AND sbg.Invoice_no IS NOT NULL)`;
+      } else if (querydata.plantype.toLowerCase() === "postpaid") {
+        sql += ` and gl.invoice_number IN (SELECT g.invoice_number FROM gstledger g JOIN clientvouchermaster c ON g.invoice_number = c.invoice_number JOIN subscriptionbillgenerated sbg ON sbg.Invoice_no = g.invoice_number JOIN subscriptionbillmaster sbm ON sbm.Customer_id = sbg.Customer_id WHERE LOWER(TRIM(sbm.plantype)) = 'postpaid' AND sbg.Invoice_no IS NOT NULL)`;
+        query1 += ` and gl.invoice_number IN (SELECT g.invoice_number FROM gstledger g JOIN clientvouchermaster c ON g.invoice_number = c.invoice_number JOIN subscriptionbillgenerated sbg ON sbg.Invoice_no = g.invoice_number JOIN subscriptionbillmaster sbm ON sbm.Customer_id = sbg.Customer_id WHERE LOWER(TRIM(sbm.plantype)) = 'postpaid' AND sbg.Invoice_no IS NOT NULL)`;
+        query2 += ` and gl.invoice_number IN (SELECT g.invoice_number FROM gstledger g JOIN clientvouchermaster c ON g.invoice_number = c.invoice_number JOIN subscriptionbillgenerated sbg ON sbg.Invoice_no = g.invoice_number JOIN subscriptionbillmaster sbm ON sbm.Customer_id = sbg.Customer_id WHERE LOWER(TRIM(sbm.plantype)) = 'postpaid' AND sbg.Invoice_no IS NOT NULL)`;
+      }
     }
     if (
       querydata.startdate != null &&
