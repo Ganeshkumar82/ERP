@@ -2767,7 +2767,7 @@ async function GSTLedger(billing) {
       querydata.invoicetype != undefined
     ) {
       if (querydata.invoicetype == "sales") {
-        sql += ` and cvm.invoice_type like '%sales%')`;
+        sql += ` and cvm.invoice_type like '%sales%'`;
         query1 += ` and gl.voucher_id IN (select voucher_id from clientvouchermaster where invoice_type like '%sales%')`;
         query2 += ` and gl.voucher_id IN (select voucher_id from clientvouchermaster where invoice_type like '%sales%')`;
       } else if (querydata.invoicetype == "subscription") {
