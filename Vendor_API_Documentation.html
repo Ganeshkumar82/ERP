@@ -131,11 +131,12 @@
         <li><a href="#add-quotation">3. Add Quotation</a></li>
         <li><a href="#vendor-details-preloader">4. Vendor Details Preloader (RFQ ID Generator)</a></li>
         <li><a href="#get-process-list">5. Get Process List</a></li>
-        <li><a href="#post-rfq">6. Post RFQ</a></li>
-        <li><a href="#common-response-codes">7. Common Response Codes</a></li>
-        <li><a href="#authentication">8. Authentication</a></li>
-        <li><a href="#security">9. Security</a></li>
-        <li><a href="#error-handling">10. Error Handling</a></li>
+        <li><a href="#get-sub-process-list">6. Get Sub Process List</a></li>
+        <li><a href="#post-rfq">7. Post RFQ</a></li>
+        <li><a href="#common-response-codes">8. Common Response Codes</a></li>
+        <li><a href="#authentication">9. Authentication</a></li>
+        <li><a href="#security">10. Security</a></li>
+        <li><a href="#error-handling">11. Error Handling</a></li>
     </ul>
 </div>
 
@@ -417,7 +418,103 @@
 
 <div class="page-break"></div>
 
-<h2 id="post-rfq">6. Post RFQ</h2>
+<h2 id="get-sub-process-list">6. Get Sub Process List</h2>
+
+<h3>Route</h3>
+<div class="route">POST /vendor/getsubprocesslist</div>
+
+<h3>Description</h3>
+<p>Retrieves subprocess records from vprocesslist table where vprocess_id equals the provided process ID. This API is used to fetch all related subprocess activities for a specific parent process.</p>
+
+<h3>Request Body</h3>
+<div class="json">{
+  "STOKEN": "your_session_token_here",
+  "querystring": "encrypted_data_containing_process_id"
+}</div>
+
+<h3>Decrypted Querystring Data</h3>
+<div class="json">{
+  "vprocess_id": 1
+}</div>
+<div class="info"><strong>Note:</strong> vprocess_id is required - this is the parent process ID to fetch subprocess list for.</div>
+
+<h3>Response Body</h3>
+<h4>Success Response</h4>
+<div class="json success">{
+  "code": true,
+  "message": "Sub process list fetched successfully",
+  "Value": [
+    {
+      "process_id": 1,
+      "process_name": "RFQ",
+      "Process_filepath": "/filestorage/2025/July/04/PostRFQ/1720098765_RFQ_Document.pdf",
+      "Process_date": "2025-07-04",
+      "Approved_status": 0,
+      "status": 1,
+      "deleted_flag": 0,
+      "Created_by": 4,
+      "vprocess_gen_id": "SSIPL-RFQ/2507/01",
+      "process_type": "RFQ",
+      "vendor_address": "chinnverampatti,udumallai",
+      "vendor_name": "JK constructiond",
+      "Row_updated_date": "2025-07-04 15:50:53"
+    },
+    {
+      "process_id": 2,
+      "process_name": "QUOTATION",
+      "Process_filepath": "/filestorage/2025/July/04/VendorQuotation/1720098890_Quote.pdf",
+      "Process_date": "2025-07-04",
+      "Approved_status": 0,
+      "status": 1,
+      "deleted_flag": 0,
+      "Created_by": 5,
+      "vprocess_gen_id": "SSIPL-RFQ/2507/01",
+      "process_type": "QUOTATION",
+      "vendor_address": "chinnverampatti,udumallai",
+      "vendor_name": "JK constructiond",
+      "Row_updated_date": "2025-07-04 16:20:15"
+    }
+  ]
+}</div>
+
+<h4>Error Response</h4>
+<div class="json error">{
+  "code": false,
+  "message": "Error message describing the issue",
+  "Value": "GET SUB PROCESS LIST"
+}</div>
+
+<h3>Required Fields</h3>
+<ul>
+    <li><strong>vprocess_id:</strong> Parent process ID (required) - must be a valid process ID from vendorprocessmaster table</li>
+</ul>
+
+<h3>Response Fields Description</h3>
+<ul>
+    <li><strong>process_id:</strong> Unique subprocess ID</li>
+    <li><strong>process_name:</strong> Type of subprocess (RFQ, QUOTATION, etc.)</li>
+    <li><strong>Process_filepath:</strong> Full path to uploaded document/file</li>
+    <li><strong>Process_date:</strong> Date when subprocess was created</li>
+    <li><strong>Approved_status:</strong> Approval status (0 = pending, 1 = approved)</li>
+    <li><strong>status:</strong> Active status (1 = active, 0 = inactive)</li>
+    <li><strong>process_type:</strong> Category of process (RFQ, QUOTATION, etc.)</li>
+    <li><strong>vendor_address:</strong> Associated vendor address</li>
+    <li><strong>vendor_name:</strong> Associated vendor name</li>
+    <li><strong>vprocess_gen_id:</strong> RFQ ID linking to parent process</li>
+</ul>
+
+<h3>Common Use Cases</h3>
+<ul>
+    <li><strong>RFQ Tracking:</strong> View all documents and activities under a specific RFQ</li>
+    <li><strong>Process Drilling:</strong> Navigate from main process to detailed subprocess activities</li>
+    <li><strong>Document Management:</strong> See all files and documents related to a process</li>
+    <li><strong>Audit Trail:</strong> Chronological view of all subprocess activities</li>
+    <li><strong>Status Monitoring:</strong> Track progress of individual subprocess items</li>
+</ul>
+
+<div class="page-break"></div>
+
+<h2 id="post-rfq">7. Post RFQ</h2>
 
 <h3>Route</h3>
 <div class="route">POST /vendor/postrfq</div>
@@ -502,7 +599,7 @@
 
 <div class="page-break"></div>
 
-<h2 id="common-response-codes">7. Common Response Codes</h2>
+<h2 id="common-response-codes">8. Common Response Codes</h2>
 
 <h3>Success Response Structure</h3>
 <div class="json success">{
@@ -518,7 +615,7 @@
   "Value": "Error context"
 }</div>
 
-<h2 id="authentication">8. Authentication</h2>
+<h2 id="authentication">9. Authentication</h2>
 
 <p>All endpoints require a valid session token (STOKEN) that:</p>
 <ul>
@@ -527,7 +624,7 @@
     <li>First 16 characters are used as encryption key for querystring data</li>
 </ul>
 
-<h2 id="security">9. Security</h2>
+<h2 id="security">10. Security</h2>
 
 <ul>
     <li>All sensitive data in querystring is encrypted using AES encryption</li>
@@ -536,7 +633,7 @@
     <li>SQL injection protection through parameterized queries</li>
 </ul>
 
-<h2 id="error-handling">10. Error Handling</h2>
+<h2 id="error-handling">11. Error Handling</h2>
 
 <p>Common error scenarios:</p>
 <ul>

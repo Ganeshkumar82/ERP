@@ -182,6 +182,7 @@ async function AddVendor(vendor) {
       if (vendorid != null && vendorid != "") {
         return helper.getSuccessResponse(
           true,
+          "success",
           "Vendor Added Successfully",
           vendorid,
           secret
@@ -248,9 +249,9 @@ async function GetVendor(vendor) {
     if (!vendor.hasOwnProperty("STOKEN")) {
       return helper.getErrorResponse(
         false,
-        "error",
         "Login session token missing. Please provide the Login session token",
         "FETCH VENDOR",
+        "",
         ""
       );
     }
@@ -259,9 +260,9 @@ async function GetVendor(vendor) {
     if (vendor.STOKEN.length > 50 || vendor.STOKEN.length < 30) {
       return helper.getErrorResponse(
         false,
-        "error",
         "Login session token size invalid. Please provide the valid Session token",
         "FETCH VENDOR",
+        "",
         ""
       );
     }
@@ -277,9 +278,9 @@ async function GetVendor(vendor) {
     if (userid == null) {
       return helper.getErrorResponse(
         false,
-        "error",
         "Login session token Invalid. Please provide the valid session token",
         "FETCH VENDOR",
+        "",
         ""
       );
     }
@@ -288,9 +289,9 @@ async function GetVendor(vendor) {
     if (!vendor.hasOwnProperty("querystring")) {
       return helper.getErrorResponse(
         false,
-        "error",
         "Querystring missing. Please provide the querystring",
         "FETCH VENDOR",
+        "",
         ""
       );
     }
@@ -304,9 +305,9 @@ async function GetVendor(vendor) {
     } catch (ex) {
       return helper.getErrorResponse(
         false,
-        "error",
         "Querystring Invalid error. Please provide the valid querystring.",
         "FETCH VENDOR",
+        "",
         secret
       );
     }
@@ -317,9 +318,9 @@ async function GetVendor(vendor) {
     } catch (ex) {
       return helper.getErrorResponse(
         false,
-        "error",
         "Querystring JSON error. Please provide valid JSON",
         "FETCH VENDOR",
+        "",
         secret
       );
     }
@@ -363,8 +364,8 @@ async function GetVendor(vendor) {
     } catch (er) {
       return helper.getErrorResponse(
         false,
-        "error",
         "Internal error. Please contact Administration",
+        "FETCH VENDOR",
         er.message,
         secret
       );
@@ -372,8 +373,8 @@ async function GetVendor(vendor) {
   } catch (er) {
     return helper.getErrorResponse(
       false,
-      "error",
       "Internal error. Please contact Administration",
+      "FETCH VENDOR",
       er.message,
       secret
     );
@@ -533,6 +534,7 @@ async function AddQuotation(req, res) {
       if (vprocessid != null && vprocessid !== "") {
         return helper.getSuccessResponse(
           true,
+          "success",
           "Quotation Added Successfully",
           vprocessid,
           secret
@@ -582,38 +584,50 @@ async function AddQuotation(req, res) {
 //##################################################################################################################################################################################################
 //##################################################################################################################################################################################################
 
-async function vendorDetailsPreLoader(req, res) {
+async function vendorDetailsPreLoader(vendorData) {
   try {
-    const { STOKEN } = req.body;
-    if (!STOKEN) {
-      return res.json({
-        code: false,
-        message: "Session token (STOKEN) is required",
-        rfq_id: null
-      });
+    // Check if the session token exists
+    if (!vendorData.hasOwnProperty("STOKEN")) {
+      return helper.getErrorResponse(
+        false,
+        "Login session token missing. Please provide the Login session token",
+        "VENDOR DETAILS PRELOADER",
+        "",
+        ""
+      );
     }
+
     // Validate session token length
-    if (STOKEN.length > 50 || STOKEN.length < 30) {
-      return res.json({
-        code: false,
-        message: "Session token size invalid. Please provide a valid session token",
-        rfq_id: null
-      });
+    if (vendorData.STOKEN.length > 50 || vendorData.STOKEN.length < 30) {
+      return helper.getErrorResponse(
+        false,
+        "Login session token size invalid. Please provide the valid Session token",
+        "VENDOR DETAILS PRELOADER",
+        "",
+        ""
+      );
     }
+
     // Validate session token
     const [result] = await db.spcall(
       "CALL SP_STOKEN_CHECK(?,@result); SELECT @result;",
-      [STOKEN]
+      [vendorData.STOKEN]
     );
     const objectvalue = result[1][0];
     const userid = objectvalue["@result"];
-    if (!userid) {
-      return res.json({
-        code: false,
-        message: "Session token invalid. Please provide a valid session token",
-        rfq_id: null
-      });
+
+    if (userid == null) {
+      return helper.getErrorResponse(
+        false,
+        "Login session token Invalid. Please provide the valid session token",
+        "VENDOR DETAILS PRELOADER",
+        "",
+        ""
+      );
     }
+
+    var secret = vendorData.STOKEN.substring(0, 16);
+
     // Generate a unique RFQ ID using Gen_vendor_rfqId SP with slash delimiter
     let newRfqId;
     try {
@@ -624,37 +638,31 @@ async function vendorDetailsPreLoader(req, res) {
       const objectValue = rfqResult[1][0];
       newRfqId = objectValue["@out"];
     } catch (e) {
-      return res.json({
-        code: false,
-        message: "Failed to generate RFQ ID using stored procedure.",
-        rfq_id: null
-      });
+      return helper.getErrorResponse(
+        false,
+        "Failed to generate RFQ ID using stored procedure.",
+        "VENDOR DETAILS PRELOADER",
+        "",
+        secret
+      );
     }
-    // Ensure uniqueness in vendor_rfq_ids table
-    const exists = await db.query(
-      `SELECT rfq_id FROM vendor_rfq_ids WHERE rfq_id = ?`,
-      [newRfqId]
+
+    // Return success response with the generated RFQ ID
+    return helper.getSuccessResponse(
+      true,
+      "success",
+      "RFQ ID generated successfully",
+      { rfq_id: newRfqId },
+      secret
     );
-    if (exists && exists.length > 0) {
-      return res.json({
-        code: false,
-        message: "RFQ ID collision, please try again",
-        rfq_id: null
-      });
-    }
-    // Insert into vendor_rfq_ids (handled by stored procedure)
-    // Note: The stored procedure already inserts into vendor_rfq_ids table
-    return res.json({
-      code: true,
-      message: "RFQ ID generated successfully",
-      rfq_id: newRfqId
-    });
   } catch (er) {
-    return res.json({
-      code: false,
-      message: "Internal error. Please contact Administration",
-      rfq_id: null
-    });
+    return helper.getErrorResponse(
+      false,
+      "Internal error. Please contact Administration",
+      "VENDOR DETAILS PRELOADER",
+      er.message,
+      secret
+    );
   }
 }
 
@@ -821,6 +829,7 @@ async function GetProcessList(processData) {
 
       return helper.getSuccessResponse(
         true,
+        "success",
         "Process list fetched successfully",
         sql,
         secret
@@ -1091,6 +1100,7 @@ async function PostRFQ(req, res) {
       if (vprocess_id != null && process_id != null) {
         return helper.getSuccessResponse(
           true,
+          "success",
           "RFQ Posted Successfully",
           {
             vprocess_id: vprocess_id,
@@ -1126,13 +1136,184 @@ async function PostRFQ(req, res) {
   }
 }
 
+//##################################################################################################################################################################################################
+//##################################################################################################################################################################################################
+//########################################### REQUEST BODY FOR GET SUB PROCESS LIST #####################################################################################
+// {
+//   "STOKEN": "your_session_token",
+//   "querystring": "encrypted_data_containing_process_id"
+// }
+// Required querystring data:
+// {
+//   "vprocess_id": 1  // Required - parent process ID to fetch subprocess list
+// }
+//####################################################################### RESPONSE BODY FOR GET SUB PROCESS LIST #######################################################
+// {
+//   "code": true,
+//   "message": "Sub process list fetched successfully",
+//   "Value": [
+//     {
+//       "process_id": 1,
+//       "process_name": "RFQ",
+//       "Process_filepath": "/path/to/file.pdf",
+//       "Process_date": "2025-07-04",
+//       "Approved_status": 0,
+//       "status": 1,
+//       "deleted_flag": 0,
+//       "Created_by": 4,
+//       "vprocess_gen_id": "SSIPL-RFQ/2507/01",
+//       "process_type": "RFQ",
+//       "vendor_address": "chinnverampatti,udumallai",
+//       "vendor_name": "JK constructiond",
+//       "Row_updated_date": "2025-07-04 15:50:53"
+//     }
+//   ]
+// }
+//##################################################################################################################################################################################################
+//##################################################################################################################################################################################################
+
+async function GetSubProcessList(processData) {
+  try {
+    // Check if the session token exists
+    if (!processData.hasOwnProperty("STOKEN")) {
+      return helper.getErrorResponse(
+        false,
+        "Login session token missing. Please provide the Login session token",
+        "GET SUB PROCESS LIST",
+        ""
+      );
+    }
+
+    // Validate session token length
+    if (processData.STOKEN.length > 50 || processData.STOKEN.length < 30) {
+      return helper.getErrorResponse(
+        false,
+        "Login session token size invalid. Please provide the valid Session token",
+        "GET SUB PROCESS LIST",
+        ""
+      );
+    }
+
+    // Validate session token
+    const [result] = await db.spcall(
+      "CALL SP_STOKEN_CHECK(?,@result); SELECT @result;",
+      [processData.STOKEN]
+    );
+    const objectvalue = result[1][0];
+    const userid = objectvalue["@result"];
+
+    if (userid == null) {
+      return helper.getErrorResponse(
+        false,
+        "Login session token Invalid. Please provide the valid session token",
+        "GET SUB PROCESS LIST",
+        ""
+      );
+    }
+
+    // Check if querystring is provided
+    if (!processData.hasOwnProperty("querystring")) {
+      return helper.getErrorResponse(
+        false,
+        "Querystring missing. Please provide the querystring",
+        "GET SUB PROCESS LIST",
+        ""
+      );
+    }
+
+    var secret = processData.STOKEN.substring(0, 16);
+    var querydata;
+
+    // Decrypt querystring
+    try {
+      querydata = await helper.decrypt(processData.querystring, secret);
+    } catch (ex) {
+      return helper.getErrorResponse(
+        false,
+        "Querystring Invalid error. Please provide the valid querystring.",
+        "GET SUB PROCESS LIST",
+        secret
+      );
+    }
+
+    // Parse the decrypted querystring
+    try {
+      querydata = JSON.parse(querydata);
+    } catch (ex) {
+      return helper.getErrorResponse(
+        false,
+        "Querystring JSON error. Please provide valid JSON",
+        "GET SUB PROCESS LIST",
+        secret
+      );
+    }
+
+    // Validate required fields
+    if (!querydata.hasOwnProperty("vprocess_id") || querydata.vprocess_id == null || querydata.vprocess_id === "") {
+      return helper.getErrorResponse(
+        false,
+        "Process ID missing. Please provide the vprocess_id",
+        "GET SUB PROCESS LIST",
+        secret
+      );
+    }
+
+    try {
+      // Query to fetch subprocess list from vprocesslist table
+      const sql = await db.query(
+        `SELECT 
+          process_id,
+          process_name,
+          Process_filepath,
+          Process_date,
+          Approved_status,
+          status,
+          deleted_flag,
+          Created_by,
+          vprocess_gen_id,
+          process_type,
+          vendor_address,
+          vendor_name,
+          Row_updated_date
+        FROM vprocesslist 
+        WHERE vprocess_id = ? AND deleted_flag = 0
+        ORDER BY Row_updated_date DESC`,
+        [querydata.vprocess_id]
+      );
+
+      return helper.getSuccessResponse(
+        true,
+        "success",
+        "Sub process list fetched successfully",
+        sql,
+        secret
+      );
+    } catch (er) {
+      return helper.getErrorResponse(
+        false,
+        "Internal error. Please contact Administration",
+        er.message,
+        secret
+      );
+    }
+  } catch (er) {
+    return helper.getErrorResponse(
+      false,
+      "Internal error. Please contact Administration",
+      er.message,
+      secret
+    );
+  }
+}
+
 module.exports = {
   AddVendor,
   GetVendor,
   AddQuotation,
   vendorDetailsPreLoader,
   GetProcessList,
-  PostRFQ
+  PostRFQ,
+  GetSubProcessList
 };
 
 //##################################################################################################################################################################################################

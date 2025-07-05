@@ -32,7 +32,7 @@ router.post('/addquotation', async function(req,res,next){
 
 router.post('/detailspreloader', async function(req, res, next) {
   try {
-    await vendor.vendorDetailsPreLoader(req, res);
+    res.json(await vendor.vendorDetailsPreLoader(req.body));
   } catch (er) {
     console.log(`Error in vendor details preloader -> ${er}`);
     next(er);
@@ -43,6 +43,15 @@ router.post('/getprocesslist', async function(req, res, next) {
     res.json(await vendor.GetProcessList(req.body));
   } catch (er) {
     console.log(`Error in vendor process list -> ${er}`);
+    next(er);
+  }
+});
+
+router.post('/getsubprocesslist', async function(req, res, next) {
+  try {
+    res.json(await vendor.GetSubProcessList(req.body));
+  } catch (er) {
+    console.log(`Error in vendor sub process list -> ${er}`);
     next(er);
   }
 });
