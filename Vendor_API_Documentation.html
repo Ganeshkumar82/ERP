@@ -120,7 +120,7 @@
 <h1>Vendor Management API Documentation</h1>
 
 <div class="info">
-    <strong>Overview:</strong> This document provides comprehensive information about the Vendor Management APIs with complete KYC (Know Your Customer) implementation including document upload capabilities for registration certificates, PAN cards, and cancelled cheques.
+    <strong>Overview:</strong> This document provides comprehensive information about the Vendor Management APIs with complete KYC (Know Your Customer) implementation including document upload capabilities for registration certificates, PAN cards, cancelled cheques, and company logos.
 </div>
 
 <div class="toc">
@@ -131,15 +131,16 @@
         <li><a href="#update-registration-cert">3. Update Vendor Registration Certificate</a></li>
         <li><a href="#update-pan">4. Update Vendor PAN</a></li>
         <li><a href="#update-cancelled-cheque">5. Update Vendor Cancelled Cheque</a></li>
-        <li><a href="#add-quotation">6. Add Quotation</a></li>
-        <li><a href="#vendor-details-preloader">7. Vendor Details Preloader (RFQ ID Generator)</a></li>
-        <li><a href="#get-process-list">8. Get Process List</a></li>
-        <li><a href="#get-sub-process-list">9. Get Sub Process List</a></li>
-        <li><a href="#post-rfq">10. Post RFQ</a></li>
-        <li><a href="#common-response-codes">11. Common Response Codes</a></li>
-        <li><a href="#authentication">12. Authentication</a></li>
-        <li><a href="#security">13. Security</a></li>
-        <li><a href="#error-handling">14. Error Handling</a></li>
+        <li><a href="#update-logo">6. Update Vendor Logo</a></li>
+        <li><a href="#add-quotation">7. Add Quotation</a></li>
+        <li><a href="#vendor-details-preloader">8. Vendor Details Preloader (RFQ ID Generator)</a></li>
+        <li><a href="#get-process-list">9. Get Process List</a></li>
+        <li><a href="#get-sub-process-list">10. Get Sub Process List</a></li>
+        <li><a href="#post-rfq">11. Post RFQ</a></li>
+        <li><a href="#common-response-codes">12. Common Response Codes</a></li>
+        <li><a href="#authentication">13. Authentication</a></li>
+        <li><a href="#security">14. Security</a></li>
+        <li><a href="#error-handling">15. Error Handling</a></li>
     </ul>
 </div>
 
@@ -151,7 +152,7 @@
 <div class="route">POST /vendor/addvendor</div>
 
 <h3>Description</h3>
-<p>Creates a new vendor with comprehensive KYC (Know Your Customer) information including document uploads for registration certificate, PAN card, and cancelled cheque.</p>
+<p>Creates a new vendor with comprehensive KYC (Know Your Customer) information including document uploads for registration certificate, PAN card, cancelled cheque, and company logo.</p>
 
 <h3>Request Body</h3>
 <ul>
@@ -161,6 +162,7 @@
             <li>registration_certificate: PDF/Image file (optional)</li>
             <li>pan_upload: PDF/Image file (optional)</li>
             <li>cancelled_cheque: PDF/Image file (optional)</li>
+            <li>logo_upload: PDF/Image file (optional)</li>
         </ul>
     </li>
     <li><strong>Form Fields:</strong>
@@ -206,7 +208,8 @@
     "vendorid": 1,
     "registration_certificate_uploaded": true,
     "pan_upload_uploaded": true,
-    "cancelled_cheque_uploaded": true
+    "cancelled_cheque_uploaded": true,
+    "logo_uploaded": true
   }
 }</div>
 
@@ -330,7 +333,7 @@
     <li><strong>Format:</strong> PDF, JPG, PNG, JPEG</li>
     <li><strong>Size:</strong> Maximum 5MB per file</li>
     <li><strong>Storage:</strong> /filestorage/YYYY/Month/DD/VendorKYC/{DocumentType}/</li>
-    <li><strong>Fields:</strong> registration_certificate, pan_upload, cancelled_cheque (all optional)</li>
+    <li><strong>Fields:</strong> registration_certificate, pan_upload, cancelled_cheque, logo_upload (all optional)</li>
 </ul>
 
 <div class="page-break"></div>
@@ -388,9 +391,11 @@
       "registration_certificate_path": "/path/to/registration.pdf",
       "pan_upload_path": "/path/to/pan.pdf",
       "cancelled_cheque_path": "/path/to/cheque.pdf",
+      "logo_path": "/path/to/logo.png",
       "registration_certificate_binary": "base64_encoded_data_or_null",
       "pan_upload_binary": "base64_encoded_data_or_null",
       "cancelled_cheque_binary": "base64_encoded_data_or_null",
+      "logo_binary": "base64_encoded_data_or_null",
       "created_at": "2025-07-07 10:30:00",
       "updated_at": "2025-07-07 10:30:00"
     }
@@ -523,7 +528,7 @@
         <td>Bank IFSC code</td>
     </tr>
     <tr>
-        <td rowspan="6">Documents</td>
+        <td rowspan="8">Documents</td>
         <td>registration_certificate_path</td>
         <td>String</td>
         <td>File path to registration certificate</td>
@@ -552,6 +557,16 @@
         <td>cancelled_cheque_binary</td>
         <td>Base64</td>
         <td>Base64 encoded cancelled cheque for display</td>
+    </tr>
+    <tr>
+        <td>logo_path</td>
+        <td>String</td>
+        <td>File path to company logo</td>
+    </tr>
+    <tr>
+        <td>logo_binary</td>
+        <td>Base64</td>
+        <td>Base64 encoded company logo for display</td>
     </tr>
 </table>
 </div>
@@ -714,7 +729,59 @@
 
 <div class="page-break"></div>
 
-<h2 id="add-quotation">6. Add Quotation</h2>
+<h2 id="update-logo">6. Update Vendor Logo</h2>
+
+<h3>Route</h3>
+<div class="route">POST /vendor/updatelogo</div>
+
+<h3>Description</h3>
+<p>Updates the company logo for an existing vendor.</p>
+
+<h3>Request Body</h3>
+<ul>
+    <li><strong>Content-Type:</strong> multipart/form-data</li>
+    <li><strong>File Field:</strong> logo_upload (PDF/Image file, max 5MB)</li>
+    <li><strong>Form Fields:</strong>
+        <ul>
+            <li>STOKEN: Session token</li>
+            <li>querystring: Encrypted data containing vendorid</li>
+        </ul>
+    </li>
+</ul>
+
+<h3>Decrypted Querystring Data</h3>
+<div class="json">{
+  "vendorid": 1
+}</div>
+
+<h3>Response Body</h3>
+<h4>Success Response</h4>
+<div class="json success">{
+  "code": true,
+  "message": "Logo Updated Successfully",
+  "Value": {
+    "vendorid": 1,
+    "file_path": "/filestorage/2025/July/07/VendorKYC/Logo/1720354892_logo.png"
+  }
+}</div>
+
+<h4>Error Response</h4>
+<div class="json error">{
+  "code": false,
+  "message": "Error message describing the issue",
+  "Value": "UPDATE VENDOR LOGO"
+}</div>
+
+<h3>File Requirements</h3>
+<ul>
+    <li><strong>Format:</strong> PDF, JPG, PNG, JPEG</li>
+    <li><strong>Size:</strong> Maximum 5MB</li>
+    <li><strong>Storage:</strong> /filestorage/YYYY/Month/DD/VendorKYC/Logo/</li>
+</ul>
+
+<div class="page-break"></div>
+
+<h2 id="add-quotation">7. Add Quotation</h2>
 
 <h3>Route</h3>
 <div class="route">POST /vendor/addquotation</div>
@@ -763,7 +830,7 @@
 
 <div class="page-break"></div>
 
-<h2 id="vendor-details-preloader">7. Vendor Details Preloader (RFQ ID Generator)</h2>
+<h2 id="vendor-details-preloader">8. Vendor Details Preloader (RFQ ID Generator)</h2>
 
 <h3>Route</h3>
 <div class="route">POST /vendor/detailspreloader</div>
@@ -802,7 +869,7 @@
 
 <div class="page-break"></div>
 
-<h2 id="get-process-list">8. Get Process List</h2>
+<h2 id="get-process-list">9. Get Process List</h2>
 
 <h3>Route</h3>
 <div class="route">POST /vendor/getprocesslist</div>
@@ -863,7 +930,7 @@
 
 <div class="page-break"></div>
 
-<h2 id="get-sub-process-list">9. Get Sub Process List</h2>
+<h2 id="get-sub-process-list">10. Get Sub Process List</h2>
 
 <h3>Route</h3>
 <div class="route">POST /vendor/getsubprocesslist</div>
@@ -959,7 +1026,7 @@
 
 <div class="page-break"></div>
 
-<h2 id="post-rfq">10. Post RFQ</h2>
+<h2 id="post-rfq">11. Post RFQ</h2>
 
 <h3>Route</h3>
 <div class="route">POST /vendor/postrfq</div>
@@ -1044,7 +1111,7 @@
 
 <div class="page-break"></div>
 
-<h2 id="common-response-codes">11. Common Response Codes</h2>
+<h2 id="common-response-codes">12. Common Response Codes</h2>
 
 <h3>Success Response Structure</h3>
 <div class="json success">{
@@ -1060,7 +1127,7 @@
   "Value": "Error context"
 }</div>
 
-<h2 id="authentication">12. Authentication</h2>
+<h2 id="authentication">13. Authentication</h2>
 
 <p>All endpoints require a valid session token (STOKEN) that:</p>
 <ul>
@@ -1069,7 +1136,7 @@
     <li>First 16 characters are used as encryption key for querystring data</li>
 </ul>
 
-<h2 id="security">13. Security</h2>
+<h2 id="security">14. Security</h2>
 
 <ul>
     <li><strong>Encrypted Communication:</strong> All sensitive data in querystring is encrypted using AES encryption</li>
@@ -1102,7 +1169,7 @@
     <li><strong>Binary Encoding:</strong> Documents converted to base64 for secure API transmission</li>
 </ul>
 
-<h2 id="error-handling">14. Error Handling</h2>
+<h2 id="error-handling">15. Error Handling</h2>
 
 <p>Common error scenarios:</p>
 <ul>

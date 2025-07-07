@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const vendor = require('../services/vendor');
-const { uploadVendorRegistrationCert, uploadVendorPAN, uploadVendorCancelledCheque } = require('../middleware');
+const { uploadVendorRegistrationCert, uploadVendorPAN, uploadVendorCancelledCheque, uploadVendorLogo } = require('../middleware');
 
 
 router.post('/addvendor', async function(req,res,next){
@@ -90,6 +90,15 @@ router.post('/updatecancelledcheque', uploadVendorCancelledCheque, async functio
     res.json(await vendor.UpdateVendorCancelledCheque(req, res));
   } catch (er) {
     console.log(`Error updating vendor cancelled cheque -> ${er}`);
+    next(er);
+  }
+});
+
+router.post('/updatelogo', uploadVendorLogo, async function(req, res, next) {
+  try {
+    res.json(await vendor.UpdateVendorLogo(req, res));
+  } catch (er) {
+    console.log(`Error updating vendor logo -> ${er}`);
     next(er);
   }
 });

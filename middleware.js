@@ -818,6 +818,40 @@ let uploadFileVendorCheque = multer({
 let uploadVendorCancelledCheque = util.promisify(uploadFileVendorCheque);
 
 //#############################################################################################################################################################################################
+// Vendor KYC Documents Upload - Logo
+let storageVendorLogo = multer.diskStorage({
+  destination: async (req, file, cb) => {
+    try {
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = now.toLocaleString("default", { month: "long" });
+      const day = now.getDate();
+      let folder = config.filestorage;
+
+      folder = `${folder}/${year}/${month}/${day}/VendorKYC/Logo`;
+
+      await fs.ensureDir(folder);
+      cb(null, folder);
+    } catch (err) {
+      cb(err);
+    }
+  },
+  filename: (req, file, cb) => {
+    const timestamp = Date.now();
+    cb(null, `${timestamp}_${file.originalname}`);
+  },
+});
+
+const maxSizeVendorLogo = 5 * 1024 * 1024; // 5MB
+
+let uploadFileVendorLogo = multer({
+  storage: storageVendorLogo,
+  limits: { fileSize: maxSizeVendorLogo },
+}).single("logo_upload");
+
+let uploadVendorLogo = util.promisify(uploadFileVendorLogo);
+
+//#############################################################################################################################################################################################
 // Vendor KYC Documents Upload - Multiple Files (for AddVendor with multiple documents)
 let storageVendorKYC = multer.diskStorage({
   destination: async (req, file, cb) => {
@@ -836,6 +870,8 @@ let storageVendorKYC = multer.diskStorage({
         subfolder = "PAN";
       } else if (file.fieldname === "cancelled_cheque") {
         subfolder = "CancelledCheque";
+      } else if (file.fieldname === "logo_upload") {
+        subfolder = "Logo";
       }
 
       folder = `${folder}/${year}/${month}/${day}/VendorKYC/${subfolder}`;
@@ -860,7 +896,8 @@ let uploadFileVendorKYC = multer({
 }).fields([
   { name: 'registration_certificate', maxCount: 1 },
   { name: 'pan_upload', maxCount: 1 },
-  { name: 'cancelled_cheque', maxCount: 1 }
+  { name: 'cancelled_cheque', maxCount: 1 },
+  { name: 'logo_upload', maxCount: 1 }
 ]);
 
 let uploadVendorKYCDocuments = util.promisify(uploadFileVendorKYC);
@@ -885,5 +922,6 @@ module.exports = {
   uploadVendorRegistrationCert,
   uploadVendorPAN,
   uploadVendorCancelledCheque,
+  uploadVendorLogo,
   uploadVendorKYCDocuments,
 };

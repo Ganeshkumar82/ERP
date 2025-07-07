@@ -52,6 +52,7 @@ const uploadFile = require("../middleware");
 // - registration_certificate: PDF/Image file
 // - pan_upload: PDF/Image file  
 // - cancelled_cheque: PDF/Image file
+// - logo_upload: PDF/Image file
 //####################################################################### RESPONSE BODY FOR ADD VENDOR #######################################################
 // {"code":true,"message":"Vendor Added Successfully","Value":13}
 //##################################################################################################################################################################################################
@@ -59,17 +60,74 @@ const uploadFile = require("../middleware");
 
 async function AddVendor(req, res) {
   try {
-    // Upload KYC documents first
-    try {
-      await uploadFile.uploadVendorKYCDocuments(req, res);
-    } catch (er) {
-      return helper.getErrorResponse(
-        false,
-        "error",
-        `Could not upload KYC documents. ${er.message}`,
-        "ADD VENDOR",
-        ""
-      );
+    // Upload KYC documents individually - they will be provided in the same order
+    let registrationCertPath = null;
+    let panUploadPath = null;
+    let cancelledChequePath = null;
+    let logoPath = null;
+
+    // Upload registration certificate if provided
+    if (req.files && req.files.registration_certificate) {
+      try {
+        await uploadFile.uploadVendorRegistrationCert(req, res);
+        registrationCertPath = req.file ? req.file.path : null;
+      } catch (er) {
+        return helper.getErrorResponse(
+          false,
+          "error",
+          `Could not upload registration certificate. ${er.message}`,
+          "ADD VENDOR",
+          ""
+        );
+      }
+    }
+
+    // Upload PAN document if provided
+    if (req.files && req.files.pan_upload) {
+      try {
+        await uploadFile.uploadVendorPAN(req, res);
+        panUploadPath = req.file ? req.file.path : null;
+      } catch (er) {
+        return helper.getErrorResponse(
+          false,
+          "error",
+          `Could not upload PAN document. ${er.message}`,
+          "ADD VENDOR",
+          ""
+        );
+      }
+    }
+
+    // Upload cancelled cheque if provided
+    if (req.files && req.files.cancelled_cheque) {
+      try {
+        await uploadFile.uploadVendorCancelledCheque(req, res);
+        cancelledChequePath = req.file ? req.file.path : null;
+      } catch (er) {
+        return helper.getErrorResponse(
+          false,
+          "error",
+          `Could not upload cancelled cheque. ${er.message}`,
+          "ADD VENDOR",
+          ""
+        );
+      }
+    }
+
+    // Upload logo if provided
+    if (req.files && req.files.logo_upload) {
+      try {
+        await uploadFile.uploadVendorLogo(req, res);
+        logoPath = req.file ? req.file.path : null;
+      } catch (er) {
+        return helper.getErrorResponse(
+          false,
+          "error",
+          `Could not upload logo. ${er.message}`,
+          "ADD VENDOR",
+          ""
+        );
+      }
     }
 
     let vendor = req.body;
@@ -197,22 +255,7 @@ async function AddVendor(req, res) {
     }
 
     try {
-      // Get file paths from uploaded files
-      let registrationCertPath = null;
-      let panUploadPath = null;
-      let cancelledChequePath = null;
-
-      if (req.files) {
-        if (req.files.registration_certificate && req.files.registration_certificate[0]) {
-          registrationCertPath = req.files.registration_certificate[0].path;
-        }
-        if (req.files.pan_upload && req.files.pan_upload[0]) {
-          panUploadPath = req.files.pan_upload[0].path;
-        }
-        if (req.files.cancelled_cheque && req.files.cancelled_cheque[0]) {
-          cancelledChequePath = req.files.cancelled_cheque[0].path;
-        }
-      }
+      // File paths are already set from individual uploads above
 
       // Insert vendor into new vendors table
       const sql = await db.query(
@@ -221,8 +264,8 @@ async function AddVendor(req, res) {
           contact_person_phone, email, business_type, year_of_establishment, gst_number, 
           pan_number, annual_turnover, products_services, hsn_sac_code, description,
           bank_name, branch_name, account_number, ifsc_code, iso_certification, 
-          other_certifications, registration_certificate_path, pan_upload_path, cancelled_cheque_path
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          other_certifications, registration_certificate_path, pan_upload_path, cancelled_cheque_path, logo_path
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           querydata.vendorname,
           querydata.address || null,
@@ -248,7 +291,8 @@ async function AddVendor(req, res) {
           querydata.othercertifications || null,
           registrationCertPath,
           panUploadPath,
-          cancelledChequePath
+          cancelledChequePath,
+          logoPath
         ]
       );
 
@@ -263,7 +307,8 @@ async function AddVendor(req, res) {
             vendorid: vendorid,
             registration_certificate_uploaded: !!registrationCertPath,
             pan_upload_uploaded: !!panUploadPath,
-            cancelled_cheque_uploaded: !!cancelledChequePath
+            cancelled_cheque_uploaded: !!cancelledChequePath,
+            logo_uploaded: !!logoPath
           },
           secret
         );
@@ -368,11 +413,9 @@ async function AddVendor(req, res) {
 //       "registration_certificate_path": "/path/to/registration.pdf",
 //       "pan_upload_path": "/path/to/pan.pdf",
 //       "cancelled_cheque_path": "/path/to/cheque.pdf",
-//       "registration_certificate_binary": "base64_encoded_data",
-//       "pan_upload_binary": "base64_encoded_data",
-//       "cancelled_cheque_binary": "base64_encoded_data",
+//       "logo_path": "/path/to/logo.png",
+//       "updated_at": "2025-07-07 10:30:00",
 //       "created_at": "2025-07-07 10:30:00",
-//       "updated_at": "2025-07-07 10:30:00"
 //     }
 //   ]
 // }
@@ -472,7 +515,7 @@ async function GetVendor(vendor) {
            products_services, hsn_sac_code, description, bank_name, branch_name, 
            account_number, ifsc_code, iso_certification, other_certifications,
            registration_certificate_path, pan_upload_path, cancelled_cheque_path,
-           created_at, updated_at
+           created_at, updated_at , logo_path
            FROM vendors ORDER BY created_at DESC`
         );
       } else {
@@ -484,7 +527,7 @@ async function GetVendor(vendor) {
            products_services, hsn_sac_code, description, bank_name, branch_name, 
            account_number, ifsc_code, iso_certification, other_certifications,
            registration_certificate_path, pan_upload_path, cancelled_cheque_path,
-           created_at, updated_at
+           created_at, updated_at , logo_path
            FROM vendors WHERE vendorid = ?`,
           [querydata.vendorid]
         );
@@ -492,38 +535,38 @@ async function GetVendor(vendor) {
 
       // Convert document files to binary for each vendor
       for (let i = 0; i < sql.length; i++) {
-        // Convert Registration Certificate to binary if available
-        if (sql[i].registration_certificate_path) {
-          try {
-            const binaryData = await helper.convertFileToBinary(sql[i].registration_certificate_path);
-            sql[i].registration_certificate_binary = binaryData;
-          } catch (error) {
-            console.error("Error reading registration certificate:", sql[i].registration_certificate_path, error);
-            sql[i].registration_certificate_binary = null;
-          }
-        }
+        // // Convert Registration Certificate to binary if available
+        // if (sql[i].registration_certificate_path) {
+        //   try {
+        //     const binaryData = await helper.convertFileToBinary(sql[i].registration_certificate_path);
+        //     sql[i].registration_certificate_binary = binaryData;
+        //   } catch (error) {
+        //     console.error("Error reading registration certificate:", sql[i].registration_certificate_path, error);
+        //     sql[i].registration_certificate_binary = null;
+        //   }
+        // }
 
-        // Convert PAN upload to binary if available
-        if (sql[i].pan_upload_path) {
-          try {
-            const binaryData = await helper.convertFileToBinary(sql[i].pan_upload_path);
-            sql[i].pan_upload_binary = binaryData;
-          } catch (error) {
-            console.error("Error reading PAN upload:", sql[i].pan_upload_path, error);
-            sql[i].pan_upload_binary = null;
-          }
-        }
+        // // Convert PAN upload to binary if available
+        // if (sql[i].pan_upload_path) {
+        //   try {
+        //     const binaryData = await helper.convertFileToBinary(sql[i].pan_upload_path);
+        //     sql[i].pan_upload_binary = binaryData;
+        //   } catch (error) {
+        //     console.error("Error reading PAN upload:", sql[i].pan_upload_path, error);
+        //     sql[i].pan_upload_binary = null;
+        //   }
+        // }
 
-        // Convert Cancelled Cheque to binary if available
-        if (sql[i].cancelled_cheque_path) {
-          try {
-            const binaryData = await helper.convertFileToBinary(sql[i].cancelled_cheque_path);
-            sql[i].cancelled_cheque_binary = binaryData;
-          } catch (error) {
-            console.error("Error reading cancelled cheque:", sql[i].cancelled_cheque_path, error);
-            sql[i].cancelled_cheque_binary = null;
-          }
-        }
+        // // Convert Cancelled Cheque to binary if available
+        // if (sql[i].cancelled_cheque_path) {
+        //   try {
+        //     const binaryData = await helper.convertFileToBinary(sql[i].cancelled_cheque_path);
+        //     sql[i].cancelled_cheque_binary = binaryData;
+        //   } catch (error) {
+        //     console.error("Error reading cancelled cheque:", sql[i].cancelled_cheque_path, error);
+        //     sql[i].cancelled_cheque_binary = null;
+        //   }
+        // }
 
         // Format the dates
         if (sql[i].created_at) {
@@ -796,6 +839,7 @@ async function vendorDetailsPreLoader(vendorData) {
         ""
       );
     }
+    let secret = vendorData.STOKEN.substring(0, 16);
 
     // Validate session token
     const [result] = await db.spcall(
@@ -814,8 +858,6 @@ async function vendorDetailsPreLoader(vendorData) {
         ""
       );
     }
-
-    var secret = vendorData.STOKEN.substring(0, 16);
 
     // Generate a unique RFQ ID using Gen_vendor_rfqId SP with slash delimiter
     let newRfqId;
@@ -2060,6 +2102,191 @@ async function UpdateVendorCancelledCheque(req, res) {
   }
 }
 
+//##################################################################################################################################################################################################
+//##################################################################################################################################################################################################
+//########################################### REQUEST BODY FOR UPDATE VENDOR LOGO ######################################################################################
+// {
+//   "STOKEN": "your_session_token",
+//   "querystring": "encrypted_data_containing_vendor_id"
+// }
+// File upload in form-data with key "logo_upload"
+// Required querystring data:
+// {
+//   "vendorid": 1
+// }
+//####################################################################### RESPONSE BODY FOR UPDATE VENDOR LOGO #######################################################
+// {"code":true,"message":"Logo Updated Successfully","Value":{"vendorid": 1, "file_path": "/path/to/file.pdf"}}
+//##################################################################################################################################################################################################
+//##################################################################################################################################################################################################
+
+async function UpdateVendorLogo(req, res) {
+  try {
+    // Upload the logo file first
+    try {
+      await uploadFile.uploadVendorLogo(req, res);
+
+      if (!req.file) {
+        return helper.getErrorResponse(
+          false,
+          "error",
+          "Please upload a logo file!",
+          "UPDATE VENDOR LOGO",
+          ""
+        );
+      }
+    } catch (er) {
+      return helper.getErrorResponse(
+        false,
+        "error",
+        `Could not upload the file. ${er.message}`,
+        "UPDATE VENDOR LOGO",
+        ""
+      );
+    }
+
+    let vendorData = req.body;
+
+    // Check if the session token exists
+    if (!vendorData.hasOwnProperty("STOKEN")) {
+      return helper.getErrorResponse(
+        false,
+        "error",
+        "Login session token missing. Please provide the Login session token",
+        "UPDATE VENDOR LOGO",
+        ""
+      );
+    }
+
+    // Validate session token length
+    if (vendorData.STOKEN.length > 50 || vendorData.STOKEN.length < 30) {
+      return helper.getErrorResponse(
+        false,
+        "error",
+        "Login session token size invalid. Please provide the valid Session token",
+        "UPDATE VENDOR LOGO",
+        ""
+      );
+    }
+
+    // Validate session token
+    const [result] = await db.spcall(
+      "CALL SP_STOKEN_CHECK(?,@result); SELECT @result;",
+      [vendorData.STOKEN]
+    );
+    const objectvalue = result[1][0];
+    const userid = objectvalue["@result"];
+
+    if (userid == null) {
+      return helper.getErrorResponse(
+        false,
+        "error",
+        "Login session token Invalid. Please provide the valid session token",
+        "UPDATE VENDOR LOGO",
+        vendorData.STOKEN.substring(0, 16)
+      );
+    }
+
+    // Check if querystring is provided
+    if (!vendorData.hasOwnProperty("querystring")) {
+      return helper.getErrorResponse(
+        false,
+        "error",
+        "Querystring missing. Please provide the querystring",
+        "UPDATE VENDOR LOGO",
+        vendorData.STOKEN.substring(0, 16)
+      );
+    }
+
+    var secret = vendorData.STOKEN.substring(0, 16);
+    var querydata;
+
+    // Decrypt querystring
+    try {
+      querydata = await helper.decrypt(vendorData.querystring, secret);
+    } catch (ex) {
+      return helper.getErrorResponse(
+        false,
+        "error",
+        "Querystring Invalid error. Please provide the valid querystring.",
+        "UPDATE VENDOR LOGO",
+        secret
+      );
+    }
+
+    // Parse the decrypted querystring
+    try {
+      querydata = JSON.parse(querydata);
+    } catch (ex) {
+      return helper.getErrorResponse(
+        false,
+        "error",
+        "Querystring JSON error. Please provide valid JSON",
+        "UPDATE VENDOR LOGO",
+        secret
+      );
+    }
+
+    // Validate required fields
+    if (!querydata.hasOwnProperty("vendorid") || querydata.vendorid == "") {
+      return helper.getErrorResponse(
+        false,
+        "error",
+        "Vendor ID missing. Please provide the Vendor ID",
+        "UPDATE VENDOR LOGO",
+        secret
+      );
+    }
+
+    try {
+      const filePath = req.file.path;
+
+      // Update vendor logo path
+      const sql = await db.query(
+        `UPDATE vendors SET logo_path = ?, updated_at = CURRENT_TIMESTAMP WHERE vendorid = ?`,
+        [filePath, querydata.vendorid]
+      );
+
+      if (sql.affectedRows > 0) {
+        return helper.getSuccessResponse(
+          true,
+          "success",
+          "Logo Updated Successfully",
+          {
+            vendorid: querydata.vendorid,
+            file_path: filePath
+          },
+          secret
+        );
+      } else {
+        return helper.getErrorResponse(
+          false,
+          "error",
+          "Vendor not found or no changes made.",
+          "UPDATE VENDOR LOGO",
+          secret
+        );
+      }
+    } catch (er) {
+      return helper.getErrorResponse(
+        false,
+        "error",
+        "Internal error. Please contact Administration",
+        er.message,
+        secret
+      );
+    }
+  } catch (er) {
+    const secret = (req && req.body && req.body.STOKEN) ? req.body.STOKEN.substring(0, 16) : "";
+    return helper.getErrorResponse(
+      false,
+      "error",
+      "Internal error. Please contact Administration",
+      er.message,
+      secret
+    );
+  }
+}
+
 module.exports = {
   AddVendor,
   GetVendor,
@@ -2070,7 +2297,8 @@ module.exports = {
   GetSubProcessList,
   UpdateVendorRegistrationCert,
   UpdateVendorPAN,
-  UpdateVendorCancelledCheque
+  UpdateVendorCancelledCheque,
+  UpdateVendorLogo
 };
 
 //##################################################################################################################################################################################################
