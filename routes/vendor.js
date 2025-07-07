@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const vendor = require('../services/vendor');
+const { uploadVendorRegistrationCert, uploadVendorPAN, uploadVendorCancelledCheque } = require('../middleware');
 
 
 router.post('/addvendor', async function(req,res,next){
@@ -61,6 +62,34 @@ router.post('/postrfq', async function(req, res, next) {
     res.json(await vendor.PostRFQ(req, res));
   } catch (er) {
     console.log(`Error posting RFQ -> ${er}`);
+    next(er);
+  }
+});
+
+// KYC Document Update Routes
+router.post('/updateregistrationcert', uploadVendorRegistrationCert, async function(req, res, next) {
+  try {
+    res.json(await vendor.UpdateVendorRegistrationCert(req, res));
+  } catch (er) {
+    console.log(`Error updating vendor registration certificate -> ${er}`);
+    next(er);
+  }
+});
+
+router.post('/updatepan', uploadVendorPAN, async function(req, res, next) {
+  try {
+    res.json(await vendor.UpdateVendorPAN(req, res));
+  } catch (er) {
+    console.log(`Error updating vendor PAN -> ${er}`);
+    next(er);
+  }
+});
+
+router.post('/updatecancelledcheque', uploadVendorCancelledCheque, async function(req, res, next) {
+  try {
+    res.json(await vendor.UpdateVendorCancelledCheque(req, res));
+  } catch (er) {
+    console.log(`Error updating vendor cancelled cheque -> ${er}`);
     next(er);
   }
 });

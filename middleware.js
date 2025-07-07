@@ -711,6 +711,160 @@ let uploadFilePostRFQ = multer({
 
 let uploadPostRFQ = util.promisify(uploadFilePostRFQ);
 
+//#############################################################################################################################################################################################
+//#############################################################################################################################################################################################
+//#############################################################################################################################################################################################
+//#############################################################################################################################################################################################
+
+// Vendor KYC Documents Upload - Registration Certificate
+let storageVendorRegCert = multer.diskStorage({
+  destination: async (req, file, cb) => {
+    try {
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = now.toLocaleString("default", { month: "long" });
+      const day = now.getDate();
+      let folder = config.filestorage;
+
+      folder = `${folder}/${year}/${month}/${day}/VendorKYC/RegistrationCertificate`;
+
+      await fs.ensureDir(folder);
+      cb(null, folder);
+    } catch (err) {
+      cb(err);
+    }
+  },
+  filename: (req, file, cb) => {
+    const timestamp = Date.now();
+    cb(null, `${timestamp}_${file.originalname}`);
+  },
+});
+
+const maxSizeVendorRegCert = 5 * 1024 * 1024; // 5MB
+
+let uploadFileVendorRegCert = multer({
+  storage: storageVendorRegCert,
+  limits: { fileSize: maxSizeVendorRegCert },
+}).single("registration_certificate");
+
+let uploadVendorRegistrationCert = util.promisify(uploadFileVendorRegCert);
+
+//#############################################################################################################################################################################################
+// Vendor KYC Documents Upload - PAN Card
+let storageVendorPAN = multer.diskStorage({
+  destination: async (req, file, cb) => {
+    try {
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = now.toLocaleString("default", { month: "long" });
+      const day = now.getDate();
+      let folder = config.filestorage;
+
+      folder = `${folder}/${year}/${month}/${day}/VendorKYC/PAN`;
+
+      await fs.ensureDir(folder);
+      cb(null, folder);
+    } catch (err) {
+      cb(err);
+    }
+  },
+  filename: (req, file, cb) => {
+    const timestamp = Date.now();
+    cb(null, `${timestamp}_${file.originalname}`);
+  },
+});
+
+const maxSizeVendorPAN = 5 * 1024 * 1024; // 5MB
+
+let uploadFileVendorPAN = multer({
+  storage: storageVendorPAN,
+  limits: { fileSize: maxSizeVendorPAN },
+}).single("pan_upload");
+
+let uploadVendorPAN = util.promisify(uploadFileVendorPAN);
+
+//#############################################################################################################################################################################################
+// Vendor KYC Documents Upload - Cancelled Cheque
+let storageVendorCheque = multer.diskStorage({
+  destination: async (req, file, cb) => {
+    try {
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = now.toLocaleString("default", { month: "long" });
+      const day = now.getDate();
+      let folder = config.filestorage;
+
+      folder = `${folder}/${year}/${month}/${day}/VendorKYC/CancelledCheque`;
+
+      await fs.ensureDir(folder);
+      cb(null, folder);
+    } catch (err) {
+      cb(err);
+    }
+  },
+  filename: (req, file, cb) => {
+    const timestamp = Date.now();
+    cb(null, `${timestamp}_${file.originalname}`);
+  },
+});
+
+const maxSizeVendorCheque = 5 * 1024 * 1024; // 5MB
+
+let uploadFileVendorCheque = multer({
+  storage: storageVendorCheque,
+  limits: { fileSize: maxSizeVendorCheque },
+}).single("cancelled_cheque");
+
+let uploadVendorCancelledCheque = util.promisify(uploadFileVendorCheque);
+
+//#############################################################################################################################################################################################
+// Vendor KYC Documents Upload - Multiple Files (for AddVendor with multiple documents)
+let storageVendorKYC = multer.diskStorage({
+  destination: async (req, file, cb) => {
+    try {
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = now.toLocaleString("default", { month: "long" });
+      const day = now.getDate();
+      let folder = config.filestorage;
+
+      // Determine subfolder based on field name
+      let subfolder = "General";
+      if (file.fieldname === "registration_certificate") {
+        subfolder = "RegistrationCertificate";
+      } else if (file.fieldname === "pan_upload") {
+        subfolder = "PAN";
+      } else if (file.fieldname === "cancelled_cheque") {
+        subfolder = "CancelledCheque";
+      }
+
+      folder = `${folder}/${year}/${month}/${day}/VendorKYC/${subfolder}`;
+
+      await fs.ensureDir(folder);
+      cb(null, folder);
+    } catch (err) {
+      cb(err);
+    }
+  },
+  filename: (req, file, cb) => {
+    const timestamp = Date.now();
+    cb(null, `${timestamp}_${file.originalname}`);
+  },
+});
+
+const maxSizeVendorKYC = 5 * 1024 * 1024; // 5MB
+
+let uploadFileVendorKYC = multer({
+  storage: storageVendorKYC,
+  limits: { fileSize: maxSizeVendorKYC },
+}).fields([
+  { name: 'registration_certificate', maxCount: 1 },
+  { name: 'pan_upload', maxCount: 1 },
+  { name: 'cancelled_cheque', maxCount: 1 }
+]);
+
+let uploadVendorKYCDocuments = util.promisify(uploadFileVendorKYC);
+
 module.exports = {
   uploadFileMOR,
   uploadFileInvoice,
@@ -728,4 +882,8 @@ module.exports = {
   uploadVoucher,
   uploadVendorQuotation,
   uploadPostRFQ,
+  uploadVendorRegistrationCert,
+  uploadVendorPAN,
+  uploadVendorCancelledCheque,
+  uploadVendorKYCDocuments,
 };
