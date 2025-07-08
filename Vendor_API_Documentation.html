@@ -120,7 +120,7 @@
 <h1>Vendor Management API Documentation</h1>
 
 <div class="info">
-    <strong>Overview:</strong> This document provides comprehensive information about the Vendor Management APIs with complete KYC (Know Your Customer) implementation including document upload capabilities for registration certificates, PAN cards, cancelled cheques, and company logos.
+    <strong>Overview:</strong> This document provides comprehensive information about the Vendor Management APIs with complete KYC (Know Your Customer) implementation including document upload capabilities for registration certificates, PAN cards, cancelled cheques, and company logos. The system supports vendor onboarding, product management, RFQ processing with multi-channel communication (email and WhatsApp), quotation management, and comprehensive document management with individual upload handlers for better error control.
 </div>
 
 <div class="toc">
@@ -137,10 +137,11 @@
         <li><a href="#get-process-list">9. Get Process List</a></li>
         <li><a href="#get-sub-process-list">10. Get Sub Process List</a></li>
         <li><a href="#post-rfq">11. Post RFQ</a></li>
-        <li><a href="#common-response-codes">12. Common Response Codes</a></li>
-        <li><a href="#authentication">13. Authentication</a></li>
-        <li><a href="#security">14. Security</a></li>
-        <li><a href="#error-handling">15. Error Handling</a></li>
+        <li><a href="#get-products">12. Get Products</a></li>
+        <li><a href="#common-response-codes">13. Common Response Codes</a></li>
+        <li><a href="#authentication">14. Authentication</a></li>
+        <li><a href="#security">15. Security</a></li>
+        <li><a href="#error-handling">16. Error Handling</a></li>
     </ul>
 </div>
 
@@ -152,7 +153,7 @@
 <div class="route">POST /vendor/addvendor</div>
 
 <h3>Description</h3>
-<p>Creates a new vendor with comprehensive KYC (Know Your Customer) information including document uploads for registration certificate, PAN card, cancelled cheque, and company logo.</p>
+<p>Creates a new vendor with comprehensive KYC (Know Your Customer) information including document uploads for registration certificate, PAN card, cancelled cheque, and company logo. Documents are processed individually using specialized upload handlers for better error handling and control.</p>
 
 <h3>Request Body</h3>
 <ul>
@@ -334,6 +335,15 @@
     <li><strong>Size:</strong> Maximum 5MB per file</li>
     <li><strong>Storage:</strong> /filestorage/YYYY/Month/DD/VendorKYC/{DocumentType}/</li>
     <li><strong>Fields:</strong> registration_certificate, pan_upload, cancelled_cheque, logo_upload (all optional)</li>
+    <li><strong>Processing:</strong> Each document type is processed individually with dedicated upload handlers</li>
+    <li><strong>Storage Folders:</strong> 
+        <ul>
+            <li>registration_certificate → RegistrationCertificate/</li>
+            <li>pan_upload → PAN/</li>
+            <li>cancelled_cheque → CancelledCheque/</li>
+            <li>logo_upload → Logo/</li>
+        </ul>
+    </li>
 </ul>
 
 <div class="page-break"></div>
@@ -567,6 +577,54 @@
         <td>logo_binary</td>
         <td>Base64</td>
         <td>Base64 encoded company logo for display</td>
+    </tr>
+</table>
+</div>
+
+<h3>RFQ Response Fields Description</h3>
+<div class="table-container">
+<table>
+    <tr>
+        <th>Field Category</th>
+        <th>Field</th>
+        <th>Type</th>
+        <th>Description</th>
+    </tr>
+    <tr>
+        <td rowspan="7">RFQ Process</td>
+        <td>vprocess_id</td>
+        <td>Integer</td>
+        <td>Vendor process master ID</td>
+    </tr>
+    <tr>
+        <td>process_id</td>
+        <td>Integer</td>
+        <td>Process list ID</td>
+    </tr>
+    <tr>
+        <td>vendor_name</td>
+        <td>String</td>
+        <td>Name of the vendor</td>
+    </tr>
+    <tr>
+        <td>rfq_id</td>
+        <td>String</td>
+        <td>RFQ identifier</td>
+    </tr>
+    <tr>
+        <td>emailsent</td>
+        <td>Boolean</td>
+        <td>Email delivery status</td>
+    </tr>
+    <tr>
+        <td>whatsappsent</td>
+        <td>Boolean</td>
+        <td>WhatsApp delivery status</td>
+    </tr>
+    <tr>
+        <td>messagetype</td>
+        <td>Integer</td>
+        <td>Message type used (1=email, 2=WhatsApp, 3=both)</td>
     </tr>
 </table>
 </div>
@@ -1048,12 +1106,74 @@
 
 <h3>Decrypted Querystring Data</h3>
 <div class="json">{
-  "rfq_id": "SSIPL-RFQ/2507/01",
+  "vendorname": "JK Constructiond",
   "vendorid": 1,
-  "vendor_email": "vendor@example.com",
-  "cc_email": "cc@example.com",
-  "notes": "Please review the attached RFQ document and provide your best quotation."
+  "GSTIN": "33AATFN1941J1Z0",
+  "PAN": "NAEPK8086H",
+  "Contact_person": "Ravi Kumar",
+  "vendoraddress": "Chinnverampatti, Udumallai",
+  "product": [
+    {
+      "productsno": 1,
+      "productname": "Mechanical Keyboard",
+      "productquantity": 8
+    },
+    {
+      "productsno": 2,
+      "productname": "keyboard",
+      "productquantity": 4
+    }
+  ],
+  "notes": ["6ythgnb"],
+  "messagetype": 3,
+  "feedback": "",
+  "title": "656",
+  "emailid": "jk@gmail.com",
+  "phoneno": "9344268155",
+  "date": "2025-07-07 13:53:14.216385",
+  "rfqgenid": "SSIPL-RFQ/250740",
+  "ccemail": ""
 }</div>
+
+<h4>RFQ Storage Fields (stored in vendor_rfq_details table)</h4>
+<p><strong>Note:</strong> All vendor and product details are stored directly from the querystring parameters in a single table with JSON columns for products and notes.</p>
+<ul>
+    <li><strong>rfqgenid:</strong> RFQ Generation ID (e.g., SSIPL-RFQ/250740)</li>
+    <li><strong>vendor_id:</strong> Vendor ID (for reference)</li>
+    <li><strong>vendor_name:</strong> Vendor company name</li>
+    <li><strong>gstin:</strong> GST identification number</li>
+    <li><strong>pan:</strong> PAN card number</li>
+    <li><strong>contact_person:</strong> Contact person name</li>
+    <li><strong>vendor_address:</strong> Vendor address</li>
+    <li><strong>title:</strong> Title or reference number</li>
+    <li><strong>email_id:</strong> Vendor email address</li>
+    <li><strong>phone_no:</strong> Contact phone number</li>
+    <li><strong>cc_email:</strong> CC email address</li>
+    <li><strong>message_type:</strong> Message delivery type (1=email, 2=WhatsApp, 3=both)</li>
+    <li><strong>feedback:</strong> RFQ feedback text</li>
+    <li><strong>rfq_date:</strong> RFQ creation date and time</li>
+    <li><strong>notes:</strong> JSON array of note IDs</li>
+    <li><strong>products:</strong> JSON array of product details with productname, productquantity, etc.</li>
+    <li><strong>notes:</strong> RFQ notes or feedback</li>
+    <li><strong>created_at/updated_at:</strong> Timestamps (auto-generated)</li>
+</ul>
+
+<h4>Notes Storage (vendor_notesmaster table)</h4>
+<p><strong>Note:</strong> If notes are provided in the RFQ, they are stored separately in the vendor_notesmaster table. Duplicate notes are automatically prevented - if the same note content already exists in the database, it will not be inserted again.</p>
+<ul>
+    <li><strong>notes_id:</strong> Auto-generated primary key</li>
+    <li><strong>notes:</strong> RFQ notes content (checked for duplicates)</li>
+    <li><strong>row_updated_date:</strong> Timestamp (auto-generated)</li>
+    <li><strong>status:</strong> 1 (active)</li>
+    <li><strong>deleted_flag:</strong> 0 (not deleted)</li>
+</ul>
+
+<h3>Message Type Options</h3>
+<ul>
+    <li><strong>1:</strong> Email only (default)</li>
+    <li><strong>2:</strong> WhatsApp only</li>
+    <li><strong>3:</strong> Both email and WhatsApp</li>
+</ul>
 
 <h3>Response Body</h3>
 <h4>Success Response</h4>
@@ -1064,7 +1184,10 @@
     "vprocess_id": 1,
     "process_id": 2,
     "vendor_name": "JK constructiond",
-    "rfq_id": "SSIPL-RFQ/2507/01"
+    "rfq_id": "SSIPL-RFQ/250740",
+    "emailsent": true,
+    "whatsappsent": false,
+    "messagetype": 1
   }
 }</div>
 
@@ -1078,17 +1201,43 @@
 <h3>Process Flow</h3>
 <ol>
     <li><strong>File Upload:</strong> PDF saved to /filestorage/YYYY/Month/DD/PostRFQ/</li>
+    <li><strong>Vendor Authentication:</strong> Validates vendor exists and is active</li>
+    <li><strong>RFQ Details Storage:</strong> Creates record in vendor_rfq_details table using values from querystring parameters (not fetched from vendors table)</li>
+    <li><strong>Notes Storage:</strong> If notes are provided, creates record in vendor_notesmaster table</li>
     <li><strong>Database Storage:</strong>
         <ul>
             <li>Creates record in vendorprocessmaster</li>
             <li>Creates record in vprocesslist</li>
         </ul>
     </li>
-    <li><strong>Email Notification:</strong>
+    <li><strong>Message Type Processing:</strong>
+        <ul>
+            <li>messagetype 1: Email only</li>
+            <li>messagetype 2: WhatsApp only</li>
+            <li>messagetype 3: Both email and WhatsApp</li>
+        </ul>
+    </li>
+    <li><strong>Email Notification (if messagetype 1 or 3):</strong>
         <ul>
             <li>Sends RFQ email to vendor using VENDORRFQ template</li>
             <li>Includes PDF attachment</li>
             <li>Uses module tag VENDORRFQ for email settings</li>
+            <li>Supports CC email functionality</li>
+        </ul>
+    </li>
+    <li><strong>WhatsApp Notification (if messagetype 2 or 3):</strong>
+        <ul>
+            <li>Sends PDF via WhatsApp to vendor's phone number</li>
+            <li>Uses external API (192.168.0.165:4444/billing/sendpdf)</li>
+            <li>Supports multiple phone numbers (comma-separated)</li>
+            <li>Uses feedback message for WhatsApp content</li>
+        </ul>
+    </li>
+    <li><strong>Response Status:</strong>
+        <ul>
+            <li>Returns emailsent status (true/false)</li>
+            <li>Returns whatsappsent status (true/false)</li>
+            <li>Includes messagetype used for transparency</li>
         </ul>
     </li>
 </ol>
@@ -1096,10 +1245,17 @@
 <h3>Required Fields</h3>
 <ul>
     <li><strong>rfq_id:</strong> Valid RFQ ID (generated from preloader)</li>
-    <li><strong>vendor_id:</strong> Valid vendor ID</li>
-    <li><strong>vendor_email:</strong> Vendor email address (currently hardcoded to kishorekkumar34@gmail.com)</li>
-    <li><strong>cc_email:</strong> CC email address (optional)</li>
-    <li><strong>notes:</strong> Additional notes (optional)</li>
+    <li><strong>vendorid:</strong> Valid vendor ID</li>
+</ul>
+
+<h3>Optional Fields</h3>
+<ul>
+    <li><strong>cc_email:</strong> CC email address</li>
+    <li><strong>notes:</strong> Additional notes for email</li>
+    <li><strong>feedback:</strong> WhatsApp message text</li>
+    <li><strong>messagetype:</strong> 1 (email), 2 (WhatsApp), 3 (both) - defaults to 1</li>
+    <li><strong>product_name:</strong> Name of the product being requested</li>
+    <li><strong>product_quantity:</strong> Quantity of the product being requested</li>
 </ul>
 
 <h3>File Requirements</h3>
@@ -1111,7 +1267,95 @@
 
 <div class="page-break"></div>
 
-<h2 id="common-response-codes">12. Common Response Codes</h2>
+<h2 id="get-products">12. Get Products</h2>
+
+<h3>Route</h3>
+<div class="route">POST /vendor/getproducts</div>
+
+<h3>Description</h3>
+<p>Retrieves all products associated with a specific vendor from the vendorproducts table.</p>
+
+<h3>Request Body</h3>
+<div class="json">{
+  "STOKEN": "your_session_token_here",
+  "querystring": "encrypted_data_containing_vendor_id"
+}</div>
+
+<h3>Decrypted Querystring Data</h3>
+<div class="json">{
+  "vendorid": 1
+}</div>
+
+<h3>Response Body</h3>
+<h4>Success Response</h4>
+<div class="json success">{
+  "code": true,
+  "message": "Products fetched successfully",
+  "Value": [
+    {
+      "id": 1,
+      "productname": "Cement",
+      "gstpercent": 18.0,
+      "hsn": "2523",
+      "price": 350.00,
+      "vendor_id": 1,
+      "status": 1,
+      "deleted_flag": 0,
+      "created_at": "2025-07-07 10:30:00",
+      "updated_at": "2025-07-07 10:30:00"
+    },
+    {
+      "id": 2,
+      "productname": "Steel",
+      "gstpercent": 18.0,
+      "hsn": "7207",
+      "price": 600.00,
+      "vendor_id": 1,
+      "status": 1,
+      "deleted_flag": 0,
+      "created_at": "2025-07-07 10:30:00",
+      "updated_at": "2025-07-07 10:30:00"
+    }
+  ]
+}</div>
+
+<h4>Error Response</h4>
+<div class="json error">{
+  "code": false,
+  "message": "Error message describing the issue",
+  "Value": "GET PRODUCTS"
+}</div>
+
+<h3>Required Fields</h3>
+<ul>
+    <li><strong>vendorid:</strong> Valid vendor ID (required)</li>
+</ul>
+
+<h3>Response Fields Description</h3>
+<ul>
+    <li><strong>id:</strong> Unique product ID</li>
+    <li><strong>productname:</strong> Name of the product</li>
+    <li><strong>gstpercent:</strong> GST percentage applicable</li>
+    <li><strong>hsn:</strong> HSN/SAC code for the product</li>
+    <li><strong>price:</strong> Product price</li>
+    <li><strong>vendor_id:</strong> Associated vendor ID</li>
+    <li><strong>status:</strong> Product status (1 = active, 0 = inactive)</li>
+    <li><strong>deleted_flag:</strong> Deletion status (0 = not deleted, 1 = deleted)</li>
+    <li><strong>created_at:</strong> Product creation timestamp</li>
+    <li><strong>updated_at:</strong> Last update timestamp</li>
+</ul>
+
+<h3>Use Cases</h3>
+<ul>
+    <li><strong>Product Catalog:</strong> Display all products offered by a vendor</li>
+    <li><strong>RFQ Creation:</strong> Select products when creating RFQs</li>
+    <li><strong>Price Comparison:</strong> Compare prices across different vendors</li>
+    <li><strong>Inventory Management:</strong> Track vendor product offerings</li>
+</ul>
+
+<div class="page-break"></div>
+
+<h2 id="common-response-codes">13. Common Response Codes</h2>
 
 <h3>Success Response Structure</h3>
 <div class="json success">{
@@ -1127,7 +1371,7 @@
   "Value": "Error context"
 }</div>
 
-<h2 id="authentication">13. Authentication</h2>
+<h2 id="authentication">14. Authentication</h2>
 
 <p>All endpoints require a valid session token (STOKEN) that:</p>
 <ul>
@@ -1136,7 +1380,7 @@
     <li>First 16 characters are used as encryption key for querystring data</li>
 </ul>
 
-<h2 id="security">14. Security</h2>
+<h2 id="security">15. Security</h2>
 
 <ul>
     <li><strong>Encrypted Communication:</strong> All sensitive data in querystring is encrypted using AES encryption</li>
@@ -1169,7 +1413,7 @@
     <li><strong>Binary Encoding:</strong> Documents converted to base64 for secure API transmission</li>
 </ul>
 
-<h2 id="error-handling">15. Error Handling</h2>
+<h2 id="error-handling">16. Error Handling</h2>
 
 <p>Common error scenarios:</p>
 <ul>
@@ -1235,9 +1479,9 @@
 
 <div style="text-align: center; margin-top: 30px; color: #666; font-size: 14px;">
     <p><strong>Generated on:</strong> July 7, 2025</p>
-    <p><strong>API Version:</strong> 2.0 (KYC Implementation)</p>
+    <p><strong>API Version:</strong> 3.0 (Complete Vendor Management System)</p>
     <p><strong>Base URL:</strong> /vendor/</p>
-    <p><strong>Features:</strong> Complete KYC Support, Document Upload, Multi-file Handling</p>
+    <p><strong>Features:</strong> Complete KYC Support, Document Upload, Multi-file Handling, Product Management, RFQ Processing, Multi-channel Communication (Email & WhatsApp), Individual Document Upload Handlers</p>
 </div>
 
 </body>

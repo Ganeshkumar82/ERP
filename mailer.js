@@ -1017,7 +1017,7 @@ async function sendVendorRFQ(
     var bSSL = false;
     if (qSMTPSecure == "true") bSSL = true;
 
-    var transporter = nodemailer.createTransporter({
+    var transporter = nodemailer.createTransport({
       host: qHost,
       port: qPort,
       secure: true, // upgrade later with STARTTLS

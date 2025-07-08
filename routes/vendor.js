@@ -103,4 +103,31 @@ router.post('/updatelogo', uploadVendorLogo, async function(req, res, next) {
   }
 });
 
+router.post('/getproducts', async function(req, res, next) {
+  try {
+    res.json(await vendor.GetProducts(req.body));
+  } catch (er) {
+    console.log(`Error getting vendor products -> ${er}`);
+    next(er);
+  }
+});
+
+router.post('/getnotes', async function(req, res, next) {
+  try {
+    res.json(await vendor.getNotes(req.body));
+  } catch (er) {
+    console.log(`Error getting vendor notes -> ${er}`);
+    next(er);
+  }
+});
+
+router.post('/getallprocesslist', async function(req, res, next) {
+  try {
+    res.json(await vendor.GetAllProcessList(req.body));
+  } catch (er) {
+    console.log(`Error getting vendor process list -> ${er}`);
+    next(er);
+  }
+});
+
 module.exports = router;
