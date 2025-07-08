@@ -1,12 +1,12 @@
 const express = require('express');
 const router = express.Router();
 const vendor = require('../services/vendor');
-const { uploadVendorRegistrationCert, uploadVendorPAN, uploadVendorCancelledCheque, uploadVendorLogo } = require('../middleware');
+const { uploadVendorRegistrationCert, uploadVendorPAN, uploadVendorCancelledCheque, uploadVendorLogo, uploadVendorKYCDocuments } = require('../middleware');
 
 
-router.post('/addvendor', async function(req,res,next){
+router.post('/addvendor', uploadVendorKYCDocuments, async function(req,res,next){
   try{
-    res.json(await vendor.AddVendor(req.body));
+    res.json(await vendor.AddVendor(req, res));
   }catch(er){
     console.log(`Error adding the vendor -> ${er}`);
     next(er);
@@ -22,11 +22,11 @@ router.post('/getvendor', async function(req,res,next){
   }
 });
 
-router.post('/addquotation', async function(req,res,next){
+router.post('/uploadquotation', async function(req,res,next){
   try{
     res.json(await vendor.AddQuotation(req, res, next));
   }catch(er){
-    console.log(`Error adding the vendor quotation -> ${er}`);
+    console.log(`Error uploading the vendor quotation -> ${er}`);
     next(er);
   }
 });
@@ -126,6 +126,69 @@ router.post('/getallprocesslist', async function(req, res, next) {
     res.json(await vendor.GetAllProcessList(req.body));
   } catch (er) {
     console.log(`Error getting vendor process list -> ${er}`);
+    next(er);
+  }
+});
+
+router.post('/activevendors', async function(req, res, next) {
+  try {
+    res.json(await vendor.activevendors(req.body));
+  } catch (er) {
+    console.log(`Error getting active vendors list -> ${er}`);
+    next(er);
+  }
+});
+
+router.post('/getbinaryfile', async function(req, res, next) {
+  try {
+    res.json(await vendor.getBinaryFile(req.body));
+  } catch (er) {
+    console.log(`Error getting binary file -> ${er}`);
+    next(er);
+  }
+});
+
+router.post('/archiveprocess', async function(req, res, next) {
+  try {
+    res.json(await vendor.ArchiveProcess(req.body));
+  } catch (er) {
+    console.log(`Error archiving process -> ${er}`);
+    next(er);
+  }
+});
+
+router.post('/deleteprocess', async function(req, res, next) {
+  try {
+    res.json(await vendor.DeleteProcess(req.body));
+  } catch (er) {
+    console.log(`Error deleting process -> ${er}`);
+    next(er);
+  }
+});
+
+router.post('/rrfqpreloader', async function(req, res, next) {
+  try {
+    res.json(await vendor.rrfqpreloader(req.body));
+  } catch (er) {
+    console.log(`Error in RRFQ preloader -> ${er}`);
+    next(er);
+  }
+});
+
+router.post('/addfeedback', async function(req, res, next) {
+  try {
+    res.json(await vendor.addFeedback(req.body));
+  } catch (er) {
+    console.log(`Error in adding feedback -> ${er}`);
+    next(er);
+  }
+});
+
+router.post('/postrrfq', async function(req, res, next) {
+  try {
+    res.json(await vendor.PostRRFQ(req, res));
+  } catch (er) {
+    console.log(`Error posting RRFQ -> ${er}`);
     next(er);
   }
 });

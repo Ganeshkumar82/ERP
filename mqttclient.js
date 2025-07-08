@@ -2,7 +2,7 @@ const mqtt = require("mqtt");
 
 // MQTT connection options
 const options = {
-  host: "localhost",
+  host: "192.168.0.200",
   port: 1883,
   protocol: "mqtt",
   username: "Admin",

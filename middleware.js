@@ -893,14 +893,48 @@ const maxSizeVendorKYC = 5 * 1024 * 1024; // 5MB
 let uploadFileVendorKYC = multer({
   storage: storageVendorKYC,
   limits: { fileSize: maxSizeVendorKYC },
-}).fields([
-  { name: 'registration_certificate', maxCount: 1 },
-  { name: 'pan_upload', maxCount: 1 },
-  { name: 'cancelled_cheque', maxCount: 1 },
-  { name: 'logo_upload', maxCount: 1 }
-]);
+}).any(); // Accept any field names to avoid "Unexpected field" errors
 
 let uploadVendorKYCDocuments = util.promisify(uploadFileVendorKYC);
+
+// Add this after the existing upload functions
+
+//#############################################################################################################################################################################################
+// Dynamically set the storage path for RRFQ posting
+let storagePostRRFQ = multer.diskStorage({
+  destination: async (req, file, cb) => {
+    try {
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = now.toLocaleString("default", { month: "long" }); // e.g., December
+      const day = now.getDate();
+      let folder = config.filestorage; // Default folder
+
+      folder = `${folder}/${year}/${month}/${day}/PostRRFQ`;
+
+      // Ensure the folder exists
+      await fs.ensureDir(folder);
+
+      cb(null, folder);
+    } catch (err) {
+      cb(err);
+    }
+  },
+  filename: (req, file, cb) => {
+    const timestamp = Date.now();
+    cb(null, `${timestamp}_${file.originalname}`); // Use timestamp to avoid duplicate filenames
+  },
+});
+
+// Set max file size to 10MB for RRFQ documents
+const maxSizePostRRFQ = 10 * 1024 * 1024;
+
+let uploadFilePostRRFQ = multer({
+  storage: storagePostRRFQ,
+  limits: { fileSize: maxSizePostRRFQ },
+}).single("file");
+
+let uploadPostRRFQ = util.promisify(uploadFilePostRRFQ);
 
 module.exports = {
   uploadFileMOR,
@@ -924,4 +958,5 @@ module.exports = {
   uploadVendorCancelledCheque,
   uploadVendorLogo,
   uploadVendorKYCDocuments,
+  uploadPostRRFQ,
 };
