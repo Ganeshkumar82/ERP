@@ -940,6 +940,7 @@ let uploadFilePostRRFQ = multer({
 let uploadPostRRFQ = util.promisify(uploadFilePostRRFQ);
 
 //#############################################################################################################################################################################################
+// Vendor KYC Documents Upload - Multiple Files (for AddVendor with multiple documents)
 let storageVendorKYC = multer.diskStorage({
   destination: async (req, file, cb) => {
     try {
@@ -980,12 +981,7 @@ const maxSizeVendorKYC = 5 * 1024 * 1024; // 5MB
 let uploadFileVendorKYC = multer({
   storage: storageVendorKYC,
   limits: { fileSize: maxSizeVendorKYC },
-}).fields([
-  { name: 'registration_certificate', maxCount: 1 },
-  { name: 'pan_upload', maxCount: 1 },
-  { name: 'cancelled_cheque', maxCount: 1 },
-  { name: 'logo_upload', maxCount: 1 }
-]); // Accept any field names to avoid "Unexpected field" errors
+}).any(); // Accept any field names to avoid "Unexpected field" errors
 
 let uploadVendorKYCDocuments = util.promisify(uploadFileVendorKYC);
 

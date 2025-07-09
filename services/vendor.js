@@ -62,80 +62,54 @@ async function AddVendor(req, res) {
   let secret = ""; // Initialize secret early to avoid undefined errors
   
   try {
-    // Debug logging
-    console.log("AddVendor - req.body before upload:", req.body);
-    console.log("AddVendor - req.files before upload:", req.files);
+    // Debug logging - files and body are already processed by middleware
+    console.log("AddVendor - req.body (processed by middleware):", req.body);
+    console.log("AddVendor - req.files (processed by middleware):", req.files);
     
-    // Upload all KYC documents at once to preserve req.body
+    // Extract file paths from uploaded files (already processed by middleware)
     let registrationCertPath = null;
     let panUploadPath = null;
     let cancelledChequePath = null;
     let logoPath = null;
 
-    try {
-      await uploadFile.uploadVendorKYCDocuments(req, res);
-      
-      // Debug logging after upload
-      console.log("AddVendor - req.body after upload:", req.body);
-      console.log("AddVendor - req.files after upload:", req.files);
-      
-      // Extract file paths from uploaded files
-      // Handle case where all files come with fieldname 'files' but different originalname
-      if (req.files && Array.isArray(req.files)) {
-        for (const file of req.files) {
-          // Match by originalname when fieldname is generic 'files'
-          if (file.fieldname === 'files') {
-            switch (file.originalname) {
-              case 'registration_certificate':
-                registrationCertPath = file.path;
-                console.log(`Mapped registration_certificate: ${file.path}`);
-                break;
-              case 'pan_upload':
-                panUploadPath = file.path;
-                console.log(`Mapped pan_upload: ${file.path}`);
-                break;
-              case 'cancelled_cheque':
-                cancelledChequePath = file.path;
-                console.log(`Mapped cancelled_cheque: ${file.path}`);
-                break;
-              case 'logo_upload':
-                logoPath = file.path;
-                console.log(`Mapped logo_upload: ${file.path}`);
-                break;
-              default:
-                console.log(`Unknown file originalname: ${file.originalname}`);
-                break;
-            }
-          } else {
-            // Match by fieldname for properly named form fields
-            switch (file.fieldname) {
-              case 'registration_certificate':
-                registrationCertPath = file.path;
-                break;
-              case 'pan_upload':
-                panUploadPath = file.path;
-                break;
-              case 'cancelled_cheque':
-                cancelledChequePath = file.path;
-                break;
-              case 'logo_upload':
-                logoPath = file.path;
-                break;
-              default:
-                console.log(`Unknown file field: ${file.fieldname}`);
-                break;
-            }
-          }
+    // Process the files that were already uploaded by middleware
+    if (req.files && Array.isArray(req.files)) {
+      console.log(`Processing ${req.files.length} uploaded files`);
+      for (const file of req.files) {
+        console.log(`Processing file: fieldname=${file.fieldname}, originalname=${file.originalname}, path=${file.path}`);
+        
+        // Handle file mapping - check originalname when fieldname is 'files', otherwise use fieldname
+        let fileIdentifier;
+        if (file.fieldname === 'files' && file.originalname) {
+          fileIdentifier = file.originalname;
+        } else {
+          fileIdentifier = file.fieldname;
+        }
+        
+        switch (fileIdentifier) {
+          case 'registration_certificate':
+            registrationCertPath = file.path;
+            console.log(`Mapped registration_certificate: ${file.path}`);
+            break;
+          case 'pan_upload':
+            panUploadPath = file.path;
+            console.log(`Mapped pan_upload: ${file.path}`);
+            break;
+          case 'cancelled_cheque':
+            cancelledChequePath = file.path;
+            console.log(`Mapped cancelled_cheque: ${file.path}`);
+            break;
+          case 'logo_upload':
+            logoPath = file.path;
+            console.log(`Mapped logo_upload: ${file.path}`);
+            break;
+          default:
+            console.log(`Unknown file field/name: ${fileIdentifier} (fieldname: ${file.fieldname}, originalname: ${file.originalname})`);
+            break;
         }
       }
-    } catch (er) {
-      return helper.getErrorResponse(
-        false,
-        "error",
-        `Could not upload files. ${er.message}`,
-        "ADD VENDOR",
-        secret
-      );
+    } else {
+      console.log("No files received in request");
     }
 
     let vendor = req.body;
