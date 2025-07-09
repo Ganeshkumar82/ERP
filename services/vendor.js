@@ -1055,15 +1055,27 @@ async function vendorDetailsPreLoader(vendorData) {
       );
     }
 
-    // Generate a unique RFQ ID using Gen_vendor_rfqId SP with slash delimiter
-    let newRfqId;
+    // Generate or retrieve RFQ ID using Gen_vendor_rfqId stored procedure
+    // The stored procedure now handles checking for existing valid IDs and generating new ones
+    let rfqId;
+    
     try {
       const [rfqResult] = await db.spcall(
         `CALL Gen_vendor_rfqId(?, '/', @out); SELECT @out;`,
         [userid]
       );
       const objectValue = rfqResult[1][0];
-      newRfqId = objectValue["@out"];
+      rfqId = objectValue["@out"];
+      
+      if (!rfqId) {
+        return helper.getErrorResponse(
+          false,
+          "Failed to generate or retrieve RFQ ID using stored procedure.",
+          "VENDOR DETAILS PRELOADER",
+          "",
+          secret
+        );
+      }
     } catch (e) {
       return helper.getErrorResponse(
         false,
@@ -1074,22 +1086,12 @@ async function vendorDetailsPreLoader(vendorData) {
       );
     }
 
-    // MQTT notifications for RFQ ID generation
-    await mqttclient.publishMqttMessage(
-      "Notification",
-      "RFQ ID Generated Successfully - " + newRfqId
-    );
-    await mqttclient.publishMqttMessage(
-      "refresh",
-      "RFQ ID Generated Successfully"
-    );
-
-    // Return success response with the generated RFQ ID
+    // Return success response with the RFQ ID
     return helper.getSuccessResponse(
       true,
       "success",
       "RFQ ID generated successfully",
-      { rfq_id: newRfqId },
+      { rfq_id: rfqId },
       secret
     );
   } catch (er) {
@@ -1434,15 +1436,6 @@ async function PostRFQ(req, res) {
     }
 
     // Validate required fields
-    if (!querydata || !("rfqgenid" in querydata) || querydata.rfqgenid === "" || querydata.rfqgenid === undefined) {
-      return helper.getErrorResponse(
-        false,
-        "RFQ ID missing. Please provide the RFQ ID",
-        "POST RFQ",
-        secret
-      );
-    }
-
     if (!querydata || !("vendorid" in querydata) || querydata.vendorid === "" || querydata.vendorid === undefined) {
       return helper.getErrorResponse(
         false,
@@ -1486,6 +1479,18 @@ async function PostRFQ(req, res) {
       }
 
       const vendor = vendorDetails[0];
+
+      // Validate RFQ ID is provided (should come from preloader endpoint)
+      if (!querydata.rfqgenid || querydata.rfqgenid.trim() === '') {
+        return helper.getErrorResponse(
+          false,
+          "RFQ ID missing. Please use vendorDetailsPreLoader endpoint to generate RFQ ID first",
+          "POST RFQ",
+          secret
+        );
+      }
+
+      const rfqGenId = querydata.rfqgenid;
       const filePath = req.file.path;
       const currentDate = new Date();
       const formattedDate = currentDate.toISOString().slice(0, 10); // YYYY-MM-DD
@@ -1512,9 +1517,9 @@ async function PostRFQ(req, res) {
           row_updated_date,
           status,
           deleted_flag
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), 1, 0)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, ?)`,
         [
-          querydata.rfqgenid ||'',
+          rfqGenId,
           querydata.vendorid,
           querydata.vendorname || '',
           querydata.GSTIN || '',
@@ -1529,7 +1534,9 @@ async function PostRFQ(req, res) {
           querydata.feedback || '',
           querydata.date ? new Date(querydata.date) : new Date(),
           querydata.notes ? JSON.stringify(querydata.notes) : JSON.stringify([]),
-          querydata.product ? JSON.stringify(querydata.product) : JSON.stringify([])
+          querydata.product ? JSON.stringify(querydata.product) : JSON.stringify([]),
+          1, // status
+          0  // deleted_flag
         ]
       );
 
@@ -1601,7 +1608,7 @@ async function PostRFQ(req, res) {
           formattedDate,
           querydata.vendorid,
           userid,
-          querydata.rfqgenid || querydata.rfqid
+          rfqGenId
         ]
       );
 
@@ -1623,24 +1630,41 @@ async function PostRFQ(req, res) {
           vendor_name,
           process_id,
           Row_updated_date
-        ) VALUES (?, ?, ?, 0, 1, 0, ?, ?, 1, ?, ?, NOW())`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
         [
           'RFQ',
           filePath,
           formattedDate,
+          0, // Approved_status
+          1, // status
+          0, // deleted_flag
           userid,
-          querydata.rfqgenid || querydata.rfqid,
+          rfqGenId,
+          1, // process_type
           querydata.vendoraddress || vendor.address || '',
           querydata.vendorname || vendor.vendor_name,
           process_id
         ]
       );
 
-      // const process_id = processResult.insertId;
+      const vprocess_id = processResult.insertId;
 
       // Initialize response flags
       let emailSent = false;
       let whatsappSent = false;
+
+      // Update generatevrfqids status to 0 (mark as used) after successful vprocesslist insertion
+      // This ensures the RFQ ID cannot be reused for another process
+      try {
+        await db.query(
+          `UPDATE generatevrfqids SET status = 0, row_updated_date = NOW() 
+           WHERE TRIM(LOWER(rfq_id)) = TRIM(LOWER(?))`,
+          [rfqGenId]
+        );
+      } catch (updateError) {
+        console.log("Warning: Could not update RFQ ID status:", updateError);
+        // Continue execution even if update fails
+      }
 
       // Get required modules
       const mailer = require("../mailer");
@@ -1650,7 +1674,7 @@ async function PostRFQ(req, res) {
       // Prepare email and WhatsApp data
       const vendorEmail = /*vendor.email ||*/ "kishorekkumar34@gmail.com"; // Fallback email
       const ccEmail = querydata.cc_email || "";
-      const subject = `Request for Quotation - ${querydata.rfqgenid || querydata.rfqid}`;
+      const subject = `Request for Quotation - ${rfqGenId}`;
       const notes = querydata.feedback || querydata.notes || "Please review the attached RFQ document and provide your best quotation.";
       
       // Process phone numbers (handle single or comma-separated numbers)
@@ -1671,7 +1695,7 @@ async function PostRFQ(req, res) {
             subject,
             "VENDORRFQ", // module tag for email settings
             filePath, // file path for attachment
-            querydata.rfqgenid || querydata.rfqid, // RFQ ID
+            rfqGenId, // RFQ ID
             notes, // additional notes
             ccEmail // CC email
           );
@@ -1722,7 +1746,7 @@ async function PostRFQ(req, res) {
             subject,
             "VENDORRFQ",
             filePath,
-            querydata.rfqgenid || querydata.rfqid,
+            rfqGenId,
             notes,
             ccEmail
           ).then(result => {
@@ -1792,7 +1816,7 @@ async function PostRFQ(req, res) {
             vprocess_id: vprocess_id,
             process_id: process_id,
             vendor_name: vendor.vendor_name,
-            rfqid: querydata.rfqgenid || querydata.rfqid,
+            rfqid: rfqGenId,
             emailsent: emailSent,
             whatsappsent: whatsappSent,
             messagetype: messagetype
@@ -3348,7 +3372,7 @@ async function GetAllProcessList(vendorData) {
 
     var sql;
     if (querydata.listtype == 1) {
-      // Active processes
+      // Archived processes (listtype 1 = show archived data)
       if (querydata.vendorid == 0) {
         // All vendors
         sql = await db.query(
@@ -3361,95 +3385,7 @@ async function GetAllProcessList(vendorData) {
               LIMIT 1) AS title,
             vm.vendor_name,
             DATE_FORMAT(vpm.Process_date, '%Y%m%d') AS Process_date,
-            DATEDIFF(CURDATE(), vpm.Process_date) AS age_in_days,
-            COUNT(vpm.vprocess_id) OVER(PARTITION BY vpm.Vendor_id) AS process_count, 
-            (
-              SELECT JSON_ARRAYAGG(t.TimelineEvent)
-              FROM (
-                SELECT JSON_OBJECT(
-                         'Eventid', vpl2.vprocess_id,
-                         'Eventname', vpsl2.processname,
-                         'feedback', vpl2.feedback,
-                         'Allowed_process', vpsl2.allowed_process,
-                         'pdfpath', vpl2.Process_filepath,
-                         'apporvedstatus', vpl2.Approved_status,
-                         'internalstatus', vpl2.status
-                       ) AS TimelineEvent
-                FROM vprocesslist vpl2
-                LEFT JOIN vprocessshowlist vpsl2 
-                  ON vpsl2.processshowlist_id = vpl2.process_type
-                WHERE vpl2.process_id = vpm.vprocess_id
-                ORDER BY vpl2.Row_updated_date ASC
-              ) t
-            ) AS TimelineEvents  
-          FROM vendorprocessmaster vpm 
-          JOIN vendors vm ON vpm.Vendor_id = vm.vendorid 
-          LEFT JOIN vprocesslist vpl ON vpl.process_id = vpm.vprocess_id 
-          LEFT JOIN vprocessshowlist vpsl ON vpsl.processshowlist_id = vpl.process_type 
-          WHERE vpm.status = 1 
-          AND vpm.deleted_flag = 0 AND vpm.archive_data = 0
-          GROUP BY vpm.vprocess_id, vpm.Vendor_id, vpm.Process_date, vm.vendor_name
-          ORDER BY vpm.Row_updated_date DESC`
-        );
-      } else {
-        // Specific vendor
-        sql = await db.query(
-          `SELECT 
-            vpm.vprocess_id processid,
-            (SELECT vpl1.process_name 
-              FROM vprocesslist vpl1 
-              WHERE vpl1.process_id = vpm.vprocess_id 
-              ORDER BY vpl1.Row_updated_date ASC 
-              LIMIT 1) AS title,
-            vm.vendor_name,
-            DATE_FORMAT(vpm.Process_date, '%Y%m%d') AS Process_date,
-            DATEDIFF(CURDATE(), vpm.Process_date) AS age_in_days,
-            COUNT(vpm.vprocess_id) OVER(PARTITION BY vpm.Vendor_id) AS process_count, 
-            (
-              SELECT JSON_ARRAYAGG(t.TimelineEvent)
-              FROM (
-                SELECT JSON_OBJECT(
-                         'Eventid', vpl2.vprocess_id,
-                         'Eventname', vpsl2.processname,
-                         'feedback', vpl2.feedback,
-                         'Allowed_process', vpsl2.allowed_process,
-                         'pdfpath', vpl2.Process_filepath,
-                         'apporvedstatus', vpl2.Approved_status,
-                         'internalstatus', vpl2.status
-                       ) AS TimelineEvent
-                FROM vprocesslist vpl2
-                LEFT JOIN vprocessshowlist vpsl2 
-                  ON vpsl2.processshowlist_id = vpl2.process_type
-                WHERE vpl2.process_id = vpm.vprocess_id
-                ORDER BY vpl2.Row_updated_date ASC
-              ) t
-            ) AS TimelineEvents  
-          FROM vendorprocessmaster vpm 
-          JOIN vendors vm ON vpm.Vendor_id = vm.vendorid 
-          LEFT JOIN vprocesslist vpl ON vpl.process_id = vpm.vprocess_id 
-          LEFT JOIN vprocessshowlist vpsl ON vpsl.processshowlist_id = vpl.process_type 
-          WHERE vpm.status = 1 AND vpm.deleted_flag = 0 AND vpm.archive_data = 0
-          AND vpm.Vendor_id = ?
-          GROUP BY vpm.vprocess_id, vpm.Vendor_id, vpm.Process_date, vm.vendor_name
-          ORDER BY vpm.Row_updated_date DESC`,
-          [querydata.vendorid]
-        );
-      }
-    } else {
-      // Archived processes
-      if (querydata.vendorid == 0) {
-        // All vendors
-        sql = await db.query(
-          `SELECT 
-            vpm.vprocess_id processid,
-            (SELECT vpl1.process_name 
-              FROM vprocesslist vpl1 
-              WHERE vpl1.process_id = vpm.vprocess_id 
-              ORDER BY vpl1.Row_updated_date ASC 
-              LIMIT 1) AS title,
-            vm.vendor_name,
-            DATE_FORMAT(vpm.Process_date, '%Y%m%d') AS Process_date,
-            DATEDIFF(CURDATE(), vpm.Process_date) AS age_in_days,
+            ABS(DATEDIFF(CURDATE(), vpm.Process_date)) AS age_in_days,
             COUNT(vpm.vprocess_id) OVER(PARTITION BY vpm.Vendor_id) AS process_count, 
             (
               SELECT JSON_ARRAYAGG(t.TimelineEvent)
@@ -3471,7 +3407,7 @@ async function GetAllProcessList(vendorData) {
                 WHERE vpl2.process_id = vpm.vprocess_id
                 ORDER BY vpl2.Row_updated_date ASC
               ) t
-            ) AS TimelineEvents 
+            ) AS TimelineEvents  
           FROM vendorprocessmaster vpm 
           JOIN vendors vm ON vpm.Vendor_id = vm.vendorid 
           LEFT JOIN vprocesslist vpl ON vpl.process_id = vpm.vprocess_id 
@@ -3493,7 +3429,7 @@ async function GetAllProcessList(vendorData) {
               LIMIT 1) AS title,
             vm.vendor_name,
             DATE_FORMAT(vpm.Process_date, '%Y%m%d') AS Process_date,
-            DATEDIFF(CURDATE(), vpm.Process_date) AS age_in_days,
+            ABS(DATEDIFF(CURDATE(), vpm.Process_date)) AS age_in_days,
             COUNT(vpm.vprocess_id) OVER(PARTITION BY vpm.Vendor_id) AS process_count, 
             (
               SELECT JSON_ARRAYAGG(t.TimelineEvent)
@@ -3515,12 +3451,100 @@ async function GetAllProcessList(vendorData) {
                 WHERE vpl2.process_id = vpm.vprocess_id
                 ORDER BY vpl2.Row_updated_date ASC
               ) t
-            ) AS TimelineEvents 
+            ) AS TimelineEvents  
           FROM vendorprocessmaster vpm 
           JOIN vendors vm ON vpm.Vendor_id = vm.vendorid 
           LEFT JOIN vprocesslist vpl ON vpl.process_id = vpm.vprocess_id 
           LEFT JOIN vprocessshowlist vpsl ON vpsl.processshowlist_id = vpl.process_type 
           WHERE vpm.status = 1 AND vpm.deleted_flag = 0 AND vpm.archive_data = 1
+          AND vpm.Vendor_id = ?
+          GROUP BY vpm.vprocess_id, vpm.Vendor_id, vpm.Process_date, vm.vendor_name
+          ORDER BY vpm.Row_updated_date DESC`,
+          [querydata.vendorid]
+        );
+      }
+    } else {
+      // Active processes (listtype != 1 = show unarchived data)
+      if (querydata.vendorid == 0) {
+        // All vendors
+        sql = await db.query(
+          `SELECT 
+            vpm.vprocess_id processid,
+            (SELECT vpl1.process_name 
+              FROM vprocesslist vpl1 
+              WHERE vpl1.process_id = vpm.vprocess_id 
+              ORDER BY vpl1.Row_updated_date ASC 
+              LIMIT 1) AS title,
+            vm.vendor_name,
+            DATE_FORMAT(vpm.Process_date, '%Y%m%d') AS Process_date,
+            ABS(DATEDIFF(CURDATE(), vpm.Process_date)) AS age_in_days,
+            COUNT(vpm.vprocess_id) OVER(PARTITION BY vpm.Vendor_id) AS process_count, 
+            (
+              SELECT JSON_ARRAYAGG(t.TimelineEvent)
+              FROM (
+                SELECT JSON_OBJECT(
+                         'Eventid', vpl2.vprocess_id,
+                         'Eventname', vpsl2.processname,
+                         'feedback', vpl2.feedback,
+                         'Allowed_process', vpsl2.allowed_process,
+                         'pdfpath', vpl2.Process_filepath,
+                         'apporvedstatus', vpl2.Approved_status,
+                         'internalstatus', vpl2.status
+                       ) AS TimelineEvent
+                FROM vprocesslist vpl2
+                LEFT JOIN vprocessshowlist vpsl2 
+                  ON vpsl2.processshowlist_id = vpl2.process_type
+                WHERE vpl2.process_id = vpm.vprocess_id
+                ORDER BY vpl2.Row_updated_date ASC
+              ) t
+            ) AS TimelineEvents 
+          FROM vendorprocessmaster vpm 
+          JOIN vendors vm ON vpm.Vendor_id = vm.vendorid 
+          LEFT JOIN vprocesslist vpl ON vpl.process_id = vpm.vprocess_id 
+          LEFT JOIN vprocessshowlist vpsl ON vpsl.processshowlist_id = vpl.process_type 
+          WHERE vpm.status = 1 
+          AND vpm.deleted_flag = 0 AND vpm.archive_data = 0
+          GROUP BY vpm.vprocess_id, vpm.Vendor_id, vpm.Process_date, vm.vendor_name
+          ORDER BY vpm.Row_updated_date DESC`
+        );
+      } else {
+        // Specific vendor
+        sql = await db.query(
+          `SELECT 
+            vpm.vprocess_id processid,
+            (SELECT vpl1.process_name 
+              FROM vprocesslist vpl1 
+              WHERE vpl1.process_id = vpm.vprocess_id 
+              ORDER BY vpl1.Row_updated_date ASC 
+              LIMIT 1) AS title,
+            vm.vendor_name,
+            DATE_FORMAT(vpm.Process_date, '%Y%m%d') AS Process_date,
+            ABS(DATEDIFF(CURDATE(), vpm.Process_date)) AS age_in_days,
+            COUNT(vpm.vprocess_id) OVER(PARTITION BY vpm.Vendor_id) AS process_count, 
+            (
+              SELECT JSON_ARRAYAGG(t.TimelineEvent)
+              FROM (
+                SELECT JSON_OBJECT(
+                         'Eventid', vpl2.vprocess_id,
+                         'Eventname', vpsl2.processname,
+                         'feedback', vpl2.feedback,
+                         'Allowed_process', vpsl2.allowed_process,
+                         'pdfpath', vpl2.Process_filepath,
+                         'apporvedstatus', vpl2.Approved_status,
+                         'internalstatus', vpl2.status
+                       ) AS TimelineEvent
+                FROM vprocesslist vpl2
+                LEFT JOIN vprocessshowlist vpsl2 
+                  ON vpsl2.processshowlist_id = vpl2.process_type
+                WHERE vpl2.process_id = vpm.vprocess_id
+                ORDER BY vpl2.Row_updated_date ASC
+              ) t
+            ) AS TimelineEvents 
+          FROM vendorprocessmaster vpm 
+          JOIN vendors vm ON vpm.Vendor_id = vm.vendorid 
+          LEFT JOIN vprocesslist vpl ON vpl.process_id = vpm.vprocess_id 
+          LEFT JOIN vprocessshowlist vpsl ON vpsl.processshowlist_id = vpl.process_type 
+          WHERE vpm.status = 1 AND vpm.deleted_flag = 0 AND vpm.archive_data = 0
           AND vpm.Vendor_id = ?
           GROUP BY vpm.vprocess_id, vpm.Vendor_id, vpm.Process_date, vm.vendor_name
           ORDER BY vpm.Row_updated_date DESC`,
@@ -3818,20 +3842,36 @@ async function getBinaryFile(vendorData) {
 //########################################### REQUEST BODY FOR ARCHIVE PROCESS #####################################################################################
 // {
 //   "STOKEN": "your_session_token",
-//   "querystring": "encrypted_data_containing_process_id"
+//   "querystring": "encrypted_data_containing_process_id_and_type"
 // }
 // Required querystring data:
 // {
-//   "processid": 4  // Required - vprocess_id from vendorprocessmaster to archive
+//   "processid": 4,  // Required - single vprocess_id from vendorprocessmaster
+//   "type": 1        // Required - 1 for archive, 0 for unarchive
+// }
+// OR for multiple processes:
+// {
+//   "processid": [4, 5, 6],  // Required - array of vprocess_ids from vendorprocessmaster
+//   "type": 1                // Required - 1 for archive, 0 for unarchive
 // }
 //####################################################################### RESPONSE BODY FOR ARCHIVE PROCESS #######################################################
 // {
 //   "code": true,
-//   "message": "Process archived successfully",
+//   "message": "All 3 process(es) archived successfully",
 //   "Value": {
-//     "vprocess_id": 4,
-//     "vendor_name": "JK Constructiond",
-//     "archive_status": "archived"
+//     "operation": "archive",
+//     "total_processed": 3,
+//     "success_count": 3,
+//     "error_count": 0,
+//     "results": [
+//       {
+//         "vprocess_id": 4,
+//         "vendor_name": "JK Construction",
+//         "status": "success",
+//         "message": "Process archived successfully",
+//         "archive_status": "archived"
+//       }
+//     ]
 //   }
 // }
 //##################################################################################################################################################################################################
@@ -3931,74 +3971,127 @@ async function ArchiveProcess(processData) {
       );
     }
 
+    // Validate type field
+    if (!querydata.hasOwnProperty("type") || (querydata.type !== 0 && querydata.type !== 1)) {
+      return helper.getErrorResponse(
+        false,
+        "error",
+        "Type missing or invalid. Please provide type (1 for archive, 0 for unarchive)",
+        "ARCHIVE PROCESS",
+        secret
+      );
+    }
+
     try {
-      // First, check if the process exists and is not already archived
-      const checkProcess = await db.query(
-        `SELECT vprocess_id, vendor_name, archive_data, deleted_flag 
-         FROM vendorprocessmaster 
-         WHERE vprocess_id = ? AND deleted_flag = 0`,
-        [querydata.processid]
-      );
+      // Handle both single process ID and array of process IDs
+      let processIds = Array.isArray(querydata.processid) ? querydata.processid : [querydata.processid];
+      let results = [];
+      let successCount = 0;
+      let errorCount = 0;
+      
+      const operation = querydata.type === 1 ? "archive" : "unarchive";
+      const archiveValue = querydata.type; // 1 for archive, 0 for unarchive
 
-      if (checkProcess.length === 0) {
-        return helper.getErrorResponse(
-          false,
-          "error",
-          "Process not found or already deleted",
-          "ARCHIVE PROCESS",
-          secret
-        );
+      for (let processId of processIds) {
+        try {
+          // Check if the process exists
+          const checkProcess = await db.query(
+            `SELECT vprocess_id, vendor_name, archive_data, deleted_flag 
+             FROM vendorprocessmaster 
+             WHERE vprocess_id = ? AND deleted_flag = 0`,
+            [processId]
+          );
+
+          if (checkProcess.length === 0) {
+            results.push({
+              vprocess_id: processId,
+              status: "error",
+              message: "Process not found or already deleted"
+            });
+            errorCount++;
+            continue;
+          }
+
+          // Check if already in the desired state
+          if (checkProcess[0].archive_data === archiveValue) {
+            results.push({
+              vprocess_id: processId,
+              vendor_name: checkProcess[0].vendor_name,
+              status: "skipped",
+              message: `Process is already ${operation}d`
+            });
+            continue;
+          }
+
+          // Update the archive status
+          const sql = await db.query(
+            `UPDATE vendorprocessmaster 
+             SET archive_data = ?, Row_updated_date = NOW() 
+             WHERE vprocess_id = ? AND deleted_flag = 0`,
+            [archiveValue, processId]
+          );
+
+          if (sql.affectedRows > 0) {
+            results.push({
+              vprocess_id: processId,
+              vendor_name: checkProcess[0].vendor_name,
+              status: "success",
+              message: `Process ${operation}d successfully`,
+              archive_status: operation === "archive" ? "archived" : "active"
+            });
+            successCount++;
+          } else {
+            results.push({
+              vprocess_id: processId,
+              status: "error",
+              message: `Failed to ${operation} the process`
+            });
+            errorCount++;
+          }
+        } catch (processError) {
+          results.push({
+            vprocess_id: processId,
+            status: "error",
+            message: `Error processing: ${processError.message}`
+          });
+          errorCount++;
+        }
       }
 
-      if (checkProcess[0].archive_data === 1) {
-        return helper.getErrorResponse(
-          false,
-          "error",
-          "Process is already archived",
-          "ARCHIVE PROCESS",
-          secret
-        );
+      // Send MQTT notifications for bulk operations
+      if (successCount > 0) {
+        try {
+          const message = `${successCount} Process(es) ${operation.charAt(0).toUpperCase() + operation.slice(1)}d Successfully`;
+          mqttclient.publishMqttMessage("Notification", message).catch(err => console.log('MQTT Notification error:', err));
+          mqttclient.publishMqttMessage("refresh", `Process ${operation} completed`).catch(err => console.log('MQTT Refresh error:', err));
+        } catch (mqttError) {
+          console.log('MQTT publish error:', mqttError);
+        }
       }
 
-      // Archive the process by setting archive_data = 1
-      const sql = await db.query(
-        `UPDATE vendorprocessmaster 
-         SET archive_data = 1, Row_updated_date = NOW() 
-         WHERE vprocess_id = ? AND deleted_flag = 0`,
-        [querydata.processid]
-      );
-
-      if (sql.affectedRows > 0) {
-        // MQTT notifications for process archiving
-        await mqttclient.publishMqttMessage(
-          "Notification",
-          "Process Archived Successfully - " + checkProcess[0].vendor_name
-        );
-        await mqttclient.publishMqttMessage(
-          "refresh",
-          "Process Archived Successfully"
-        );
-        
-        return helper.getSuccessResponse(
-          true,
-          "success",
-          "Process archived successfully",
-          {
-            vprocess_id: querydata.processid,
-            vendor_name: checkProcess[0].vendor_name,
-            archive_status: "archived"
-          },
-          secret
-        );
+      // Determine response message
+      let responseMessage;
+      if (successCount > 0 && errorCount === 0) {
+        responseMessage = `All ${successCount} process(es) ${operation}d successfully`;
+      } else if (successCount > 0 && errorCount > 0) {
+        responseMessage = `${successCount} process(es) ${operation}d successfully, ${errorCount} failed`;
       } else {
-        return helper.getErrorResponse(
-          false,
-          "error",
-          "Failed to archive the process",
-          "ARCHIVE PROCESS",
-          secret
-        );
+        responseMessage = `Failed to ${operation} processes`;
       }
+
+      return helper.getSuccessResponse(
+        true,
+        "success",
+        responseMessage,
+        {
+          operation: operation,
+          total_processed: processIds.length,
+          success_count: successCount,
+          error_count: errorCount,
+          results: results
+        },
+        secret
+      );
     } catch (er) {
       return helper.getErrorResponse(
         false,
@@ -4024,20 +4117,36 @@ async function ArchiveProcess(processData) {
 //########################################### REQUEST BODY FOR DELETE PROCESS #####################################################################################
 // {
 //   "STOKEN": "your_session_token",
-//   "querystring": "encrypted_data_containing_process_id"
+//   "querystring": "encrypted_data_containing_process_id_and_type"
 // }
 // Required querystring data:
 // {
-//   "processid": 4  // Required - vprocess_id from vendorprocessmaster to delete
+//   "processid": 4,  // Required - single vprocess_id from vendorprocessmaster
+//   "type": 1        // Required - 1 for delete, 0 for undelete
+// }
+// OR for multiple processes:
+// {
+//   "processid": [4, 5, 6],  // Required - array of vprocess_ids from vendorprocessmaster
+//   "type": 1                // Required - 1 for delete, 0 for undelete
 // }
 //####################################################################### RESPONSE BODY FOR DELETE PROCESS #######################################################
 // {
 //   "code": true,
-//   "message": "Process deleted successfully",
+//   "message": "All 3 process(es) deleted successfully",
 //   "Value": {
-//     "vprocess_id": 4,
-//     "vendor_name": "JK Constructiond",
-//     "delete_status": "deleted"
+//     "operation": "delete",
+//     "total_processed": 3,
+//     "success_count": 3,
+//     "error_count": 0,
+//     "results": [
+//       {
+//         "vprocess_id": 4,
+//         "vendor_name": "JK Construction",
+//         "status": "success",
+//         "message": "Process deleted successfully",
+//         "delete_status": "deleted"
+//       }
+//     ]
 //   }
 // }
 //##################################################################################################################################################################################################
@@ -4137,72 +4246,128 @@ async function DeleteProcess(processData) {
       );
     }
 
+    // Validate type field
+    if (!querydata.hasOwnProperty("type") || (querydata.type !== 0 && querydata.type !== 1)) {
+      return helper.getErrorResponse(
+        false,
+        "error",
+        "Type missing or invalid. Please provide type (1 for delete, 0 for undelete)",
+        "DELETE PROCESS",
+        secret
+      );
+    }
+
     try {
-      // First, check if the process exists and is not already deleted
-      const checkProcess = await db.query(
-        `SELECT vprocess_id, vendor_name, deleted_flag 
-         FROM vendorprocessmaster 
-         WHERE vprocess_id = ? AND deleted_flag = 0`,
-        [querydata.processid]
-      );
+      // Handle both single process ID and array of process IDs
+      let processIds = Array.isArray(querydata.processid) ? querydata.processid : [querydata.processid];
+      let results = [];
+      let successCount = 0;
+      let errorCount = 0;
+      
+      const operation = querydata.type === 1 ? "delete" : "undelete";
+      const deleteValue = querydata.type; // 1 for delete, 0 for undelete
+      const checkCondition = querydata.type === 1 ? "deleted_flag = 0" : "deleted_flag = 1";
 
-      if (checkProcess.length === 0) {
-        return helper.getErrorResponse(
-          false,
-          "error",
-          "Process not found or already deleted",
-          "DELETE PROCESS",
-          secret
-        );
+      for (let processId of processIds) {
+        try {
+          // Check if the process exists in the expected state
+          const checkProcess = await db.query(
+            `SELECT vprocess_id, vendor_name, deleted_flag 
+             FROM vendorprocessmaster 
+             WHERE vprocess_id = ? AND ${checkCondition}`,
+            [processId]
+          );
+
+          if (checkProcess.length === 0) {
+            const notFoundMessage = querydata.type === 1 ? 
+              "Process not found or already deleted" : 
+              "Process not found or not deleted";
+            results.push({
+              vprocess_id: processId,
+              status: "error",
+              message: notFoundMessage
+            });
+            errorCount++;
+            continue;
+          }
+
+          // Update the delete status
+          const sql = await db.query(
+            `UPDATE vendorprocessmaster 
+             SET deleted_flag = ?, Row_updated_date = NOW() 
+             WHERE vprocess_id = ?`,
+            [deleteValue, processId]
+          );
+
+          // Also update related vprocesslist entries
+          await db.query(
+            `UPDATE vprocesslist 
+             SET deleted_flag = ?, Row_updated_date = NOW() 
+             WHERE process_id = ?`,
+            [deleteValue, processId]
+          );
+
+          if (sql.affectedRows > 0) {
+            results.push({
+              vprocess_id: processId,
+              vendor_name: checkProcess[0].vendor_name,
+              status: "success",
+              message: `Process ${operation}d successfully`,
+              delete_status: operation === "delete" ? "deleted" : "active"
+            });
+            successCount++;
+          } else {
+            results.push({
+              vprocess_id: processId,
+              status: "error",
+              message: `Failed to ${operation} the process`
+            });
+            errorCount++;
+          }
+        } catch (processError) {
+          results.push({
+            vprocess_id: processId,
+            status: "error",
+            message: `Error processing: ${processError.message}`
+          });
+          errorCount++;
+        }
       }
 
-      // Soft delete the process by setting deleted_flag = 1
-      const sql = await db.query(
-        `UPDATE vendorprocessmaster 
-         SET deleted_flag = 1, Row_updated_date = NOW() 
-         WHERE vprocess_id = ? AND deleted_flag = 0`,
-        [querydata.processid]
-      );
+      // Send MQTT notifications for bulk operations
+      if (successCount > 0) {
+        try {
+          const message = `${successCount} Process(es) ${operation.charAt(0).toUpperCase() + operation.slice(1)}d Successfully`;
+          mqttclient.publishMqttMessage("Notification", message).catch(err => console.log('MQTT Notification error:', err));
+          mqttclient.publishMqttMessage("refresh", `Process ${operation} completed`).catch(err => console.log('MQTT Refresh error:', err));
+        } catch (mqttError) {
+          console.log('MQTT publish error:', mqttError);
+        }
+      }
 
-      // Also soft delete related vprocesslist entries
-      await db.query(
-        `UPDATE vprocesslist 
-         SET deleted_flag = 1, Row_updated_date = NOW() 
-         WHERE process_id = ? AND deleted_flag = 0`,
-        [querydata.processid]
-      );
-
-      if (sql.affectedRows > 0) {
-        // MQTT notifications for process deletion
-        await mqttclient.publishMqttMessage(
-          "Notification",
-          "Process Deleted Successfully - " + checkProcess[0].vendor_name
-        );
-        await mqttclient.publishMqttMessage(
-          "refresh",
-          "Process Deleted Successfully"
-        );
-        
-        return helper.getSuccessResponse(
-          true,
-          "success",
-          "Process deleted successfully",
-          {
-            vprocess_id: querydata.processid,
-            vendor_name: checkProcess[0].vendor_name,
-            delete_status: "deleted"
-          },
-          secret
-        );
+      // Determine response message
+      let responseMessage;
+      if (successCount > 0 && errorCount === 0) {
+        responseMessage = `All ${successCount} process(es) ${operation}d successfully`;
+      } else if (successCount > 0 && errorCount > 0) {
+        responseMessage = `${successCount} process(es) ${operation}d successfully, ${errorCount} failed`;
       } else {
-        return helper.getErrorResponse(
-          false,
-          "error",
-          "Failed to delete the process",
-          "DELETE PROCESS",
-          secret
-        );
+        responseMessage = `Failed to ${operation} processes`;
       }
+
+      return helper.getSuccessResponse(
+        true,
+        "success",
+        responseMessage,
+        {
+          operation: operation,
+          total_processed: processIds.length,
+          success_count: successCount,
+          error_count: errorCount,
+          results: results
+        },
+        secret
+      );
     } catch (er) {
       return helper.getErrorResponse(
         false,
@@ -4424,23 +4589,42 @@ async function rrfqpreloader(vendorData) {
 
       const vendorRfqDetails = rfqDetailsQuery[0];
 
-      // Step 3: Generate RRFQ ID using stored procedure
+      // Step 3: Check if RRFQ ID already exists, or generate new one
       let newRrfqId;
-      try {
-        const [rrfqResult] = await db.spcall(
-          `CALL Gen_vendor_rrfqId(?, ?, @rrfq_id); SELECT @rrfq_id;`,
-          [vprocessGenId, userid]
+      
+      // Check if a specific RRFQ ID is provided in the request
+      if (querydata.rrfqgenid && querydata.rrfqgenid.trim() !== '') {
+        // Check if the provided RRFQ ID already exists in vprocesslist
+        const existingProcess = await db.query(
+          `SELECT vprocess_gen_id FROM vprocesslist WHERE vprocess_gen_id = ? AND deleted_flag = 0 LIMIT 1`,
+          [querydata.rrfqgenid]
         );
-        const objectValue = rrfqResult[1][0];
-        newRrfqId = objectValue["@rrfq_id"];
-      } catch (e) {
-        return helper.getErrorResponse(
-          false,
-          "error",
-          "Failed to generate RRFQ ID using stored procedure",
-          "RRFQ PRELOADER",
-          secret
-        );
+        
+        if (existingProcess.length > 0) {
+          // Use existing RRFQ ID
+          newRrfqId = querydata.rrfqgenid;
+        } else {
+          // RRFQ ID provided but doesn't exist, use it as new
+          newRrfqId = querydata.rrfqgenid;
+        }
+      } else {
+        // No RRFQ ID provided, generate new one using stored procedure
+        try {
+          const [rrfqResult] = await db.spcall(
+            `CALL Gen_vendor_rrfqId(?, ?, @rrfq_id); SELECT @rrfq_id;`,
+            [vprocessGenId, userid]
+          );
+          const objectValue = rrfqResult[1][0];
+          newRrfqId = objectValue["@rrfq_id"];
+        } catch (e) {
+          return helper.getErrorResponse(
+            false,
+            "error",
+            "Failed to generate RRFQ ID using stored procedure",
+            "RRFQ PRELOADER",
+            secret
+          );
+        }
       }
 
       // Step 4: Parse JSON fields if they exist
@@ -4773,8 +4957,7 @@ async function PostRRFQ(req, res) {
       if (!req.file) {
         return helper.getErrorResponse(
           false,
-          "error",
-          "File upload required. Please provide the RRFQ document",
+          "Please upload a PDF file!",
           "POST RRFQ",
           ""
         );
@@ -4782,7 +4965,6 @@ async function PostRRFQ(req, res) {
     } catch (er) {
       return helper.getErrorResponse(
         false,
-        "error",
         `Could not upload the file. ${er.message}`,
         "POST RRFQ",
         ""
@@ -4795,7 +4977,6 @@ async function PostRRFQ(req, res) {
     if (!rrfqData || !("STOKEN" in rrfqData) || rrfqData.STOKEN === undefined) {
       return helper.getErrorResponse(
         false,
-        "error",
         "Login session token missing. Please provide the Login session token",
         "POST RRFQ",
         ""
@@ -4806,7 +4987,6 @@ async function PostRRFQ(req, res) {
     if (rrfqData.STOKEN.length > 50 || rrfqData.STOKEN.length < 30) {
       return helper.getErrorResponse(
         false,
-        "error",
         "Login session token size invalid. Please provide the valid Session token",
         "POST RRFQ",
         ""
@@ -4851,7 +5031,6 @@ async function PostRRFQ(req, res) {
     } catch (ex) {
       return helper.getErrorResponse(
         false,
-        "error",
         "Querystring Invalid error. Please provide the valid querystring.",
         "POST RRFQ",
         secret
@@ -4864,7 +5043,6 @@ async function PostRRFQ(req, res) {
     } catch (ex) {
       return helper.getErrorResponse(
         false,
-        "error",
         "Querystring JSON error. Please provide valid JSON",
         "POST RRFQ",
         secret
@@ -4872,20 +5050,9 @@ async function PostRRFQ(req, res) {
     }
 
     // Validate required fields
-    if (!querydata || !("rrfqgenid" in querydata) || querydata.rrfqgenid === "" || querydata.rrfqgenid === undefined) {
-      return helper.getErrorResponse(
-        false,
-        "error",
-        "RRFQ ID missing. Please provide the RRFQ ID",
-        "POST RRFQ",
-        secret
-      );
-    }
-
     if (!querydata || !("vendorid" in querydata) || querydata.vendorid === "" || querydata.vendorid === undefined) {
       return helper.getErrorResponse(
         false,
-        "error",
         "Vendor ID missing. Please provide the Vendor ID",
         "POST RRFQ",
         secret
@@ -4903,10 +5070,9 @@ async function PostRRFQ(req, res) {
     }
 
     // Validate messagetype if provided
-    if (querydata && ("message_type" in querydata) && ![1, 2, 3].includes(querydata.message_type)) {
+    if (querydata && ("messagetype" in querydata) && ![1, 2, 3].includes(querydata.messagetype)) {
       return helper.getErrorResponse(
         false,
-        "error",
         "Invalid message type. Use 1 for email only, 2 for WhatsApp only, 3 for both",
         "POST RRFQ",
         secret
@@ -4914,19 +5080,15 @@ async function PostRRFQ(req, res) {
     }
 
     // Set default messagetype to 1 (email only) if not provided
-    const messagetype = querydata.message_type || 1;
+    const messagetype = querydata.messagetype || 1;
 
     try {
-      // Get basic vendor details for communication if not provided in querystring
+      // Get basic vendor details for communication
       const vendorDetails = await db.query(
         `SELECT 
           vendor_name, 
           email, 
-          contact_person_phone,
-          address,
-          gst_number,
-          pan_number,
-          contact_person_name
+          contact_person_phone
         FROM vendors WHERE vendorid = ?`,
         [querydata.vendorid]
       );
@@ -4934,19 +5096,30 @@ async function PostRRFQ(req, res) {
       if (!vendorDetails || vendorDetails.length === 0) {
         return helper.getErrorResponse(
           false,
-          "error",
-          "Vendor not found with the provided Vendor ID",
+          "Vendor not found or inactive",
           "POST RRFQ",
           secret
         );
       }
 
       const vendor = vendorDetails[0];
+
+      // Validate RRFQ ID is provided (should come from rrfqpreloader endpoint)
+      if (!querydata.rrfqgenid || querydata.rrfqgenid.trim() === '') {
+        return helper.getErrorResponse(
+          false,
+          "RRFQ ID missing. Please use rrfqpreloader endpoint to generate RRFQ ID first",
+          "POST RRFQ",
+          secret
+        );
+      }
+
+      const rrfqGenId = querydata.rrfqgenid;
       const filePath = req.file.path;
       const currentDate = new Date();
       const formattedDate = currentDate.toISOString().slice(0, 10); // YYYY-MM-DD
 
-      // Insert vendor RRFQ details into vendor_rrfq_details table
+      // Insert vendor RRFQ details into vendor_rrfq_details table using querystring data
       const rrfqDetailsResult = await db.query(
         `INSERT INTO vendor_rrfq_details (
           rrfqgenid,
@@ -4968,30 +5141,79 @@ async function PostRRFQ(req, res) {
           row_updated_date,
           status,
           deleted_flag
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), 1, 0)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, ?)`,
         [
-          querydata.rrfqgenid,
+          rrfqGenId,
           querydata.vendorid,
-          querydata.vendorname || vendor.vendor_name,
-          querydata.gstin || vendor.gst_number || '',
-          querydata.pan || vendor.pan_number || '',
-          querydata.contact_person || vendor.contact_person_name || '',
-          querydata.vendor_address || vendor.address || '',
+          querydata.vendorname || '',
+          querydata.GSTIN || '',
+          querydata.PAN || '',
+          querydata.Contact_person || '',
+          querydata.vendoraddress || '',
           querydata.title || '',
-          querydata.email_id || vendor.email || '',
-          querydata.phone_no || vendor.contact_person_phone || '',
-          querydata.cc_email || '',
+          querydata.emailid || '',
+          querydata.phoneno || '',
+          querydata.ccemail || '',
           messagetype,
           querydata.feedback || '',
-          querydata.rrfq_date ? new Date(querydata.rrfq_date) : new Date(),
+          querydata.date ? new Date(querydata.date) : new Date(),
           querydata.notes ? JSON.stringify(querydata.notes) : JSON.stringify([]),
-          querydata.products ? JSON.stringify(querydata.products) : JSON.stringify([])
+          querydata.product ? JSON.stringify(querydata.product) : JSON.stringify([]),
+          1, // status
+          0  // deleted_flag
         ]
       );
 
-      const rrfq_details_id = rrfqDetailsResult.insertId;
+      // Insert notes into vendor_notesmaster table (if notes exist)
+      if (querydata.notes && Array.isArray(querydata.notes) && querydata.notes.length > 0) {
+        for (const noteItem of querydata.notes) {
+          try {
+            // Extract note content based on structure (handle both string and object notes)
+            let noteContent = '';
+            if (typeof noteItem === 'string') {
+              noteContent = noteItem.trim();
+            } else if (typeof noteItem === 'object' && noteItem.note) {
+              noteContent = noteItem.note.trim();
+            } else if (typeof noteItem === 'object' && noteItem.notes) {
+              noteContent = noteItem.notes.trim();
+            }
 
-      // Insert into vprocesslist as a subprocess (no vendorprocessmaster entry)
+            // Skip empty notes
+            if (!noteContent) {
+              continue;
+            }
+
+            // Format note as JSON array (based on your table structure)
+            const formattedNote = JSON.stringify([noteContent]);
+
+            // Check if note already exists in vendor_notesmaster
+            const existingNote = await db.query(
+              `SELECT notes_id FROM vendor_notesmaster 
+               WHERE JSON_EXTRACT(notes, '$[0]') = ? AND deleted_flag = 0 
+               LIMIT 1`,
+              [noteContent]
+            );
+
+            // Insert note only if it doesn't exist
+            if (!existingNote || existingNote.length === 0) {
+              await db.query(
+                `INSERT INTO vendor_notesmaster (
+                  notes, 
+                  row_updated_date, 
+                  status, 
+                  deleted_flag
+                ) VALUES (?, NOW(), 1, 0)`,
+                [formattedNote]
+              );
+            }
+          } catch (noteError) {
+            console.error('Error inserting note:', noteError);
+            // Continue processing other notes even if one fails
+          }
+        }
+      }
+
+      // Insert into vprocesslist as a subprocess (no vendorprocessmaster entry for RRFQ)
       const processResult = await db.query(
         `INSERT INTO vprocesslist (
           process_name,
@@ -5006,19 +5228,21 @@ async function PostRRFQ(req, res) {
           vendor_address,
           vendor_name,
           process_id,
-          feedback,
           Row_updated_date
-        ) VALUES (?, ?, ?, 0, 1, 0, ?, ?, 3, ?, ?, ?, ?, NOW())`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
         [
           'RRFQ',
           filePath,
           formattedDate,
+          0, // Approved_status
+          1, // status
+          0, // deleted_flag
           userid,
-          querydata.rrfqgenid,
-          querydata.vendor_address || vendor.address || '',
+          rrfqGenId,
+          3, // process_type for RRFQ
+          querydata.vendoraddress || vendor.address || '',
           querydata.vendorname || vendor.vendor_name,
-          querydata.processid, // Parent process_id from vendorprocessmaster
-          querydata.feedback || ''
+          querydata.processid // Parent process_id from vendorprocessmaster
         ]
       );
 
@@ -5028,98 +5252,155 @@ async function PostRRFQ(req, res) {
       let emailSent = false;
       let whatsappSent = false;
 
+      // Update generatevrrfqids status to 0 (mark as used) after successful vprocesslist insertion
+      // This ensures the RRFQ ID cannot be reused for another process
+      try {
+        await db.query(
+          `UPDATE generatevrrfqids SET status = 0, row_updated_date = NOW() 
+           WHERE TRIM(LOWER(rrfq_id)) = TRIM(LOWER(?))`,
+          [rrfqGenId]
+        );
+      } catch (updateError) {
+        console.log("Warning: Could not update RRFQ ID status:", updateError);
+        // Continue execution even if update fails
+      }
+
       // Get required modules
       const mailer = require("../mailer");
       const axios = require("axios");
       const config = require("../config");
 
       // Prepare email and WhatsApp data
-      const vendorEmail = querydata.email_id || vendor.email || "kishorekkumar34@gmail.com"; // Fallback email
+      const vendorEmail = /*vendor.email ||*/ "kishorekkumar34@gmail.com"; // Fallback email
       const ccEmail = querydata.cc_email || "";
-      const subject = `Revised Request for Quotation - ${querydata.rrfqgenid}`;
-      const notes = querydata.feedback || "Please review the attached revised RFQ document and provide your updated quotation.";
+      const subject = `Revised Request for Quotation - ${rrfqGenId}`;
+      const notes = querydata.feedback || querydata.notes || "Please review the attached revised RFQ document and provide your updated quotation.";
       
       // Process phone numbers (handle single or comma-separated numbers)
-      const phoneNumbers = (querydata.phone_no || vendor.contact_person_phone)
-        ? (querydata.phone_no || vendor.contact_person_phone)
+      const phoneNumbers = vendor.contact_person_phone 
+        ? vendor.contact_person_phone
             .split(",")
             .map((num) => num.trim())
-            .filter((num) => num !== "")
+            .filter((num) => num !== "") // Remove empty values
         : [];
 
       // Send based on messagetype
       if (messagetype === 1) {
-        // Email only
+        // Send only email
         try {
-          await mailer.sendEmail(
+          emailSent = await mailer.sendVendorRFQ(
+            vendor.vendor_name,
             vendorEmail,
-            ccEmail,
             subject,
-            notes,
-            filePath
+            "VENDORRRFQ", // module tag for email settings
+            filePath, // file path for attachment
+            rrfqGenId, // RRFQ ID
+            notes, // additional notes
+            ccEmail // CC email
           );
-          emailSent = true;
         } catch (emailError) {
-          console.error("Email sending failed:", emailError);
+          console.log("Warning: Email sending error:", emailError);
           emailSent = false;
         }
       } else if (messagetype === 2) {
-        // WhatsApp only
-        try {
-          for (const phoneNumber of phoneNumbers) {
-            const whatsappUrl = `${config.whatsappApiUrl}/send-document`;
-            const whatsappData = {
-              phone: phoneNumber,
-              document: filePath,
-              caption: `${subject}\n\n${notes}`,
-            };
-
-            await axios.post(whatsappUrl, whatsappData);
+        // Send only WhatsApp
+        if (phoneNumbers.length > 0) {
+          try {
+            const whatsappResults = await Promise.all(
+              phoneNumbers.map(async (number) => {
+                try {
+                  const response = await axios.post(
+                    `${config.whatsappip}/billing/sendpdf`,
+                    {
+                      phoneno: number,
+                      feedback: notes,
+                      pdfpath: filePath,
+                    }
+                  );
+                  return response.data.code || false;
+                } catch (error) {
+                  console.error(`WhatsApp Error for ${number}:`, error.message);
+                  return false;
+                }
+              })
+            );
+            whatsappSent = whatsappResults.some(result => result === true);
+          } catch (whatsappError) {
+            console.log("Warning: WhatsApp sending error:", whatsappError);
+            whatsappSent = false;
           }
-          whatsappSent = true;
-        } catch (whatsappError) {
-          console.error("WhatsApp sending failed:", whatsappError);
+        } else {
+          console.log("Warning: No phone numbers available for WhatsApp sending");
           whatsappSent = false;
         }
       } else if (messagetype === 3) {
-        // Both email and WhatsApp
-        try {
-          await mailer.sendEmail(
+        // Send both email and WhatsApp
+        const promises = [];
+
+        // Email promise
+        promises.push(
+          mailer.sendVendorRFQ(
+            vendor.vendor_name,
             vendorEmail,
-            ccEmail,
             subject,
+            "VENDORRRFQ",
+            filePath,
+            rrfqGenId,
             notes,
-            filePath
+            ccEmail
+          ).then(result => {
+            emailSent = result;
+            return result;
+          }).catch(error => {
+            console.log("Warning: Email sending error:", error);
+            emailSent = false;
+            return false;
+          })
+        );
+
+        // WhatsApp promise
+        if (phoneNumbers.length > 0) {
+          promises.push(
+            Promise.all(
+              phoneNumbers.map(async (number) => {
+                try {
+                  const response = await axios.post(
+                    `${config.whatsappip}/billing/sendpdf`,
+                    {
+                      phoneno: number,
+                      feedback: notes,
+                      pdfpath: filePath,
+                    }
+                  );
+                  return response.data.code || false;
+                } catch (error) {
+                  console.error(`WhatsApp Error for ${number}:`, error.message);
+                  return false;
+                }
+              })
+            ).then(results => {
+              whatsappSent = results.some(result => result === true);
+              return whatsappSent;
+            }).catch(error => {
+              console.log("Warning: WhatsApp sending error:", error);
+              whatsappSent = false;
+              return false;
+            })
           );
-          emailSent = true;
-        } catch (emailError) {
-          console.error("Email sending failed:", emailError);
-          emailSent = false;
-        }
-
-        try {
-          for (const phoneNumber of phoneNumbers) {
-            const whatsappUrl = `${config.whatsappApiUrl}/send-document`;
-            const whatsappData = {
-              phone: phoneNumber,
-              document: filePath,
-              caption: `${subject}\n\n${notes}`,
-            };
-
-            await axios.post(whatsappUrl, whatsappData);
-          }
-          whatsappSent = true;
-        } catch (whatsappError) {
-          console.error("WhatsApp sending failed:", whatsappError);
+        } else {
+          console.log("Warning: No phone numbers available for WhatsApp sending");
           whatsappSent = false;
         }
+
+        // Wait for all promises to complete
+        await Promise.all(promises);
       }
 
-      if (vprocess_id != null && rrfq_details_id != null) {
+      if (vprocess_id != null && rrfqDetailsResult.insertId != null) {
         // MQTT notifications for RRFQ posting
         await mqttclient.publishMqttMessage(
           "Notification",
-          "RRFQ Posted Successfully to " + (querydata.vendorname || vendor.vendor_name)
+          "RRFQ Posted Successfully to " + vendor.vendor_name
         );
         await mqttclient.publishMqttMessage(
           "refresh",
@@ -5132,9 +5413,9 @@ async function PostRRFQ(req, res) {
           "RRFQ Posted Successfully",
           {
             vprocess_id: vprocess_id,
-            rrfq_details_id: rrfq_details_id,
-            vendor_name: querydata.vendorname || vendor.vendor_name,
-            rrfqgenid: querydata.rrfqgenid,
+            rrfq_details_id: rrfqDetailsResult.insertId,
+            vendor_name: vendor.vendor_name,
+            rrfqgenid: rrfqGenId,
             emailsent: emailSent,
             whatsappsent: whatsappSent,
             messagetype: messagetype
@@ -5144,8 +5425,7 @@ async function PostRRFQ(req, res) {
       } else {
         return helper.getErrorResponse(
           false,
-          "error",
-          "RRFQ posting failed",
+          "Error while posting the RRFQ.",
           "POST RRFQ",
           secret
         );
@@ -5153,7 +5433,6 @@ async function PostRRFQ(req, res) {
     } catch (er) {
       return helper.getErrorResponse(
         false,
-        "error",
         "Internal error. Please contact Administration",
         er.message,
         secret
@@ -5162,7 +5441,6 @@ async function PostRRFQ(req, res) {
   } catch (er) {
     return helper.getErrorResponse(
       false,
-      "error",
       "Internal error. Please contact Administration",
       er.message,
       ""
