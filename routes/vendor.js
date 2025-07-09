@@ -193,4 +193,24 @@ router.post('/postrrfq', async function(req, res, next) {
   }
 });
 
+// Add these routes at the end, before module.exports
+
+router.post('/getquotationapproval', async function(req, res, next) {
+  try {
+    res.json(await vendor.getVendorQuotationApproval(req.body));
+  } catch (er) {
+    console.log(`Error in vendor quotation approval request -> ${er}`);
+    next(er);
+  }
+});
+
+router.get('/approvequotation', async function(req, res, next) {
+  try {
+    await vendor.approveVendorQuotation(req, res);
+  } catch (er) {
+    console.log(`Error in vendor quotation approval -> ${er}`);
+    next(er);
+  }
+});
+
 module.exports = router;

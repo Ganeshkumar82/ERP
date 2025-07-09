@@ -58,7 +58,6 @@ const mqttclient = require("../mqttclient");
 // {"code":true,"message":"Vendor Added Successfully","Value":13}
 //##################################################################################################################################################################################################
 //##################################################################################################################################################################################################
-
 async function AddVendor(req, res) {
   let secret = ""; // Initialize secret early to avoid undefined errors
   
@@ -74,66 +73,7 @@ async function AddVendor(req, res) {
     let logoPath = null;
 
     try {
-      // Use Promise-based approach for multer upload - access the original multer function
-      const multer = require('multer');
-      const config = require("../config");
-      const fs = require("fs-extra");
-      
-      // Create multer instance directly for better control
-      const storageVendorKYC = multer.diskStorage({
-        destination: async (req, file, cb) => {
-          try {
-            const now = new Date();
-            const year = now.getFullYear();
-            const month = now.toLocaleString("default", { month: "long" });
-            const day = now.getDate();
-            let folder = config.filestorage;
-
-            // Determine subfolder based on field name
-            let subfolder = "General";
-            if (file.fieldname === "registration_certificate") {
-              subfolder = "RegistrationCertificate";
-            } else if (file.fieldname === "pan_upload") {
-              subfolder = "PAN";
-            } else if (file.fieldname === "cancelled_cheque") {
-              subfolder = "CancelledCheque";
-            } else if (file.fieldname === "logo_upload") {
-              subfolder = "Logo";
-            }
-
-            folder = `${folder}/${year}/${month}/${day}/VendorKYC/${subfolder}`;
-
-            await fs.ensureDir(folder);
-            cb(null, folder);
-          } catch (err) {
-            cb(err);
-          }
-        },
-        filename: (req, file, cb) => {
-          const timestamp = Date.now();
-          cb(null, `${timestamp}_${file.originalname}`);
-        },
-      });
-
-      const maxSizeVendorKYC = 5 * 1024 * 1024; // 5MB
-
-      const uploadVendorKYC = multer({
-        storage: storageVendorKYC,
-        limits: { fileSize: maxSizeVendorKYC },
-      }).any(); // Accept any field names to avoid "Unexpected field" errors
-
-      // Use Promise wrapper for better error handling
-      await new Promise((resolve, reject) => {
-        uploadVendorKYC(req, res, (err) => {
-          if (err) {
-            console.error("Multer upload error:", err);
-            reject(err);
-          } else {
-            console.log("Upload completed successfully");
-            resolve();
-          }
-        });
-      });
+      await uploadFile.uploadVendorKYCDocuments(req, res);
       
       // Debug logging after upload
       console.log("AddVendor - req.body after upload:", req.body);
@@ -189,7 +129,6 @@ async function AddVendor(req, res) {
         }
       }
     } catch (er) {
-      console.error("Upload error details:", er);
       return helper.getErrorResponse(
         false,
         "error",
@@ -5583,6 +5522,416 @@ async function PostRRFQ(req, res) {
   }
 }
 
+// Add these functions at the end of the file, before module.exports
+
+//##################################################################################################################################################################################################
+//##################################################################################################################################################################################################
+//########################################### REQUEST BODY FOR GET VENDOR QUOTATION APPROVAL #####################################################################################
+// {
+//   "STOKEN": "your_session_token",
+//   "querystring": "encrypted_data_containing_event_id"
+// }
+// Required querystring data:
+// {
+//   "eventid": 33  // Required - vprocess_id from vprocesslist for the quotation
+// }
+//####################################################################### RESPONSE BODY FOR GET VENDOR QUOTATION APPROVAL #######################################################
+// {
+//   "code": true,
+//   "message": "Vendor quotation approval request sent successfully",
+//   "Value": {
+//     "vprocess_id": 33,
+//     "quotation_id": "995525",
+//     "vendor_name": "Vendor Name",
+//     "email_sent": true,
+//     "whatsapp_sent": false
+//   }
+// }
+//##################################################################################################################################################################################################
+//##################################################################################################################################################################################################
+
+async function getVendorQuotationApproval(vendorData) {
+  try {
+    // Check if the session token exists
+    if (!vendorData.hasOwnProperty("STOKEN")) {
+      return helper.getErrorResponse(
+        false,
+        "error",
+        "Login session token missing. Please provide the Login session token",
+        "GET VENDOR QUOTATION APPROVAL",
+        ""
+      );
+    }
+
+    // Validate session token length
+    if (vendorData.STOKEN.length > 50 || vendorData.STOKEN.length < 30) {
+      return helper.getErrorResponse(
+        false,
+        "error",
+        "Login session token size invalid. Please provide the valid Session token",
+        "GET VENDOR QUOTATION APPROVAL",
+        ""
+      );
+    }
+
+    var secret = vendorData.STOKEN.substring(0, 16);
+
+    // Validate session token
+    const [result] = await db.spcall(
+      "CALL SP_STOKEN_CHECK(?,@result); SELECT @result;",
+      [vendorData.STOKEN]
+    );
+    const objectvalue = result[1][0];
+    const userid = objectvalue["@result"];
+
+    if (userid == null) {
+      return helper.getErrorResponse(
+        false,
+        "error",
+        "Login session token Invalid. Please provide the valid session token",
+        "GET VENDOR QUOTATION APPROVAL",
+        secret
+      );
+    }
+
+    // Check if querystring is provided
+    if (!vendorData.hasOwnProperty("querystring")) {
+      return helper.getErrorResponse(
+        false,
+        "error",
+        "Querystring missing. Please provide the querystring",
+        "GET VENDOR QUOTATION APPROVAL",
+        secret
+      );
+    }
+
+    var querydata;
+
+    // Decrypt querystring
+    try {
+      querydata = await helper.decrypt(vendorData.querystring, secret);
+    } catch (ex) {
+      return helper.getErrorResponse(
+        false,
+        "error",
+        "Querystring Invalid error. Please provide the valid querystring.",
+        "GET VENDOR QUOTATION APPROVAL",
+        secret
+      );
+    }
+
+    // Parse the decrypted querystring
+    try {
+      querydata = JSON.parse(querydata);
+    } catch (ex) {
+      return helper.getErrorResponse(
+        false,
+        "error",
+        "Querystring JSON error. Please provide valid JSON",
+        "GET VENDOR QUOTATION APPROVAL",
+        secret
+      );
+    }
+
+    // Validate required fields
+    if (!querydata.hasOwnProperty("eventid") || querydata.eventid == "" || querydata.eventid == null) {
+      return helper.getErrorResponse(
+        false,
+        "error",
+        "Event ID missing. Please provide the eventid (vprocess_id)",
+        "GET VENDOR QUOTATION APPROVAL",
+        secret
+      );
+    }
+
+    try {
+      // Get quotation details from vprocesslist
+      const quotationDetails = await db.query(
+        `SELECT vpl.vprocess_id, vpl.process_name, vpl.Process_filepath, vpl.Process_date, 
+                vpl.Approved_status, vpl.status, vpl.deleted_flag, vpl.Row_updated_date, 
+                vpl.Created_by, vpl.vprocess_gen_id, vpl.process_type, vpl.vendor_address, 
+                vpl.vendor_name, vpl.feedback, vpl.process_id
+         FROM vprocesslist vpl
+         WHERE vpl.vprocess_id = ? AND vpl.process_name = 'QUOTATION' AND vpl.deleted_flag = 0`,
+        [querydata.eventid]
+      );
+
+      if (quotationDetails.length === 0) {
+        return helper.getErrorResponse(
+          false,
+          "error",
+          "Quotation not found for the given event ID",
+          "GET VENDOR QUOTATION APPROVAL",
+          secret
+        );
+      }
+
+      const quotation = quotationDetails[0];
+
+      // Check if already approved
+      if (quotation.Approved_status === 1) {
+        return helper.getErrorResponse(
+          false,
+          "error",
+          "This quotation has already been approved",
+          "GET VENDOR QUOTATION APPROVAL",
+          secret
+        );
+      }
+
+      // Get admin email addresses
+      const adminDetails = await db.query(
+        `SELECT u.Email_id, a.secret 
+         FROM usermaster u 
+         CROSS JOIN apikey a 
+         WHERE u.user_design = 'Administrator' AND u.status = 1 AND a.status = 1`
+      );
+
+      // let adminEmail = "";
+      let apikey = "15b97956-b296-11";
+
+      // if (adminDetails.length > 0) {
+      //   adminEmail = adminDetails.map((item) => item.Email_id).join(",");
+      //   apikey = adminDetails[0].secret;
+      // } else {
+      //   adminEmail = "admin@sporadasecure.com";
+      // }
+
+      let adminEmail = "kishorekkumar34@gmail.com";
+
+      // Prepare approval and rejection links
+      const config = require("../config");
+      const approveLink = `${config.apiserver}/vendor/approvequotation?eventid=${quotation.vprocess_id}&STOKEN=${apikey}&s=1&feedback=Approved`;
+      const rejectLink = `${config.apiserver}/vendor/approvequotation?eventid=${quotation.vprocess_id}&STOKEN=${apikey}&s=0&feedback=Rejected`;
+
+      // Send approval email
+      const mailer = require("../mailer");
+      const emailSent = await mailer.sendVendorQuotationApproval(
+        "Administrator",
+        adminEmail,
+        `Action Required!!! Vendor Quotation Approval Request for ${quotation.vendor_name || 'Vendor'}`,
+        "VENDORQUOTATIONAPPROVAL",
+        quotation.Process_filepath,
+        quotation.vprocess_gen_id || quotation.vprocess_id,
+        quotation.feedback || "Please review the attached vendor quotation and take appropriate action.",
+        "",
+        approveLink,
+        rejectLink
+      );
+
+      if (emailSent) {
+        // Store approval request in a tracking table (optional)
+        await db.query(
+          `INSERT INTO vendor_quotation_approval_requests 
+           (vprocess_id, admin_email, request_date, status, created_by)
+           VALUES (?, ?, NOW(), 'pending', ?)`,
+          [quotation.vprocess_id, adminEmail, userid]
+        );
+
+        // MQTT notifications
+        await mqttclient.publishMqttMessage(
+          "Notification",
+          `Vendor quotation approval request sent for ${quotation.vendor_name || 'Vendor'}`
+        );
+        await mqttclient.publishMqttMessage(
+          "refresh",
+          `Vendor quotation approval request sent for event ID ${quotation.vprocess_id}`
+        );
+
+        return helper.getSuccessResponse(
+          true,
+          "success",
+          "Vendor quotation approval request sent successfully to administrators",
+          {
+            vprocess_id: quotation.vprocess_id,
+            quotation_id: quotation.vprocess_gen_id,
+            vendor_name: quotation.vendor_name,
+            email_sent: emailSent,
+            whatsapp_sent: false
+          },
+          secret
+        );
+      } else {
+        return helper.getErrorResponse(
+          false,
+          "error",
+          "Failed to send approval request email",
+          "GET VENDOR QUOTATION APPROVAL",
+          secret
+        );
+      }
+
+    } catch (er) {
+      return helper.getErrorResponse(
+        false,
+        "error",
+        "Internal error. Please contact Administration",
+        er.message,
+        secret
+      );
+    }
+  } catch (er) {
+    return helper.getErrorResponse(
+      false,
+      "error",
+      "Internal error. Please contact Administration",
+      er.message,
+      ""
+    );
+  }
+}
+
+//##################################################################################################################################################################################################
+//##################################################################################################################################################################################################
+//########################################### VENDOR QUOTATION APPROVAL ENDPOINT (GET REQUEST) #####################################################################################
+// URL: /vendor/approvequotation?eventid=33&STOKEN=apikey&s=1&feedback=Approved
+// Parameters:
+// - eventid: vprocess_id from vprocesslist
+// - STOKEN: API session token
+// - s: 1 for approve, 0 for reject
+// - feedback: approval/rejection feedback
+//##################################################################################################################################################################################################
+//##################################################################################################################################################################################################
+
+async function approveVendorQuotation(req, res) {
+  try {
+    let vendorData = req.query;
+
+    // Path to HTML files
+    const htmlPath = path.resolve(__dirname, "..", "htmlresponse");
+
+    // Check if the session token exists
+    if (!vendorData.hasOwnProperty("STOKEN")) {
+      return res.sendFile(path.join(htmlPath, "error.html"));
+    }
+
+    var secret = vendorData.STOKEN.substring(0, 16);
+
+    // Validate session token length
+    if (vendorData.STOKEN.length > 50 || vendorData.STOKEN.length < 30) {
+      return res.sendFile(path.join(htmlPath, "invalid_token.html"));
+    }
+
+    // Validate session token
+    const [result] = await db.spcall(
+      `CALL SP_STOKEN_CHECK(?,@result); SELECT @result;`,
+      [vendorData.STOKEN]
+    );
+    const objectvalue = result[1][0];
+    const userid = objectvalue["@result"];
+
+    if (userid == null) {
+      return res.sendFile(path.join(htmlPath, "invalid_token.html"));
+    }
+
+    // Validate required fields
+    if (!vendorData.hasOwnProperty("eventid") || !vendorData.eventid) {
+      return res.sendFile(path.join(htmlPath, "missing_quoteid.html"));
+    }
+
+    if (!vendorData.hasOwnProperty("s") || vendorData.s == undefined) {
+      return res.sendFile(path.join(htmlPath, "internal_error.html"));
+    }
+
+    if (!vendorData.hasOwnProperty("feedback") || vendorData.feedback == "" || vendorData.feedback == undefined) {
+      return res.sendFile(path.join(htmlPath, "internal_error.html"));
+    }
+
+    // Update the database
+    await db.query(
+      `UPDATE vprocesslist SET Approved_status = ?, feedback = ?, Row_updated_date = NOW() 
+       WHERE vprocess_id = ? AND process_name = 'QUOTATION'`,
+      [vendorData.s, vendorData.feedback, vendorData.eventid]
+    );
+
+    // Update tracking table
+    await db.query(
+      `UPDATE vendor_quotation_approval_requests 
+       SET status = ?, approved_date = NOW(), approved_by = ?
+       WHERE vprocess_id = ? AND status = 'pending'`,
+      [vendorData.s == 1 ? 'approved' : 'rejected', userid, vendorData.eventid]
+    );
+
+    // Send the quotation if approved
+    if (vendorData.s == 1) {
+      // Get quotation details
+      const quotationDetails = await db.query(
+        `SELECT vpl.*, vm.email as vendor_email, vm.contact_person_phone 
+         FROM vprocesslist vpl
+         LEFT JOIN vendors vm ON vm.vendor_name = vpl.vendor_name
+         WHERE vpl.vprocess_id = ? AND vpl.process_name = 'QUOTATION'`,
+        [vendorData.eventid]
+      );
+
+      if (quotationDetails.length > 0) {
+        const quotation = quotationDetails[0];
+        
+        // Get required modules
+        const mailer = require("../mailer");
+        const axios = require("axios");
+        const config = require("../config");
+
+        // Send email to vendor
+        if (quotation.vendor_email) {
+          await mailer.sendVendorRFQ(
+            quotation.vendor_name,
+            quotation.vendor_email,
+            `Quotation Approved - ${quotation.vprocess_gen_id}`,
+            "VENDORQUOTATION",
+            quotation.Process_filepath,
+            quotation.vprocess_gen_id,
+            `Your quotation has been approved. Thank you for your submission.`,
+            ""
+          );
+        }
+
+        // Send WhatsApp if phone available
+        if (quotation.contact_person_phone) {
+          const phoneNumbers = quotation.contact_person_phone
+            .split(",")
+            .map((num) => num.trim())
+            .filter((num) => num !== "");
+
+          for (const number of phoneNumbers) {
+            try {
+              await axios.post(
+                `${config.whatsappip}/billing/sendpdf`,
+                {
+                  phoneno: number,
+                  feedback: `Your quotation has been approved. Thank you for your submission.`,
+                  pdfpath: quotation.Process_filepath,
+                }
+              );
+            } catch (error) {
+              console.error(`WhatsApp Error for ${number}:`, error.message);
+            }
+          }
+        }
+      }
+
+      await mqttclient.publishMqttMessage(
+        "refresh",
+        "Vendor quotation approved for event ID " + vendorData.eventid
+      );
+      await mqttclient.publishMqttMessage(
+        "Notification",
+        "Vendor quotation approved for event ID " + vendorData.eventid
+      );
+      return res.sendFile(path.join(htmlPath, "approved.html"));
+    } else {
+      await mqttclient.publishMqttMessage(
+        "Notification",
+        "Vendor quotation rejected for event ID " + vendorData.eventid
+      );
+      return res.sendFile(path.join(htmlPath, "rejected.html"));
+    }
+  } catch (er) {
+    return res.sendFile(
+      path.join(__dirname, "..", "htmlresponse", "internal_error.html")
+    );
+  }
+}
+
 module.exports = {
   AddVendor,
   GetVendor,
@@ -5606,6 +5955,8 @@ module.exports = {
   rrfqpreloader,
   addFeedback,
   PostRRFQ,
+  approveVendorQuotation,
+  getVendorQuotationApproval
 };
 
 //##################################################################################################################################################################################################

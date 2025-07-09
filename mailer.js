@@ -1088,6 +1088,116 @@ async function sendVendorRFQ(
   }
 }
 
+async function sendVendorQuotationApproval(
+  vendorName,
+  vendorEmail,
+  subjectstr,
+  moduletag,
+  filepaths,
+  quotationId,
+  notes,
+  ccemail = "",
+  approvelink,
+  rejectlink
+) {
+  try {
+    // initialize nodemailer
+    var queryData;
+    try {
+      console.log("moduletag=>", moduletag);
+      const settingValue = await helper.getServerSetting(moduletag);
+      queryData = JSON.stringify(settingValue);
+      console.log("queryData=>" + queryData);
+    } catch (ex) {
+      console.log("ex=>", { ex });
+      return helper.getErrorResponse(moduletag + "_ERROR");
+    }
+    const mstr = JSON.parse(queryData);
+    const SettingValue = JSON.parse(mstr.SettingValue);
+
+    console.log("queryData.SettingValue=>" + SettingValue);
+    const qEmail = SettingValue.Email;
+    const qpassword = SettingValue.password;
+    const qFromName = SettingValue.FromName;
+    const qTemplate = SettingValue.Template;
+    const qSMTPSecure = SettingValue.SMTPSecure;
+    const qHost = SettingValue.host;
+    const qPort = SettingValue.Port;
+    var bSSL = false;
+    if (qSMTPSecure == "true") bSSL = true;
+
+    var transporter = nodemailer.createTransporter({
+      host: qHost,
+      port: qPort,
+      secure: true,
+      auth: {
+        user: qEmail,
+        pass: qpassword,
+      },
+      debug: true,
+    });
+
+    // point to the template folder
+    const handlebarOptions = {
+      viewEngine: {
+        partialsDir: path.resolve("./views/"),
+        defaultLayout: false,
+      },
+      viewPath: path.resolve("./views/"),
+    };
+
+    const attachments = Array.isArray(filepaths)
+      ? filepaths.map((filepath) => ({
+          filename: path.basename(filepath),
+          path: path.resolve(filepath),
+        }))
+      : [
+          {
+            filename: path.basename(filepaths),
+            path: path.resolve(filepaths),
+          },
+        ];
+
+    // use a template file with nodemailer
+    transporter.use("compile", hbs(handlebarOptions));
+
+    var mailOptions = {
+      from: '"' + qFromName + '" <' + qEmail + ">",
+      to: vendorEmail,
+      cc: ccemail && ccemail.trim() !== "" ? ccemail : undefined,
+      bcc: "ganeshkumar.m@sporadasecure.com",
+      subject: subjectstr,
+      template: qTemplate,
+      context: {
+        subject: subjectstr,
+        name: vendorName,
+        product: quotationId,
+        billingcycle: "VENDOR QUOTATION APPROVAL",
+        link: approvelink,
+        link1: rejectlink,
+        notes: notes && notes.trim() !== "" ? notes : null,
+      },
+      attachments: attachments,
+    };
+
+    // trigger the sending of the E-mail
+    return new Promise((resolve, reject) => {
+      transporter.sendMail(mailOptions, function (error, info) {
+        if (error) {
+          console.error("Error sending vendor quotation approval email:", error);
+          resolve(false);
+        } else {
+          console.log("Vendor quotation approval message sent: " + info.response);
+          resolve(true);
+        }
+      });
+    });
+  } catch (er) {
+    console.log(`error sending vendor quotation approval mail -> ${er}`);
+    return false;
+  }
+}
+
 module.exports = {
   sendPDF,
   sendEmail,
@@ -1099,4 +1209,5 @@ module.exports = {
   sendVoucherClearedEmail,
   sendConsolidatedClearedEmail,
   sendDueActionEmail,
+  sendVendorQuotationApproval,
 };
