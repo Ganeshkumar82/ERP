@@ -74,7 +74,66 @@ async function AddVendor(req, res) {
     let logoPath = null;
 
     try {
-      await uploadFile.uploadVendorKYCDocuments(req, res);
+      // Use Promise-based approach for multer upload - access the original multer function
+      const multer = require('multer');
+      const config = require("../config");
+      const fs = require("fs-extra");
+      
+      // Create multer instance directly for better control
+      const storageVendorKYC = multer.diskStorage({
+        destination: async (req, file, cb) => {
+          try {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = now.toLocaleString("default", { month: "long" });
+            const day = now.getDate();
+            let folder = config.filestorage;
+
+            // Determine subfolder based on field name
+            let subfolder = "General";
+            if (file.fieldname === "registration_certificate") {
+              subfolder = "RegistrationCertificate";
+            } else if (file.fieldname === "pan_upload") {
+              subfolder = "PAN";
+            } else if (file.fieldname === "cancelled_cheque") {
+              subfolder = "CancelledCheque";
+            } else if (file.fieldname === "logo_upload") {
+              subfolder = "Logo";
+            }
+
+            folder = `${folder}/${year}/${month}/${day}/VendorKYC/${subfolder}`;
+
+            await fs.ensureDir(folder);
+            cb(null, folder);
+          } catch (err) {
+            cb(err);
+          }
+        },
+        filename: (req, file, cb) => {
+          const timestamp = Date.now();
+          cb(null, `${timestamp}_${file.originalname}`);
+        },
+      });
+
+      const maxSizeVendorKYC = 5 * 1024 * 1024; // 5MB
+
+      const uploadVendorKYC = multer({
+        storage: storageVendorKYC,
+        limits: { fileSize: maxSizeVendorKYC },
+      }).any(); // Accept any field names to avoid "Unexpected field" errors
+
+      // Use Promise wrapper for better error handling
+      await new Promise((resolve, reject) => {
+        uploadVendorKYC(req, res, (err) => {
+          if (err) {
+            console.error("Multer upload error:", err);
+            reject(err);
+          } else {
+            console.log("Upload completed successfully");
+            resolve();
+          }
+        });
+      });
       
       // Debug logging after upload
       console.log("AddVendor - req.body after upload:", req.body);
@@ -130,6 +189,7 @@ async function AddVendor(req, res) {
         }
       }
     } catch (er) {
+      console.error("Upload error details:", er);
       return helper.getErrorResponse(
         false,
         "error",
@@ -4392,11 +4452,11 @@ async function DeleteProcess(processData) {
 //########################################### REQUEST BODY FOR RRFQ PRELOADER #####################################################################################
 // {
 //   "STOKEN": "your_session_token",
-//   "querystring": "encrypted_data_containing_event_id"
+//   "querystring": "encrypted_data_containing_process_id"
 // }
 // Required querystring data:
 // {
-//   "eventid": 1  // Required - process_id from vprocesslist to find related RFQ details
+//   "processid": 1  // Required - vprocess_id from vendorprocessmaster to find related RFQ details
 // }
 //####################################################################### RESPONSE BODY FOR RRFQ PRELOADER #######################################################
 // {
@@ -4515,31 +4575,30 @@ async function rrfqpreloader(vendorData) {
     }
 
     // Validate required fields
-    if (!querydata.hasOwnProperty("eventid") || querydata.eventid == "" || querydata.eventid == null) {
+    if (!querydata.hasOwnProperty("processid") || querydata.processid == "" || querydata.processid == null) {
       return helper.getErrorResponse(
         false,
         "error",
-        "Event ID missing. Please provide the eventid",
+        "Process ID missing. Please provide the processid",
         "RRFQ PRELOADER",
         secret
       );
     }
 
     try {
-      // Step 1: Find vprocess_id in vendorprocessmaster using eventid as process_id in vprocesslist
+      // Step 1: Get vprocess_gen_id directly from vendorprocessmaster using processid (vprocess_id)
       const processQuery = await db.query(
-        `SELECT vpm.vprocess_id, vpm.vprocess_gen_id 
-         FROM vendorprocessmaster vpm
-         INNER JOIN vprocesslist vpl ON vpl.process_id = vpm.vprocess_id
-         WHERE vpl.vprocess_id = ? AND vpm.deleted_flag = 0 AND vpl.deleted_flag = 0`,
-        [querydata.eventid]
+        `SELECT vprocess_id, vprocess_gen_id 
+         FROM vendorprocessmaster 
+         WHERE vprocess_id = ? AND deleted_flag = 0`,
+        [querydata.processid]
       );
 
       if (processQuery.length === 0) {
         return helper.getErrorResponse(
           false,
           "error",
-          "Process not found for the given event ID",
+          "Process not found for the given process ID",
           "RRFQ PRELOADER",
           secret
         );
@@ -4547,41 +4606,92 @@ async function rrfqpreloader(vendorData) {
 
       const vprocessGenId = processQuery[0].vprocess_gen_id;
 
-      // Step 2: Get vendor RFQ details using vprocess_gen_id as rfqgenid
-      const rfqDetailsQuery = await db.query(
-        `SELECT 
-          id,
-          rfqgenid,
-          vendor_id,
-          vendor_name,
-          gstin,
-          pan,
-          contact_person,
-          vendor_address,
-          title,
-          email_id,
-          phone_no,
-          cc_email,
-          message_type,
-          feedback,
-          rfq_date,
-          notes,
-          products,
-          row_updated_date,
-          status,
-          deleted_flag
-         FROM vendor_rfq_details 
-         WHERE rfqgenid = ? AND deleted_flag = 0
-         ORDER BY id DESC
+      // Step 2: Check if there's already an RRFQ process for this process ID
+      const rrfqProcessQuery = await db.query(
+        `SELECT vprocess_gen_id, process_name
+         FROM vprocesslist 
+         WHERE process_id = ? AND process_name = 'RRFQ' AND deleted_flag = 0
+         ORDER BY vprocess_id DESC
          LIMIT 1`,
-        [vprocessGenId]
+        [querydata.processid]
       );
+
+      let rfqDetailsQuery;
+      let searchRfqGenId;
+
+      if (rrfqProcessQuery.length > 0) {
+        // Step 2a: RRFQ exists, use its vprocess_gen_id to get RRFQ details from vendor_rrfq_details
+        searchRfqGenId = rrfqProcessQuery[0].vprocess_gen_id;
+        console.log(`Found existing RRFQ process with ID: ${searchRfqGenId}`);
+        
+        rfqDetailsQuery = await db.query(
+          `SELECT 
+            id,
+            rrfqgenid as rfqgenid,
+            vendor_id,
+            vendor_name,
+            gstin,
+            pan,
+            contact_person,
+            vendor_address,
+            title,
+            email_id,
+            phone_no,
+            cc_email,
+            message_type,
+            feedback,
+            rrfq_date as rfq_date,
+            notes,
+            products,
+            row_updated_date,
+            status,
+            deleted_flag
+           FROM vendor_rrfq_details 
+           WHERE TRIM(LOWER(rrfqgenid)) = TRIM(LOWER(?)) AND deleted_flag = 0
+           ORDER BY id DESC
+           LIMIT 1`,
+          [searchRfqGenId]
+        );
+      } else {
+        // Step 2b: No RRFQ exists, use original RFQ data from vendor_rfq_details
+        searchRfqGenId = vprocessGenId;
+        console.log(`No RRFQ found, using original RFQ data with ID: ${searchRfqGenId}`);
+        
+        rfqDetailsQuery = await db.query(
+          `SELECT 
+            id,
+            rfqgenid,
+            vendor_id,
+            vendor_name,
+            gstin,
+            pan,
+            contact_person,
+            vendor_address,
+            title,
+            email_id,
+            phone_no,
+            cc_email,
+            message_type,
+            feedback,
+            rfq_date,
+            notes,
+            products,
+            row_updated_date,
+            status,
+            deleted_flag
+           FROM vendor_rfq_details 
+           WHERE TRIM(LOWER(rfqgenid)) = TRIM(LOWER(?)) AND deleted_flag = 0
+           ORDER BY id DESC
+           LIMIT 1`,
+          [searchRfqGenId]
+        );
+      }
 
       if (rfqDetailsQuery.length === 0) {
         return helper.getErrorResponse(
           false,
           "error",
-          "Vendor RFQ details not found for the given process",
+          `Vendor ${rrfqProcessQuery.length > 0 ? 'RRFQ' : 'RFQ'} details not found for the given process`,
           "RRFQ PRELOADER",
           secret
         );
@@ -4627,26 +4737,61 @@ async function rrfqpreloader(vendorData) {
         }
       }
 
-      // Step 4: Parse JSON fields if they exist
+      // Step 4: Parse JSON fields if they exist and are valid JSON strings
       let parsedNotes = [];
       let parsedProducts = [];
 
-      try {
-        if (vendorRfqDetails.notes) {
-          parsedNotes = JSON.parse(vendorRfqDetails.notes);
+      // Handle notes parsing
+      if (vendorRfqDetails.notes) {
+        if (typeof vendorRfqDetails.notes === 'string') {
+          try {
+            // Only try to parse if it looks like JSON (starts with [ or {)
+            if (vendorRfqDetails.notes.trim().startsWith('[') || vendorRfqDetails.notes.trim().startsWith('{')) {
+              parsedNotes = JSON.parse(vendorRfqDetails.notes);
+            } else {
+              // It's a plain string, treat as single note
+              parsedNotes = [vendorRfqDetails.notes];
+            }
+          } catch (notesError) {
+            console.warn("Error parsing notes JSON:", notesError);
+            // If parsing fails, treat as plain string
+            parsedNotes = [vendorRfqDetails.notes];
+          }
+        } else if (Array.isArray(vendorRfqDetails.notes)) {
+          // Already an array
+          parsedNotes = vendorRfqDetails.notes;
+        } else {
+          // Some other type, convert to array
+          parsedNotes = [vendorRfqDetails.notes];
         }
-      } catch (notesError) {
-        console.warn("Error parsing notes JSON:", notesError);
-        parsedNotes = vendorRfqDetails.notes || [];
       }
 
-      try {
-        if (vendorRfqDetails.products) {
-          parsedProducts = JSON.parse(vendorRfqDetails.products);
+      // Handle products parsing
+      if (vendorRfqDetails.products) {
+        if (typeof vendorRfqDetails.products === 'string') {
+          try {
+            // Only try to parse if it looks like JSON (starts with [ or {)
+            if (vendorRfqDetails.products.trim().startsWith('[') || vendorRfqDetails.products.trim().startsWith('{')) {
+              parsedProducts = JSON.parse(vendorRfqDetails.products);
+            } else {
+              // It's a plain string, treat as single product description
+              parsedProducts = [{ description: vendorRfqDetails.products }];
+            }
+          } catch (productsError) {
+            console.warn("Error parsing products JSON:", productsError);
+            // If parsing fails, treat as plain string
+            parsedProducts = [{ description: vendorRfqDetails.products }];
+          }
+        } else if (Array.isArray(vendorRfqDetails.products)) {
+          // Already an array
+          parsedProducts = vendorRfqDetails.products;
+        } else if (typeof vendorRfqDetails.products === 'object') {
+          // Single object, convert to array
+          parsedProducts = [vendorRfqDetails.products];
+        } else {
+          // Some other type, convert to array
+          parsedProducts = [{ description: vendorRfqDetails.products }];
         }
-      } catch (productsError) {
-        console.warn("Error parsing products JSON:", productsError);
-        parsedProducts = vendorRfqDetails.products || [];
       }
 
       // Step 5: Format the response
@@ -4675,16 +4820,6 @@ async function rrfqpreloader(vendorData) {
           deleted_flag: vendorRfqDetails.deleted_flag
         }
       };
-
-      // MQTT notifications for RRFQ preloader
-      await mqttclient.publishMqttMessage(
-        "Notification",
-        "RRFQ ID Generated Successfully - " + newRrfqId
-      );
-      await mqttclient.publishMqttMessage(
-        "refresh",
-        "RRFQ ID Generated Successfully"
-      );
 
       return helper.getSuccessResponse(
         true,
@@ -5343,7 +5478,7 @@ async function PostRRFQ(req, res) {
             vendor.vendor_name,
             vendorEmail,
             subject,
-            "VENDORRRFQ",
+            "VENDORRFQ",
             filePath,
             rrfqGenId,
             notes,
