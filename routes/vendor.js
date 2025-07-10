@@ -22,6 +22,15 @@ router.post('/getvendor', async function(req,res,next){
   }
 });
 
+router.post('/getvendorfile', async function(req,res,next){
+  try{
+   res.json(await vendor.GetVendorWithFile(req.body));
+  }catch(er){
+   console.log(`Error getting the vendor with file -> ${er}`);
+   next(er);
+  }
+});
+
 router.post('/uploadquotation', async function(req,res,next){
   try{
     res.json(await vendor.AddQuotation(req, res, next));
@@ -39,23 +48,6 @@ router.post('/detailspreloader', async function(req, res, next) {
     next(er);
   }
 });
-router.post('/getprocesslist', async function(req, res, next) {
-  try {
-    res.json(await vendor.GetProcessList(req.body));
-  } catch (er) {
-    console.log(`Error in vendor process list -> ${er}`);
-    next(er);
-  }
-});
-
-router.post('/getsubprocesslist', async function(req, res, next) {
-  try {
-    res.json(await vendor.GetSubProcessList(req.body));
-  } catch (er) {
-    console.log(`Error in vendor sub process list -> ${er}`);
-    next(er);
-  }
-});
 
 router.post('/postrfq', async function(req, res, next) {
   try {
@@ -66,42 +58,6 @@ router.post('/postrfq', async function(req, res, next) {
   }
 });
 
-// KYC Document Update Routes
-router.post('/updateregistrationcert', uploadVendorRegistrationCert, async function(req, res, next) {
-  try {
-    res.json(await vendor.UpdateVendorRegistrationCert(req, res));
-  } catch (er) {
-    console.log(`Error updating vendor registration certificate -> ${er}`);
-    next(er);
-  }
-});
-
-router.post('/updatepan', uploadVendorPAN, async function(req, res, next) {
-  try {
-    res.json(await vendor.UpdateVendorPAN(req, res));
-  } catch (er) {
-    console.log(`Error updating vendor PAN -> ${er}`);
-    next(er);
-  }
-});
-
-router.post('/updatecancelledcheque', uploadVendorCancelledCheque, async function(req, res, next) {
-  try {
-    res.json(await vendor.UpdateVendorCancelledCheque(req, res));
-  } catch (er) {
-    console.log(`Error updating vendor cancelled cheque -> ${er}`);
-    next(er);
-  }
-});
-
-router.post('/updatelogo', uploadVendorLogo, async function(req, res, next) {
-  try {
-    res.json(await vendor.UpdateVendorLogo(req, res));
-  } catch (er) {
-    console.log(`Error updating vendor logo -> ${er}`);
-    next(er);
-  }
-});
 
 router.post('/getproducts', async function(req, res, next) {
   try {
@@ -193,7 +149,6 @@ router.post('/postrrfq', async function(req, res, next) {
   }
 });
 
-// Add these routes at the end, before module.exports
 
 router.post('/getquotationapproval', async function(req, res, next) {
   try {
@@ -209,6 +164,15 @@ router.get('/approvequotation', async function(req, res, next) {
     await vendor.approveVendorQuotation(req, res);
   } catch (er) {
     console.log(`Error in vendor quotation approval -> ${er}`);
+    next(er);
+  }
+});
+
+router.post('/popreloader', async function(req, res, next) {
+  try {
+    res.json(await vendor.popreloader(req.body));
+  } catch (er) {
+    console.log(`Error in PO preloader -> ${er}`);
     next(er);
   }
 });

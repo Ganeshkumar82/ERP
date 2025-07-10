@@ -2,6 +2,7 @@ const db = require("../db");
 const helper = require("../helper");
 const uploadFile = require("../middleware");
 const mqttclient = require("../mqttclient");
+const path = require("path");
 
 //##################################################################################################################################################################################################
 //##################################################################################################################################################################################################
@@ -333,6 +334,7 @@ async function AddVendor(req, res) {
           updateFields.push('registration_certificate_path = ?');
           updateValues.push(registrationCertPath);
         }
+        // If no new registration_certificate uploaded, the old path remains unchanged
         
         if (panUploadPath) {
           updateFields.push('pan_upload_path = ?');
@@ -523,50 +525,67 @@ async function AddVendor(req, res) {
 //##################################################################################################################################################################################################
 //########################################### REQUEST BODY FOR GET VENDOR #####################################################################################
 // {
-//   "vendorid": 1
+//   "STOKEN": "your_session_token",
+//   "querystring": "encrypted_data_containing_vendor_id_and_optional_type"
 // }
-// OR
-//   empty body - For fetching all the vendor list
+// Required querystring data:
+// {
+//   "vendorid": 1  // Optional - specific vendor ID (0 or omit for all vendors)
+// }
+// Optional querystring data:
+// {
+//   "type": "pan"  // Optional - filename key for specific file ("registration", "pan", "cheque", "logo")
+// }
 //####################################################################### RESPONSE BODY FOR GET VENDOR #######################################################
+// Scenario 1 - No vendorid (all vendors with logo always as base64):
 // {
 //   "code": true,
 //   "message": "Vendor Fetched Successfully",
 //   "Value": [
 //     {
-//       "id": 1,
+//       "vendorid": 1,
 //       "vendor_name": "JK Construction",
 //       "address": "123 Main Street, Coimbatore",
-//       "state": "Tamil Nadu",
-//       "pincode": "641001",
-//       "contact_person_name": "John Doe",
-//       "contact_person_designation": "Manager",
-//       "contact_person_phone": "8393923242",
-//       "email": "jk@gmail.com",
-//       "business_type": "Manufacturer",
-//       "year_of_establishment": 2010,
-//       "gst_number": "33ABCD43wsd123",
-//       "pan_number": "ABCPD1234E",
-//       "annual_turnover": 50000000.00,
-//       "products_services": "Construction materials, cement, steel",
-//       "hsn_sac_code": "2523,7207",
-//       "description": "Leading manufacturer of construction materials",
-//       "bank_name": "State Bank of India",
-//       "branch_name": "Coimbatore Main",
-//       "account_number": "1234567890",
-//       "ifsc_code": "SBIN0001234",
-//       "iso_certification": "ISO 9001:2015",
-//       "other_certifications": "BIS certification for cement",
+//       // ... all other fields ...
 //       "registration_certificate_path": "/path/to/registration.pdf",
 //       "pan_upload_path": "/path/to/pan.pdf",
 //       "cancelled_cheque_path": "/path/to/cheque.pdf",
 //       "logo_path": "/path/to/logo.png",
+//       "logo_base64": "base64_encoded_logo_content_here",  // Always included
 //       "updated_at": "2025-07-07 10:30:00",
-//       "created_at": "2025-07-07 10:30:00",
+//       "created_at": "2025-07-07 10:30:00"
 //     }
 //   ]
 // }
-//##################################################################################################################################################################################################
-//##################################################################################################################################################################################################
+// Scenario 2 - vendorid only (specific vendor with logo always as base64):
+// {
+//   "code": true,
+//   "message": "Vendor Fetched Successfully",
+//   "Value": [
+//     {
+//       "vendorid": 1,
+//       "vendor_name": "JK Construction",
+//       // ... all other fields same as above ...
+//       "logo_base64": "base64_encoded_logo_content_here"  // Always included
+//     }
+//   ]
+// }
+// Scenario 3 - vendorid + type (specific vendor with logo always + specified file as base64):
+// Example: type="pan"
+// {
+//   "code": true,
+//   "message": "Vendor Fetched Successfully",
+//   "Value": [
+//     {
+//       "vendorid": 1,
+//       "vendor_name": "JK Construction",
+//       // ... all other fields same as above ...
+//       "logo_base64": "base64_encoded_logo_content_here",  // Always included
+//       "pan_base64": "base64_encoded_pan_content_here"     // Additional file when type specified
+//     }
+//   ]
+// }
+
 
 async function GetVendor(vendor) {
   try {
@@ -681,38 +700,242 @@ async function GetVendor(vendor) {
 
       // Convert document files to binary for each vendor
       for (let i = 0; i < sql.length; i++) {
-        // // Convert Registration Certificate to binary if available
-        // if (sql[i].registration_certificate_path) {
-        //   try {
-        //     const binaryData = await helper.convertFileToBinary(sql[i].registration_certificate_path);
-        //     sql[i].registration_certificate_binary = binaryData;
-        //   } catch (error) {
-        //     console.error("Error reading registration certificate:", sql[i].registration_certificate_path, error);
-        //     sql[i].registration_certificate_binary = null;
-        //   }
-        // }
+        // Always convert logo to base64 if available
+        if (sql[i].logo_path) {
+          try {
+            const binaryData = await helper.convertFileToBinary(sql[i].logo_path);
+            sql[i].logo_base64 = binaryData;
+          } catch (error) {
+            console.error("Error reading logo file:", sql[i].logo_path, error);
+            sql[i].logo_base64 = null;
+          }
+        } else {
+          sql[i].logo_base64 = null;
+        }
 
-        // // Convert PAN upload to binary if available
-        // if (sql[i].pan_upload_path) {
-        //   try {
-        //     const binaryData = await helper.convertFileToBinary(sql[i].pan_upload_path);
-        //     sql[i].pan_upload_binary = binaryData;
-        //   } catch (error) {
-        //     console.error("Error reading PAN upload:", sql[i].pan_upload_path, error);
-        //     sql[i].pan_upload_binary = null;
-        //   }
-        // }
+        // Convert specific file to base64 if type is specified
+        if (querydata.type) {
+          const fileMapping = {
+            'registration': 'registration_certificate_path',
+            'pan': 'pan_upload_path',
+            'cheque': 'cancelled_cheque_path',
+            'logo': 'logo_path'
+          };
 
-        // // Convert Cancelled Cheque to binary if available
-        // if (sql[i].cancelled_cheque_path) {
-        //   try {
-        //     const binaryData = await helper.convertFileToBinary(sql[i].cancelled_cheque_path);
-        //     sql[i].cancelled_cheque_binary = binaryData;
-        //   } catch (error) {
-        //     console.error("Error reading cancelled cheque:", sql[i].cancelled_cheque_path, error);
-        //     sql[i].cancelled_cheque_binary = null;
-        //   }
-        // }
+          const pathField = fileMapping[querydata.type];
+          if (pathField && sql[i][pathField]) {
+            try {
+              const binaryData = await helper.convertFileToBinary(sql[i][pathField]);
+              sql[i][`${querydata.type}_base64`] = binaryData;
+            } catch (error) {
+              console.error(`Error reading ${querydata.type} file:`, sql[i][pathField], error);
+              sql[i][`${querydata.type}_base64`] = null;
+            }
+          }
+        }
+
+        // Format the dates
+        if (sql[i].created_at) {
+          sql[i].created_at = new Date(sql[i].created_at).toISOString().slice(0, 19).replace('T', ' ');
+        }
+        if (sql[i].updated_at) {
+          sql[i].updated_at = new Date(sql[i].updated_at).toISOString().slice(0, 19).replace('T', ' ');
+        }
+      }
+
+      return helper.getSuccessResponse(
+        true,
+        "success",
+        "Vendor Fetched Successfully",
+        sql,
+        secret
+      );
+    } catch (er) {
+      return helper.getErrorResponse(
+        false,
+        "error",
+        "Internal error. Please contact Administration",
+        er.message,
+        secret
+      );
+    }
+  } catch (er) {
+    return helper.getErrorResponse(
+      false,
+      "error",
+      "Internal error. Please contact Administration",
+      er.message,
+      secret
+    );
+  }
+}
+
+//##################################################################################################################################################################################################
+//##################################################################################################################################################################################################
+
+async function GetVendorWithFile(vendor) {
+  try {
+    // Check if the session token exists
+    if (!vendor.hasOwnProperty("STOKEN")) {
+      return helper.getErrorResponse(
+        false,
+        "error",
+        "Login session token missing. Please provide the Login session token",
+        "FETCH VENDOR",
+        ""
+      );
+    }
+
+    // Validate session token length
+    if (vendor.STOKEN.length > 50 || vendor.STOKEN.length < 30) {
+      return helper.getErrorResponse(
+        false,
+        "error",
+        "Login session token size invalid. Please provide the valid Session token",
+        "FETCH VENDOR",
+        ""
+      );
+    }
+
+    // Validate session token
+    const [result] = await db.spcall(
+      "CALL SP_STOKEN_CHECK(?,@result); SELECT @result;",
+      [vendor.STOKEN]
+    );
+    const objectvalue = result[1][0];
+    const userid = objectvalue["@result"];
+
+    if (userid == null) {
+      return helper.getErrorResponse(
+        false,
+        "error",
+        "Login session token Invalid. Please provide the valid session token",
+        "FETCH VENDOR",
+        ""
+      );
+    }
+
+    // Check if querystring is provided
+    if (!vendor.hasOwnProperty("querystring")) {
+      return helper.getErrorResponse(
+        false,
+        "error",
+        "Querystring missing. Please provide the querystring",
+        "FETCH VENDOR",
+        ""
+      );
+    }
+
+    var secret = vendor.STOKEN.substring(0, 16);
+    var querydata;
+
+    // Decrypt querystring
+    try {
+      querydata = await helper.decrypt(vendor.querystring, secret);
+    } catch (ex) {
+      return helper.getErrorResponse(
+        false,
+        "error",
+        "Querystring Invalid error. Please provide the valid querystring.",
+        "FETCH VENDOR",
+        secret
+      );
+    }
+
+    // Parse the decrypted querystring
+    try {
+      querydata = JSON.parse(querydata);
+    } catch (ex) {
+      return helper.getErrorResponse(
+        false,
+        "error",
+        "Querystring JSON error. Please provide valid JSON",
+        "FETCH VENDOR",
+        secret
+      );
+    }
+    
+    try {
+      let sql;
+      
+      // Determine the scenario based on provided parameters
+      const hasVendorId = querydata.vendorid && querydata.vendorid != 0;
+      const hasType = querydata.type !== undefined;
+      const hasFilename = querydata.type && querydata.type !== "";
+      
+      if (!hasVendorId) {
+        // Scenario 1: No vendorid given - fetch all vendors with paths + logo as base64
+        sql = await db.query(
+          `SELECT vendorid, vendor_name, address, state, pincode, contact_person_name, 
+           contact_person_designation, contact_person_phone, email, business_type, 
+           year_of_establishment, gst_number, pan_number, annual_turnover, 
+           products_services, hsn_sac_code, description, bank_name, branch_name, 
+           account_number, ifsc_code, iso_certification, other_certifications,
+           registration_certificate_path, pan_upload_path, cancelled_cheque_path,
+           created_at, updated_at, logo_path
+           FROM vendors ORDER BY created_at DESC`
+        );
+      } else {
+        // Scenario 2: vendorid given - fetch specific vendor
+        sql = await db.query(
+          `SELECT vendorid, vendor_name, address, state, pincode, contact_person_name, 
+           contact_person_designation, contact_person_phone, email, business_type, 
+           year_of_establishment, gst_number, pan_number, annual_turnover, 
+           products_services, hsn_sac_code, description, bank_name, branch_name, 
+           account_number, ifsc_code, iso_certification, other_certifications,
+           registration_certificate_path, pan_upload_path, cancelled_cheque_path,
+           created_at, updated_at, logo_path
+           FROM vendors WHERE vendorid = ?`,
+          [querydata.vendorid]
+        );
+      }
+
+      // Process each vendor record
+      for (let i = 0; i < sql.length; i++) {
+        // Always convert logo to base64 for all scenarios
+        if (sql[i].logo_path) {
+          try {
+            const binaryData = await helper.convertFileToBinary(sql[i].logo_path);
+            sql[i].logo_base64 = binaryData;
+            // Keep the path as well
+          } catch (error) {
+            console.error("Error reading logo:", sql[i].logo_path, error);
+            sql[i].logo_base64 = null;
+          }
+        }
+
+        // Additional file conversion when vendorid + type + filename is provided
+        if (hasVendorId && hasType && hasFilename) {
+          // The filename is passed in querydata.type as a key
+          const filename = querydata.type.toLowerCase();
+          
+          if (filename === 'registration' && sql[i].registration_certificate_path) {
+            try {
+              const binaryData = await helper.convertFileToBinary(sql[i].registration_certificate_path);
+              sql[i].registration_certificate_base64 = binaryData;
+            } catch (error) {
+              console.error("Error reading registration certificate:", sql[i].registration_certificate_path, error);
+              sql[i].registration_certificate_base64 = null;
+            }
+          } else if (filename === 'pan' && sql[i].pan_upload_path) {
+            try {
+              const binaryData = await helper.convertFileToBinary(sql[i].pan_upload_path);
+              sql[i].pan_upload_base64 = binaryData;
+            } catch (error) {
+              console.error("Error reading PAN upload:", sql[i].pan_upload_path, error);
+              sql[i].pan_upload_base64 = null;
+            }
+          } else if (filename === 'cheque' && sql[i].cancelled_cheque_path) {
+            try {
+              const binaryData = await helper.convertFileToBinary(sql[i].cancelled_cheque_path);
+              sql[i].cancelled_cheque_base64 = binaryData;
+            } catch (error) {
+              console.error("Error reading cancelled cheque:", sql[i].cancelled_cheque_path, error);
+              sql[i].cancelled_cheque_base64 = null;
+            }
+          }
+          // Note: logo is already handled above, so no need to handle it again here
+        }
 
         // Format the dates
         if (sql[i].created_at) {
@@ -1116,157 +1339,6 @@ async function vendorDetailsPreLoader(vendorData) {
 //##################################################################################################################################################################################################
 //##################################################################################################################################################################################################
 
-async function GetProcessList(processData) {
-  try {
-    // Check if the session token exists
-    if (!processData.hasOwnProperty("STOKEN")) {
-      return helper.getErrorResponse(
-        false,
-        "Login session token missing. Please provide the Login session token",
-        "GET PROCESS LIST",
-        "",
-        ""
-      );
-    }
-
-    // Validate session token length
-    if (processData.STOKEN.length > 50 || processData.STOKEN.length < 30) {
-      return helper.getErrorResponse(
-        false,
-        "Login session token size invalid. Please provide the valid Session token",
-        "GET PROCESS LIST",
-        "",
-        ""
-      );
-    }
-
-    // Validate session token
-    const [result] = await db.spcall(
-      "CALL SP_STOKEN_CHECK(?,@result); SELECT @result;",
-      [processData.STOKEN]
-    );
-    const objectvalue = result[1][0];
-    const userid = objectvalue["@result"];
-
-    if (userid == null) {
-      return helper.getErrorResponse(
-        false,
-        "Login session token Invalid. Please provide the valid session token",
-        "GET PROCESS LIST",
-        "",
-        ""
-      );
-    }
-
-    // Check if querystring is provided
-    if (!processData.hasOwnProperty("querystring")) {
-      return helper.getErrorResponse(
-        false,
-        "Querystring missing. Please provide the querystring",
-        "GET PROCESS LIST",
-        "",
-        ""
-      );
-    }
-
-    var secret = processData.STOKEN.substring(0, 16);
-    var querydata;
-
-    // Decrypt querystring
-    try {
-      querydata = await helper.decrypt(processData.querystring, secret);
-    } catch (ex) {
-      return helper.getErrorResponse(
-        false,
-        "Querystring Invalid error. Please provide the valid querystring.",
-        "GET PROCESS LIST",
-        secret
-      );
-    }
-
-    // Parse the decrypted querystring
-    try {
-      querydata = JSON.parse(querydata);
-    } catch (ex) {
-      return helper.getErrorResponse(
-        false,
-        "Querystring JSON error. Please provide valid JSON",
-        "GET PROCESS LIST",
-        secret
-      );
-    }
-
-    try {
-      let sql;
-      let queryParams = [];
-      
-      // Base query with JOIN to get vendor name
-      let baseQuery = `
-        SELECT 
-          vpm.vprocess_id,
-          vm.vendor_name,
-          vpm.Process_date,
-          vpm.Vendor_id,
-          vpm.Customer_id,
-          vpm.Row_updated_date,
-          vpm.status,
-          vpm.deleted_flag,
-          vpm.archive_data,
-          vpm.Created_by,
-          vpm.cprocess_id,
-          vpm.feedback,
-          vpm.vprocess_gen_id
-        FROM vendorprocessmaster vpm
-        LEFT JOIN vendormaster vm ON vpm.Vendor_id = vm.vendor_id
-        WHERE vpm.deleted_flag = 0
-      `;
-
-      // Add filters based on querydata
-      if (querydata.hasOwnProperty("vprocess_id") && querydata.vprocess_id != null && querydata.vprocess_id !== "") {
-        baseQuery += " AND vpm.vprocess_id = ?";
-        queryParams.push(querydata.vprocess_id);
-      }
-
-      if (querydata.hasOwnProperty("vendor_id") && querydata.vendor_id != null && querydata.vendor_id !== "") {
-        baseQuery += " AND vpm.Vendor_id = ?";
-        queryParams.push(querydata.vendor_id);
-      }
-
-      if (querydata.hasOwnProperty("status") && querydata.status != null && querydata.status !== "") {
-        baseQuery += " AND vpm.status = ?";
-        queryParams.push(querydata.status);
-      }
-
-      // Order by latest first
-      baseQuery += " ORDER BY vpm.Row_updated_date DESC";
-
-      // Execute the query
-      sql = await db.query(baseQuery, queryParams);
-
-      return helper.getSuccessResponse(
-        true,
-        "success",
-        "Process list fetched successfully",
-        sql,
-        secret
-      );
-    } catch (er) {
-      return helper.getErrorResponse(
-        false,
-        "Internal error. Please contact Administration",
-        er.message,
-        secret
-      );
-    }
-  } catch (er) {
-    return helper.getErrorResponse(
-      false,
-      "Internal error. Please contact Administration",
-      er.message,
-      secret
-    );
-  }
-}
 
 //##################################################################################################################################################################################################
 //##################################################################################################################################################################################################
@@ -1821,921 +1893,6 @@ async function PostRFQ(req, res) {
     );
   }
 }
-
-//##################################################################################################################################################################################################
-//##################################################################################################################################################################################################
-//########################################### REQUEST BODY FOR GET SUB PROCESS LIST #####################################################################################
-// {
-//   "STOKEN": "your_session_token",
-//   "querystring": "encrypted_data_containing_process_id"
-// }
-// Required querystring data:
-// {
-//   "vprocess_id": 1  // Required - parent process ID to fetch subprocess list
-// }
-//####################################################################### RESPONSE BODY FOR GET SUB PROCESS LIST #######################################################
-// {
-//   "code": true,
-//   "message": "Sub process list fetched successfully",
-//   "Value": [
-//     {
-//       "process_id": 1,
-//       "process_name": "RFQ",
-//       "Process_filepath": "/path/to/file.pdf",
-//       "Process_date": "2025-07-04",
-//       "Approved_status": 0,
-//       "status": 1,
-//       "deleted_flag": 0,
-//       "Created_by": 4,
-//       "vprocess_gen_id": "SSIPL-RFQ/2507/01",
-//       "process_type": "RFQ",
-//       "vendor_address": "chinnverampatti,udumallai",
-//       "vendor_name": "JK constructiond",
-//       "Row_updated_date": "2025-07-04 15:50:53"
-//     }
-//   ]
-// }
-//##################################################################################################################################################################################################
-//##################################################################################################################################################################################################
-
-async function GetSubProcessList(processData) {
-  try {
-    // Check if the session token exists
-    if (!processData.hasOwnProperty("STOKEN")) {
-      return helper.getErrorResponse(
-        false,
-        "Login session token missing. Please provide the Login session token",
-        "GET SUB PROCESS LIST",
-        "",
-        ""
-      );
-    }
-
-    // Validate session token length
-    if (processData.STOKEN.length > 50 || processData.STOKEN.length < 30) {
-      return helper.getErrorResponse(
-        false,
-        "Login session token size invalid. Please provide the valid Session token",
-        "GET SUB PROCESS LIST",
-        "",
-        ""
-      );
-    }
-
-    // Validate session token
-    const [result] = await db.spcall(
-      "CALL SP_STOKEN_CHECK(?,@result); SELECT @result;",
-      [processData.STOKEN]
-    );
-    const objectvalue = result[1][0];
-    const userid = objectvalue["@result"];
-
-    if (userid == null) {
-      return helper.getErrorResponse(
-        false,
-        "Login session token Invalid. Please provide the valid session token",
-        "GET SUB PROCESS LIST",
-        "",
-        ""
-      );
-    }
-
-    // Check if querystring is provided
-    if (!processData.hasOwnProperty("querystring")) {
-      return helper.getErrorResponse(
-        false,
-        "error",
-        "Querystring missing. Please provide the querystring",
-        "GET SUB PROCESS LIST",
-        processData.STOKEN.substring(0, 16)
-      );
-    }
-
-    var secret = processData.STOKEN.substring(0, 16);
-    var querydata;
-
-    // Decrypt querystring
-    try {
-      querydata = await helper.decrypt(processData.querystring, secret);
-    } catch (ex) {
-      return helper.getErrorResponse(
-        false,
-        "Querystring Invalid error. Please provide the valid querystring.",
-        "GET SUB PROCESS LIST",
-        secret
-      );
-    }
-
-    // Parse the decrypted querystring
-    try {
-      querydata = JSON.parse(querydata);
-    } catch (ex) {
-      return helper.getErrorResponse(
-        false,
-        "Querystring JSON error. Please provide valid JSON",
-        "GET SUB PROCESS LIST",
-        secret
-      );
-    }
-
-    // Validate required fields
-    if (!querydata.hasOwnProperty("vprocess_id") || querydata.vprocess_id == null || querydata.vprocess_id === "") {
-      return helper.getErrorResponse(
-        false,
-        "Process ID missing. Please provide the vprocess_id",
-        "GET SUB PROCESS LIST",
-        secret
-      );
-    }
-
-    try {
-      // Query to fetch subprocess list from vprocesslist table using process_id
-      const sql = await db.query(
-        `SELECT 
-          vprocess_id,
-          process_name,
-          Process_filepath,
-          Process_date,
-          Approved_status,
-          status,
-          deleted_flag,
-          Created_by,
-          vprocess_gen_id,
-          process_type,
-          vendor_address,
-          vendor_name,
-          Row_updated_date
-        FROM vprocesslist 
-        WHERE process_id = ? AND deleted_flag = 0
-        ORDER BY Row_updated_date DESC`,
-        [querydata.vprocess_id]
-      );
-
-      return helper.getSuccessResponse(
-        true,
-        "success",
-        "Sub process list fetched successfully",
-        sql,
-        secret
-      );
-    } catch (er) {
-      return helper.getErrorResponse(
-        false,
-        "Internal error. Please contact Administration",
-        er.message,
-        secret
-      );
-    }
-  } catch (er) {
-    return helper.getErrorResponse(
-      false,
-      "Internal error. Please contact Administration",
-      er.message,
-      secret
-    );
-  }
-}
-
-//##################################################################################################################################################################################################
-//##################################################################################################################################################################################################
-//########################################### REQUEST BODY FOR UPDATE VENDOR REGISTRATION CERTIFICATE ######################################################################################
-// {
-//   "STOKEN": "your_session_token",
-//   "querystring": "encrypted_data_containing_vendor_id"
-// }
-// File upload in form-data with key "registration_certificate"
-// Required querystring data:
-// {
-//   "vendorid": 1
-// }
-//####################################################################### RESPONSE BODY FOR UPDATE VENDOR REGISTRATION CERTIFICATE #######################################################
-// {"code":true,"message":"Registration Certificate Updated Successfully","Value":{"vendorid": 1, "file_path": "/path/to/file.pdf"}}
-//##################################################################################################################################################################################################
-//##################################################################################################################################################################################################
-
-async function UpdateVendorRegistrationCert(req, res) {
-  try {
-    // Upload the registration certificate file first
-    try {
-      await uploadFile.uploadVendorRegistrationCert(req, res);
-
-      if (!req.file) {
-        return helper.getErrorResponse(
-          false,
-          "error",
-          "Please upload a registration certificate file!",
-          "UPDATE VENDOR REGISTRATION CERT",
-          ""
-        );
-      }
-    } catch (er) {
-      return helper.getErrorResponse(
-        false,
-        "error",
-        `Could not upload the file. ${er.message}`,
-        "UPDATE VENDOR REGISTRATION CERT",
-        ""
-      );
-    }
-
-    let vendorData = req.body;
-
-    // Check if the session token exists
-    if (!vendorData.hasOwnProperty("STOKEN")) {
-      return helper.getErrorResponse(
-        false,
-        "error",
-        "Login session token missing. Please provide the Login session token",
-        "UPDATE VENDOR REGISTRATION CERT",
-        ""
-      );
-    }
-
-    // Validate session token length
-    if (vendorData.STOKEN.length > 50 || vendorData.STOKEN.length < 30) {
-      return helper.getErrorResponse(
-        false,
-        "error",
-        "Login session token size invalid. Please provide the valid Session token",
-        "UPDATE VENDOR REGISTRATION CERT",
-        ""
-      );
-    }
-
-    // Validate session token
-    const [result] = await db.spcall(
-      "CALL SP_STOKEN_CHECK(?,@result); SELECT @result;",
-      [vendorData.STOKEN]
-    );
-    const objectvalue = result[1][0];
-    const userid = objectvalue["@result"];
-
-    if (userid == null) {
-      return helper.getErrorResponse(
-        false,
-        "error",
-        "Login session token Invalid. Please provide the valid session token",
-        "UPDATE VENDOR REGISTRATION CERT",
-        vendorData.STOKEN.substring(0, 16)
-      );
-    }
-
-    // Check if querystring is provided
-    if (!vendorData.hasOwnProperty("querystring")) {
-      return helper.getErrorResponse(
-        false,
-        "error",
-        "Querystring missing. Please provide the querystring",
-        "UPDATE VENDOR REGISTRATION CERT",
-        vendorData.STOKEN.substring(0, 16)
-      );
-    }
-
-    var secret = vendorData.STOKEN.substring(0, 16);
-    var querydata;
-
-    // Decrypt querystring
-    try {
-      querydata = await helper.decrypt(vendorData.querystring, secret);
-    } catch (ex) {
-      return helper.getErrorResponse(
-        false,
-        "error",
-        "Querystring Invalid error. Please provide the valid querystring.",
-        "UPDATE VENDOR REGISTRATION CERT",
-        secret
-      );
-    }
-
-    // Parse the decrypted querystring
-    try {
-      querydata = JSON.parse(querydata);
-    } catch (ex) {
-      return helper.getErrorResponse(
-        false,
-        "error",
-        "Querystring JSON error. Please provide valid JSON",
-        "UPDATE VENDOR REGISTRATION CERT",
-        secret
-      );
-    }
-
-    // Validate required fields
-    if (!querydata.hasOwnProperty("vendorid") || querydata.vendorid == "") {
-      return helper.getErrorResponse(
-        false,
-        "error",
-        "Vendor ID missing. Please provide the Vendor ID",
-        "UPDATE VENDOR REGISTRATION CERT",
-        secret
-      );
-    }
-
-    try {
-      const filePath = req.file.path;
-
-      // Update vendor registration certificate path
-      const sql = await db.query(
-        `UPDATE vendors SET registration_certificate_path = ?, updated_at = CURRENT_TIMESTAMP WHERE vendorid = ?`,
-        [filePath, querydata.vendorid]
-      );
-
-      if (sql.affectedRows > 0) {
-        return helper.getSuccessResponse(
-          true,
-          "success",
-          "Registration Certificate Updated Successfully",
-          {
-            vendorid: querydata.vendorid,
-            file_path: filePath
-          },
-          secret
-        );
-      } else {
-        return helper.getErrorResponse(
-          false,
-          "error",
-          "Vendor not found or no changes made.",
-          "UPDATE VENDOR REGISTRATION CERT",
-          secret
-        );
-      }
-    } catch (er) {
-      return helper.getErrorResponse(
-        false,
-        "error",
-        "Internal error. Please contact Administration",
-        er.message,
-        secret
-      );
-    }
-  } catch (er) {
-    const secret = (req && req.body && req.body.STOKEN) ? req.body.STOKEN.substring(0, 16) : "";
-    return helper.getErrorResponse(
-      false,
-      "error",
-      "Internal error. Please contact Administration",
-      er.message,
-      secret
-    );
-  }
-}
-
-//##################################################################################################################################################################################################
-//##################################################################################################################################################################################################
-//########################################### REQUEST BODY FOR UPDATE VENDOR PAN ######################################################################################
-// {
-//   "STOKEN": "your_session_token",
-//   "querystring": "encrypted_data_containing_vendor_id"
-// }
-// File upload in form-data with key "pan_upload"
-// Required querystring data:
-// {
-//   "vendorid": 1
-// }
-//####################################################################### RESPONSE BODY FOR UPDATE VENDOR PAN #######################################################
-// {"code":true,"message":"PAN Document Updated Successfully","Value":{"vendorid": 1, "file_path": "/path/to/file.pdf"}}
-//##################################################################################################################################################################################################
-//##################################################################################################################################################################################################
-
-async function UpdateVendorPAN(req, res) {
-  try {
-    // Upload the PAN file first
-    try {
-      await uploadFile.uploadVendorPAN(req, res);
-
-      if (!req.file) {
-        return helper.getErrorResponse(
-          false,
-          "error",
-          "Please upload a PAN document file!",
-          "UPDATE VENDOR PAN",
-          ""
-        );
-      }
-    } catch (er) {
-      return helper.getErrorResponse(
-        false,
-        "error",
-        `Could not upload the file. ${er.message}`,
-        "UPDATE VENDOR PAN",
-        ""
-      );
-    }
-
-    let vendorData = req.body;
-
-    // Check if the session token exists
-    if (!vendorData.hasOwnProperty("STOKEN")) {
-      return helper.getErrorResponse(
-        false,
-        "error",
-        "Login session token missing. Please provide the Login session token",
-        "UPDATE VENDOR PAN",
-        ""
-      );
-    }
-
-    // Validate session token length
-    if (vendorData.STOKEN.length > 50 || vendorData.STOKEN.length < 30) {
-      return helper.getErrorResponse(
-        false,
-        "error",
-        "Login session token size invalid. Please provide the valid Session token",
-        "UPDATE VENDOR PAN",
-        ""
-      );
-    }
-
-    // Validate session token
-    const [result] = await db.spcall(
-      "CALL SP_STOKEN_CHECK(?,@result); SELECT @result;",
-      [vendorData.STOKEN]
-    );
-    const objectvalue = result[1][0];
-    const userid = objectvalue["@result"];
-
-    if (userid == null) {
-      return helper.getErrorResponse(
-        false,
-        "error",
-        "Login session token Invalid. Please provide the valid session token",
-        "UPDATE VENDOR PAN",
-        vendorData.STOKEN.substring(0, 16)
-      );
-    }
-
-    // Check if querystring is provided
-    if (!vendorData.hasOwnProperty("querystring")) {
-      return helper.getErrorResponse(
-        false,
-        "error",
-        "Querystring missing. Please provide the querystring",
-        "UPDATE VENDOR PAN",
-        vendorData.STOKEN.substring(0, 16)
-      );
-    }
-
-    var secret = vendorData.STOKEN.substring(0, 16);
-    var querydata;
-
-    // Decrypt querystring
-    try {
-      querydata = await helper.decrypt(vendorData.querystring, secret);
-    } catch (ex) {
-      return helper.getErrorResponse(
-        false,
-        "error",
-        "Querystring Invalid error. Please provide the valid querystring.",
-        "UPDATE VENDOR PAN",
-        secret
-      );
-    }
-
-    // Parse the decrypted querystring
-    try {
-      querydata = JSON.parse(querydata);
-    } catch (ex) {
-      return helper.getErrorResponse(
-        false,
-        "error",
-        "Querystring JSON error. Please provide valid JSON",
-        "UPDATE VENDOR PAN",
-        secret
-      );
-    }
-
-    // Validate required fields
-    if (!querydata.hasOwnProperty("vendorid") || querydata.vendorid == "") {
-      return helper.getErrorResponse(
-        false,
-        "error",
-        "Vendor ID missing. Please provide the Vendor ID",
-        "UPDATE VENDOR PAN",
-        secret
-      );
-    }
-
-    try {
-      const filePath = req.file.path;
-
-      // Update vendor PAN path
-      const sql = await db.query(
-        `UPDATE vendors SET pan_upload_path = ?, updated_at = CURRENT_TIMESTAMP WHERE vendorid = ?`,
-        [filePath, querydata.vendorid]
-      );
-
-      if (sql.affectedRows > 0) {
-        return helper.getSuccessResponse(
-          true,
-          "success",
-          "PAN Document Updated Successfully",
-          {
-            vendorid: querydata.vendorid,
-            file_path: filePath
-          },
-          secret
-        );
-      } else {
-        return helper.getErrorResponse(
-          false,
-          "error",
-          "Vendor not found or no changes made.",
-          "UPDATE VENDOR PAN",
-          secret
-        );
-      }
-    } catch (er) {
-      return helper.getErrorResponse(
-        false,
-        "error",
-        "Internal error. Please contact Administration",
-        er.message,
-        secret
-      );
-    }
-  } catch (er) {
-    const secret = (req && req.body && req.body.STOKEN) ? req.body.STOKEN.substring(0, 16) : "";
-    return helper.getErrorResponse(
-      false,
-      "error",
-      "Internal error. Please contact Administration",
-      er.message,
-      secret
-    );
-  }
-}
-
-//##################################################################################################################################################################################################
-//##################################################################################################################################################################################################
-//########################################### REQUEST BODY FOR UPDATE VENDOR CANCELLED CHEQUE ######################################################################################
-// {
-//   "STOKEN": "your_session_token",
-//   "querystring": "encrypted_data_containing_vendor_id"
-// }
-// File upload in form-data with key "cancelled_cheque"
-// Required querystring data:
-// {
-//   "vendorid": 1
-// }
-//####################################################################### RESPONSE BODY FOR UPDATE VENDOR CANCELLED CHEQUE #######################################################
-// {"code":true,"message":"Cancelled Cheque Updated Successfully","Value":{"vendorid": 1, "file_path": "/path/to/file.pdf"}}
-//##################################################################################################################################################################################################
-//##################################################################################################################################################################################################
-
-async function UpdateVendorCancelledCheque(req, res) {
-  try {
-    // Upload the cancelled cheque file first
-    try {
-      await uploadFile.uploadVendorCancelledCheque(req, res);
-
-      if (!req.file) {
-        return helper.getErrorResponse(
-          false,
-          "error",
-          "Please upload a cancelled cheque file!",
-          "UPDATE VENDOR CANCELLED CHEQUE",
-          ""
-        );
-      }
-    } catch (er) {
-      return helper.getErrorResponse(
-        false,
-        "error",
-        `Could not upload the file. ${er.message}`,
-        "UPDATE VENDOR CANCELLED CHEQUE",
-        ""
-      );
-    }
-
-    let vendorData = req.body;
-
-    // Check if the session token exists
-    if (!vendorData.hasOwnProperty("STOKEN")) {
-      return helper.getErrorResponse(
-        false,
-        "error",
-        "Login session token missing. Please provide the Login session token",
-        "UPDATE VENDOR CANCELLED CHEQUE",
-        ""
-      );
-    }
-
-    // Validate session token length
-    if (vendorData.STOKEN.length > 50 || vendorData.STOKEN.length < 30) {
-      return helper.getErrorResponse(
-        false,
-        "error",
-        "Login session token size invalid. Please provide the valid Session token",
-        "UPDATE VENDOR CANCELLED CHEQUE",
-        ""
-      );
-    }
-
-    // Validate session token
-    const [result] = await db.spcall(
-      "CALL SP_STOKEN_CHECK(?,@result); SELECT @result;",
-      [vendorData.STOKEN]
-    );
-    const objectvalue = result[1][0];
-    const userid = objectvalue["@result"];
-
-    if (userid == null) {
-      return helper.getErrorResponse(
-        false,
-        "error",
-        "Login session token Invalid. Please provide the valid session token",
-        "UPDATE VENDOR CANCELLED CHEQUE",
-        vendorData.STOKEN.substring(0, 16)
-      );
-    }
-
-    // Check if querystring is provided
-    if (!vendorData.hasOwnProperty("querystring")) {
-      return helper.getErrorResponse(
-        false,
-        "error",
-        "Querystring missing. Please provide the querystring",
-        "UPDATE VENDOR CANCELLED CHEQUE",
-        vendorData.STOKEN.substring(0, 16)
-      );
-    }
-
-    var secret = vendorData.STOKEN.substring(0, 16);
-    var querydata;
-
-    // Decrypt querystring
-    try {
-      querydata = await helper.decrypt(vendorData.querystring, secret);
-    } catch (ex) {
-      return helper.getErrorResponse(
-        false,
-        "error",
-        "Querystring Invalid error. Please provide the valid querystring.",
-        "UPDATE VENDOR CANCELLED CHEQUE",
-        secret
-      );
-    }
-
-    // Parse the decrypted querystring
-    try {
-      querydata = JSON.parse(querydata);
-    } catch (ex) {
-      return helper.getErrorResponse(
-        false,
-        "error",
-        "Querystring JSON error. Please provide valid JSON",
-        "UPDATE VENDOR CANCELLED CHEQUE",
-        secret
-      );
-    }
-
-    // Validate required fields
-    if (!querydata.hasOwnProperty("vendorid") || querydata.vendorid == "") {
-      return helper.getErrorResponse(
-        false,
-        "error",
-        "Vendor ID missing. Please provide the Vendor ID",
-        "UPDATE VENDOR CANCELLED CHEQUE",
-        secret
-      );
-    }
-
-    try {
-      const filePath = req.file.path;
-
-      // Update vendor cancelled cheque path
-      const sql = await db.query(
-        `UPDATE vendors SET cancelled_cheque_path = ?, updated_at = CURRENT_TIMESTAMP WHERE vendorid = ?`,
-        [filePath, querydata.vendorid]
-      );
-
-      if (sql.affectedRows > 0) {
-        return helper.getSuccessResponse(
-          true,
-          "success",
-          "Cancelled Cheque Updated Successfully",
-          {
-            vendorid: querydata.vendorid,
-            file_path: filePath
-          },
-          secret
-        );
-      } else {
-        return helper.getErrorResponse(
-          false,
-          "error",
-          "Vendor not found or no changes made.",
-          "UPDATE VENDOR CANCELLED CHEQUE",
-          secret
-        );
-      }
-    } catch (er) {
-      return helper.getErrorResponse(
-        false,
-        "error",
-        "Internal error. Please contact Administration",
-        er.message,
-        secret
-      );
-    }
-  } catch (er) {
-    const secret = (req && req.body && req.body.STOKEN) ? req.body.STOKEN.substring(0, 16) : "";
-    return helper.getErrorResponse(
-      false,
-      "error",
-      "Internal error. Please contact Administration",
-      er.message,
-      secret
-    );
-  }
-}
-
-//##################################################################################################################################################################################################
-//##################################################################################################################################################################################################
-//########################################### REQUEST BODY FOR UPDATE VENDOR LOGO ######################################################################################
-// {
-//   "STOKEN": "your_session_token",
-//   "querystring": "encrypted_data_containing_vendor_id"
-// }
-// File upload in form-data with key "logo_upload"
-// Required querystring data:
-// {
-//   "vendorid": 1
-// }
-//####################################################################### RESPONSE BODY FOR UPDATE VENDOR LOGO #######################################################
-// {"code":true,"message":"Logo Updated Successfully","Value":{"vendorid": 1, "file_path": "/path/to/file.pdf"}}
-//##################################################################################################################################################################################################
-//##################################################################################################################################################################################################
-
-async function UpdateVendorLogo(req, res) {
-  try {
-    // Upload the logo file first
-    try {
-      await uploadFile.uploadVendorLogo(req, res);
-
-      if (!req.file) {
-        return helper.getErrorResponse(
-          false,
-          "error",
-          "Please upload a logo file!",
-          "UPDATE VENDOR LOGO",
-          ""
-        );
-      }
-    } catch (er) {
-      return helper.getErrorResponse(
-        false,
-        "error",
-        `Could not upload the file. ${er.message}`,
-        "UPDATE VENDOR LOGO",
-        ""
-      );
-    }
-
-    let vendorData = req.body;
-
-    // Check if the session token exists
-    if (!vendorData.hasOwnProperty("STOKEN")) {
-      return helper.getErrorResponse(
-        false,
-        "error",
-        "Login session token missing. Please provide the Login session token",
-        "UPDATE VENDOR LOGO",
-        ""
-      );
-    }
-
-    // Validate session token length
-    if (vendorData.STOKEN.length > 50 || vendorData.STOKEN.length < 30) {
-      return helper.getErrorResponse(
-        false,
-        "error",
-        "Login session token size invalid. Please provide the valid Session token",
-        "UPDATE VENDOR LOGO",
-        ""
-      );
-    }
-
-    // Validate session token
-    const [result] = await db.spcall(
-      "CALL SP_STOKEN_CHECK(?,@result); SELECT @result;",
-      [vendorData.STOKEN]
-    );
-    const objectvalue = result[1][0];
-    const userid = objectvalue["@result"];
-
-    if (userid == null) {
-      return helper.getErrorResponse(
-        false,
-        "error",
-        "Login session token Invalid. Please provide the valid session token",
-        "UPDATE VENDOR LOGO",
-        vendorData.STOKEN.substring(0, 16)
-      );
-    }
-
-    // Check if querystring is provided
-    if (!vendorData.hasOwnProperty("querystring")) {
-      return helper.getErrorResponse(
-        false,
-        "error",
-        "Querystring missing. Please provide the querystring",
-        "UPDATE VENDOR LOGO",
-        vendorData.STOKEN.substring(0, 16)
-      );
-    }
-
-    var secret = vendorData.STOKEN.substring(0, 16);
-    var querydata;
-
-    // Decrypt querystring
-    try {
-      querydata = await helper.decrypt(vendorData.querystring, secret);
-    } catch (ex) {
-      return helper.getErrorResponse(
-        false,
-        "error",
-        "Querystring Invalid error. Please provide the valid querystring.",
-        "UPDATE VENDOR LOGO",
-        secret
-      );
-    }
-
-    // Parse the decrypted querystring
-    try {
-      querydata = JSON.parse(querydata);
-    } catch (ex) {
-      return helper.getErrorResponse(
-        false,
-        "error",
-        "Querystring JSON error. Please provide valid JSON",
-        "UPDATE VENDOR LOGO",
-        secret
-      );
-    }
-
-    // Validate required fields
-    if (!querydata.hasOwnProperty("vendorid") || querydata.vendorid == "") {
-      return helper.getErrorResponse(
-        false,
-        "error",
-        "Vendor ID missing. Please provide the Vendor ID",
-        "UPDATE VENDOR LOGO",
-        secret
-      );
-    }
-
-    try {
-      const filePath = req.file.path;
-
-      // Update vendor logo path
-      const sql = await db.query(
-        `UPDATE vendors SET logo_path = ?, updated_at = CURRENT_TIMESTAMP WHERE vendorid = ?`,
-        [filePath, querydata.vendorid]
-      );
-
-      if (sql.affectedRows > 0) {
-        return helper.getSuccessResponse(
-          true,
-          "success",
-          "Logo Updated Successfully",
-          {
-            vendorid: querydata.vendorid,
-            file_path: filePath
-          },
-          secret
-        );
-      } else {
-        return helper.getErrorResponse(
-          false,
-          "error",
-          "Vendor not found or no changes made.",
-          "UPDATE VENDOR LOGO",
-          secret
-        );
-      }
-    } catch (er) {
-      return helper.getErrorResponse(
-        false,
-        "error",
-        "Internal error. Please contact Administration",
-        er.message,
-        secret
-      );
-    }
-  } catch (er) {
-    const secret = (req && req.body && req.body.STOKEN) ? req.body.STOKEN.substring(0, 16) : "";
-    return helper.getErrorResponse(
-      false,
-      "error",
-      "Internal error. Please contact Administration",
-      er.message,
-      secret
-    );
-  }
-}
-
 //##################################################################################################################################################################################################
 //##################################################################################################################################################################################################
 //########################################### REQUEST BODY FOR GET PRODUCTS #####################################################################################
@@ -3044,9 +2201,9 @@ async function getNotes(notesData) {
 //         {
 //           "process_id": 1,
 //           "process_name": "RFQ",
-//           "Process_filepath": "/path/to/file.pdf",
+//           "Process_filepath": "/path/to/file.pdf", 
 //           "Process_date": "2025-07-04",
-//           "Approved_status": 0,
+//           "Approved_status": 0,  // 0=null/not done anything, 1=approved, 2=mail sent but no action, 3=rejected
 //           "status": 1,
 //           "deleted_flag": 0,
 //           "Created_by": 4,
@@ -5642,12 +4799,36 @@ async function getVendorQuotationApproval(vendorData) {
 
       const quotation = quotationDetails[0];
 
-      // Check if already approved
+      // Check approval status
+      // 0: null/not done anything (they will take it)
+      // 1: approved
+      // 2: mail sent but no action taken  
+      // 3: rejected
       if (quotation.Approved_status === 1) {
         return helper.getErrorResponse(
           false,
           "error",
           "This quotation has already been approved",
+          "GET VENDOR QUOTATION APPROVAL",
+          secret
+        );
+      }
+
+      if (quotation.Approved_status === 3) {
+        return helper.getErrorResponse(
+          false,
+          "error",
+          "This quotation has already been rejected",
+          "GET VENDOR QUOTATION APPROVAL",
+          secret
+        );
+      }
+
+      if (quotation.Approved_status === 2) {
+        return helper.getErrorResponse(
+          false,
+          "error",
+          "Approval request has already been sent for this quotation. Please wait for admin action.",
           "GET VENDOR QUOTATION APPROVAL",
           secret
         );
@@ -5694,6 +4875,13 @@ async function getVendorQuotationApproval(vendorData) {
       );
 
       if (emailSent) {
+        // Update quotation status to 2 (mail sent but no action taken)
+        await db.query(
+          `UPDATE vprocesslist SET Approved_status = 2, Row_updated_date = NOW()
+           WHERE vprocess_id = ? AND process_name = 'QUOTATION'`,
+          [quotation.vprocess_id]
+        );
+
         // Store approval request in a tracking table (optional)
         await db.query(
           `INSERT INTO vendor_quotation_approval_requests 
@@ -5781,20 +4969,12 @@ async function approveVendorQuotation(req, res) {
 
     var secret = vendorData.STOKEN.substring(0, 16);
 
-    // Validate session token length
-    if (vendorData.STOKEN.length > 50 || vendorData.STOKEN.length < 30) {
-      return res.sendFile(path.join(htmlPath, "invalid_token.html"));
-    }
-
     // Validate session token
-    const [result] = await db.spcall(
-      `CALL SP_STOKEN_CHECK(?,@result); SELECT @result;`,
-      [vendorData.STOKEN]
-    );
-    const objectvalue = result[1][0];
-    const userid = objectvalue["@result"];
+    const result = await db.query(`SELECT secret FROM apikey WHERE secret = ?`, [
+      vendorData.STOKEN
+    ]);
 
-    if (userid == null) {
+    if (result.length === 0) {
       return res.sendFile(path.join(htmlPath, "invalid_token.html"));
     }
 
@@ -5811,11 +4991,17 @@ async function approveVendorQuotation(req, res) {
       return res.sendFile(path.join(htmlPath, "internal_error.html"));
     }
 
-    // Update the database
+    // Update the database with correct Approved_status values
+    // 0: null/not done anything (they will take it)
+    // 1: approved
+    // 2: mail sent but no action taken  
+    // 3: rejected
+    const approvalStatus = vendorData.s == 1 ? 1 : 3; // 1 for approved, 3 for rejected
+    
     await db.query(
       `UPDATE vprocesslist SET Approved_status = ?, feedback = ?, Row_updated_date = NOW() 
        WHERE vprocess_id = ? AND process_name = 'QUOTATION'`,
-      [vendorData.s, vendorData.feedback, vendorData.eventid]
+      [approvalStatus, vendorData.feedback, vendorData.eventid]
     );
 
     // Update tracking table
@@ -5823,7 +5009,7 @@ async function approveVendorQuotation(req, res) {
       `UPDATE vendor_quotation_approval_requests 
        SET status = ?, approved_date = NOW(), approved_by = ?
        WHERE vprocess_id = ? AND status = 'pending'`,
-      [vendorData.s == 1 ? 'approved' : 'rejected', userid, vendorData.eventid]
+      [vendorData.s == 1 ? 'approved' : 'rejected', 1, vendorData.eventid]
     );
 
     // Send the quotation if approved
@@ -5906,22 +5092,608 @@ async function approveVendorQuotation(req, res) {
   }
 }
 
+//##################################################################################################################################################################################################
+//##################################################################################################################################################################################################
+//########################################### REQUEST BODY FOR PO PRELOADER #####################################################################################
+// {
+//   "STOKEN": "your_session_token",
+//   "querystring": "encrypted_data_containing_process_id"
+// }
+// Required querystring data:
+// {
+//   "processid": 38  // Required - vprocess_id from vendorprocessmaster to find related RFQ/RRFQ details
+// }
+//####################################################################### RESPONSE BODY FOR PO PRELOADER #######################################################
+// {
+//   "code": true,
+//   "message": "PO preloader data fetched successfully",
+//   "Value": {
+//     "po_id": "SSIPL-PO/2507/01",
+//     "rfq_details": {
+//       "id": 15,
+//       "rfqgenid": "SSIPL-RFQ/250401",
+//       "vendor_id": 1,
+//       "vendor_name": "JK Constructiond",
+//       "gstin": "33AATFN1941J1Z0",
+//       "pan": "NAEPK8086H",
+//       "contact_person": "Ravi Kumar",
+//       "vendor_address": "Chinnverampatti, Udumallai",
+//       "title": "JK pandiyan",
+//       "email_id": "jk@gmail.com",
+//       "phone_no": "9344268155",
+//       "cc_email": "",
+//       "message_type": 3,
+//       "feedback": "hello JK",
+//       "rfq_date": "2025-07-09 11:00:17",
+//       "notes": ["Client needs to provide Ethernet cable and UPS power supply to the point where the device is proposed to install."],
+//       "products": [{"productsno": 1, "productname": "27-inch Monitor", "productquantity": 10}],
+//       "row_updated_date": "2025-04-01 11:00:07",
+//       "status": 1,
+//       "deleted_flag": 0,
+//       "quotations": [
+//         {
+//           "vprocess_id": 33,
+//           "process_name": "QUOTATION",
+//           "Process_filepath": "path/to/quotation.pdf",
+//           "Process_date": "2025-07-09",
+//           "Approved_status": 0,
+//           "feedback": "995525"
+//         }
+//       ]
+//     }
+//   }
+// }
+//##################################################################################################################################################################################################
+//##################################################################################################################################################################################################
+
+async function popreloader(vendorData) {
+  try {
+    // Check if the session token exists
+    if (!vendorData.hasOwnProperty("STOKEN")) {
+      return helper.getErrorResponse(
+        false,
+        "error",
+        "Login session token missing. Please provide the Login session token",
+        "PO PRELOADER",
+        ""
+      );
+    }
+
+    // Validate session token length
+    if (vendorData.STOKEN.length > 50 || vendorData.STOKEN.length < 30) {
+      return helper.getErrorResponse(
+        false,
+        "error",
+        "Login session token size invalid. Please provide the valid Session token",
+        "PO PRELOADER",
+        ""
+      );
+    }
+
+    var secret = vendorData.STOKEN.substring(0, 16);
+
+    // Validate session token
+    const [result] = await db.spcall(
+      "CALL SP_STOKEN_CHECK(?,@result); SELECT @result;",
+      [vendorData.STOKEN]
+    );
+    const objectvalue = result[1][0];
+    const userid = objectvalue["@result"];
+
+    if (userid == null) {
+      return helper.getErrorResponse(
+        false,
+        "error",
+        "Login session token Invalid. Please provide the valid session token",
+        "PO PRELOADER",
+        secret
+      );
+    }
+
+    // Check if querystring is provided
+    if (!vendorData.hasOwnProperty("querystring")) {
+      return helper.getErrorResponse(
+        false,
+        "error",
+        "Querystring missing. Please provide the querystring",
+        "PO PRELOADER",
+        secret
+      );
+    }
+
+    var querydata;
+
+    // Decrypt querystring
+    try {
+      querydata = await helper.decrypt(vendorData.querystring, secret);
+    } catch (ex) {
+      return helper.getErrorResponse(
+        false,
+        "error",
+        "Querystring Invalid error. Please provide the valid querystring.",
+        "PO PRELOADER",
+        secret
+      );
+    }
+
+    // Parse the decrypted querystring
+    try {
+      querydata = JSON.parse(querydata);
+    } catch (ex) {
+      return helper.getErrorResponse(
+        false,
+        "error",
+        "Querystring JSON error. Please provide valid JSON",
+        "PO PRELOADER",
+        secret
+      );
+    }
+
+    // Validate required fields
+    if (!querydata.hasOwnProperty("processid") || querydata.processid == "" || querydata.processid == null) {
+      return helper.getErrorResponse(
+        false,
+        "error",
+        "Process ID missing. Please provide the processid",
+        "PO PRELOADER",
+        secret
+      );
+    }
+
+    try {
+      // Step 1: Generate PO ID using stored procedure
+      let poId;
+      try {
+        const [poResult] = await db.spcall(
+          `CALL Gen_vendor_poId(?, '/', @po_id); SELECT @po_id;`,
+          [userid]
+        );
+        const objectValue = poResult[1][0];
+        poId = objectValue["@po_id"];
+        
+        if (!poId) {
+          return helper.getErrorResponse(
+            false,
+            "error",
+            "Failed to generate PO ID using stored procedure",
+            "PO PRELOADER",
+            secret
+          );
+        }
+      } catch (e) {
+        return helper.getErrorResponse(
+          false,
+          "error",
+          "Failed to generate PO ID using stored procedure",
+          "PO PRELOADER",
+          secret
+        );
+      }
+
+      // Step 2: Get vprocess_gen_id from vendorprocessmaster using processid (vprocess_id)
+      const processQuery = await db.query(
+        `SELECT vprocess_id, vprocess_gen_id, vendor_name, Vendor_id
+         FROM vendorprocessmaster 
+         WHERE vprocess_id = ? AND deleted_flag = 0`,
+        [querydata.processid]
+      );
+
+      if (processQuery.length === 0) {
+        return helper.getErrorResponse(
+          false,
+          "error",
+          "Process not found for the given process ID",
+          "PO PRELOADER",
+          secret
+        );
+      }
+
+      const processInfo = processQuery[0];
+      const vprocessGenId = processInfo.vprocess_gen_id;
+
+      // Step 3: Get the latest RFQ or RRFQ details for this process using the unified view
+      const rfqDetailsQuery = await db.query(
+        `SELECT 
+          id,
+          rfqgenid,
+          vendor_id,
+          vendor_name,
+          gstin,
+          pan,
+          contact_person,
+          vendor_address,
+          title,
+          email_id,
+          phone_no,
+          cc_email,
+          message_type,
+          feedback,
+          rfq_date,
+          notes,
+          products,
+          row_updated_date,
+          status,
+          deleted_flag,
+          source_table
+         FROM vendor_all_rfq_details 
+         WHERE TRIM(LOWER(rfqgenid)) = TRIM(LOWER(?)) AND deleted_flag = 0
+         ORDER BY row_updated_date DESC
+         LIMIT 1`,
+        [vprocessGenId]
+      );
+
+      if (rfqDetailsQuery.length === 0) {
+        return helper.getErrorResponse(
+          false,
+          "error",
+          "Vendor RFQ/RRFQ details not found for the given process",
+          "PO PRELOADER",
+          secret
+        );
+      }
+
+      const rfqDetails = rfqDetailsQuery[0];
+
+      // Step 5: Get all quotations for this process (approved quotations only)
+      const quotationsQuery = await db.query(
+        `SELECT 
+          vprocess_id,
+          process_name,
+          Process_filepath,
+          Process_date,
+          Approved_status,
+          status,
+          deleted_flag,
+          Created_by,
+          vprocess_gen_id,
+          process_type,
+          vendor_address,
+          vendor_name,
+          feedback,
+          Row_updated_date
+         FROM vprocesslist 
+         WHERE process_id = ? AND process_name = 'QUOTATION' AND deleted_flag = 0 AND Approved_status = 1
+         ORDER BY Row_updated_date DESC`,
+        [querydata.processid]
+      );
+
+      // Step 4: Parse JSON fields if they exist and are valid JSON strings
+      let parsedNotes = [];
+      let parsedProducts = [];
+
+      // Handle notes parsing
+      if (rfqDetails.notes) {
+        if (typeof rfqDetails.notes === 'string') {
+          try {
+            if (rfqDetails.notes.trim().startsWith('[') || rfqDetails.notes.trim().startsWith('{')) {
+              parsedNotes = JSON.parse(rfqDetails.notes);
+            } else {
+              parsedNotes = [rfqDetails.notes];
+            }
+          } catch (notesError) {
+            console.warn("Error parsing notes JSON:", notesError);
+            parsedNotes = [rfqDetails.notes];
+          }
+        } else if (Array.isArray(rfqDetails.notes)) {
+          parsedNotes = rfqDetails.notes;
+        } else {
+          parsedNotes = [rfqDetails.notes];
+        }
+      }
+
+      // Handle products parsing
+      if (rfqDetails.products) {
+        if (typeof rfqDetails.products === 'string') {
+          try {
+            if (rfqDetails.products.trim().startsWith('[') || rfqDetails.products.trim().startsWith('{')) {
+              parsedProducts = JSON.parse(rfqDetails.products);
+            } else {
+              parsedProducts = [{ description: rfqDetails.products }];
+            }
+          } catch (productsError) {
+            console.warn("Error parsing products JSON:", productsError);
+            parsedProducts = [{ description: rfqDetails.products }];
+          }
+        } else if (Array.isArray(rfqDetails.products)) {
+          parsedProducts = rfqDetails.products;
+        } else if (typeof rfqDetails.products === 'object') {
+          parsedProducts = [rfqDetails.products];
+        } else {
+          parsedProducts = [{ description: rfqDetails.products }];
+        }
+      }
+
+      // Step 6: Format the response
+      const isRRFQ = rfqDetails.source_table === 'vendor_rrfq_details';
+      
+      const responseData = {
+        po_id: poId,
+        rfq_details: {
+          id: rfqDetails.id,
+          rfqgenid: rfqDetails.rfqgenid,
+          vendor_id: rfqDetails.vendor_id,
+          vendor_name: rfqDetails.vendor_name,
+          gstin: rfqDetails.gstin,
+          pan: rfqDetails.pan,
+          contact_person: rfqDetails.contact_person,
+          vendor_address: rfqDetails.vendor_address,
+          title: rfqDetails.title,
+          email_id: rfqDetails.email_id,
+          phone_no: rfqDetails.phone_no,
+          cc_email: rfqDetails.cc_email,
+          message_type: rfqDetails.message_type,
+          feedback: rfqDetails.feedback,
+          rfq_date: rfqDetails.rfq_date,
+          notes: parsedNotes,
+          products: parsedProducts,
+          row_updated_date: rfqDetails.row_updated_date,
+          status: rfqDetails.status,
+          deleted_flag: rfqDetails.deleted_flag,
+          quotations: quotationsQuery.map(q => ({
+            vprocess_id: q.vprocess_id,
+            process_name: q.process_name,
+            Process_filepath: q.Process_filepath,
+            Process_date: q.Process_date,
+            Approved_status: q.Approved_status,
+            feedback: q.feedback,
+            Row_updated_date: q.Row_updated_date
+          })),
+          process_type: isRRFQ ? 'RRFQ' : 'RFQ',
+          source_table: rfqDetails.source_table
+        }
+      };
+
+      return helper.getSuccessResponse(
+        true,
+        "success",
+        "PO preloader data fetched successfully",
+        responseData,
+        secret
+      );
+
+    } catch (er) {
+      return helper.getErrorResponse(
+        false,
+        "error",
+        "Internal error. Please contact Administration",
+        er.message,
+        secret
+      );
+    }
+  } catch (er) {
+    return helper.getErrorResponse(
+      false,
+      "error",
+      "Internal error. Please contact Administration",
+      er.message,
+      ""
+    );
+  }
+}
+
+//##################################################################################################################################################################################################
+//##################################################################################################################################################################################################
+//########################################### REQUEST BODY FOR ADD INVOICE #####################################################################################
+// {
+//   "STOKEN": "your_session_token",
+//   "querystring": "encrypted_data_containing_process_id"
+// }
+// File upload in form-data with key "file"
+// Required querystring data:
+// {
+//   "processid": 38,    // process_id from vendorprocessmaster (parent process)
+//   "feedback": "Optional vendor feedback on invoice"
+// }
+//####################################################################### RESPONSE BODY FOR ADD INVOICE #######################################################
+// {"code":true,"message":"Invoice Added Successfully","Value":{"vprocess_id": 37, "process_id": 38}}
+//##################################################################################################################################################################################################
+//##################################################################################################################################################################################################
+
+async function AddInvoice(req, res) {
+  try {
+    // Upload the PDF file first
+    try {
+      await uploadFile.uploadVendorInvoice(req, res);
+
+      if (!req.file) {
+        return helper.getErrorResponse(
+          false,
+          "Please upload a PDF file!",
+          "ADD INVOICE",
+          "",
+          ""
+        );
+      }
+    } catch (er) {
+      return helper.getErrorResponse(
+        false,
+        `Could not upload the file. ${er.message}`,
+        "ADD INVOICE",
+        "",
+        ""
+      );
+    }
+
+    let invoice = req.body;
+
+    // Check if the session token exists
+    if (!invoice.STOKEN) {
+      return helper.getErrorResponse(
+        false,
+        "Login session token missing. Please provide the Login session token",
+        "ADD INVOICE",
+        "",
+        ""
+      );
+    }
+
+    // Validate session token length
+    if (invoice.STOKEN.length > 50 || invoice.STOKEN.length < 30) {
+      return helper.getErrorResponse(
+        false,
+        "Login session token size invalid. Please provide the valid Session token",
+        "ADD INVOICE",
+        "",
+        ""
+      );
+    }
+
+    // Validate session token
+    const [result] = await db.spcall(
+      "CALL SP_STOKEN_CHECK(?,@result); SELECT @result;",
+      [invoice.STOKEN]
+    );
+    const objectvalue = result[1][0];
+    const userid = objectvalue["@result"];
+
+    if (userid == null) {
+      return helper.getErrorResponse(
+        false,
+        "error",
+        "Login session token Invalid. Please provide the valid session token",
+        "ADD INVOICE",
+        invoice.STOKEN.substring(0, 16)
+      );
+    }
+
+    // Check if querystring is provided
+    if (!invoice.querystring) {
+      return helper.getErrorResponse(
+        false,
+        "error",
+        "Querystring missing. Please provide the querystring",
+        "ADD INVOICE",
+        invoice.STOKEN.substring(0, 16)
+      );
+    }
+
+    var secret = invoice.STOKEN.substring(0, 16);
+    var querydata;
+
+    // Decrypt querystring
+    try {
+      querydata = await helper.decrypt(invoice.querystring, secret);
+    } catch (ex) {
+      return helper.getErrorResponse(
+        false,
+        "Querystring Invalid error. Please provide the valid querystring.",
+        "ADD INVOICE",
+        secret
+      );
+    }
+
+    // Parse the decrypted querystring
+    try {
+      querydata = JSON.parse(querydata);
+    } catch (ex) {
+      return helper.getErrorResponse(
+        false,
+        "Querystring JSON error. Please provide valid JSON",
+        "ADD INVOICE",
+        secret
+      );
+    }
+
+    if (!querydata.processid || querydata.processid == "") {
+      return helper.getErrorResponse(
+        false,
+        "Process ID missing. Please provide the processid",
+        "ADD INVOICE",
+        secret
+      );
+    }
+
+    try {
+      // Get the file path from the uploaded file
+      const filePath = req.file.path;
+      const currentDate = new Date();
+      const formattedDate = currentDate.toISOString().slice(0, 10); // YYYY-MM-DD
+
+      // Insert into vprocesslist with proper relationship linking
+      const sql = await db.query(
+        `INSERT INTO vprocesslist (
+          Process_filepath,
+          Process_date,
+          Created_by,
+          process_type,
+          process_name,
+          process_id,
+          feedback,
+          Row_updated_date
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, NOW())`,
+        [
+          filePath,
+          formattedDate,
+          userid,
+          5,  // process_type for INVOICE
+          'INVOICE',
+          querydata.processid,
+          querydata.feedback || null
+        ]
+      );
+
+      // Get the inserted vprocess_id (auto-increment primary key)
+      const vprocess_id = sql.insertId;
+      
+      if (vprocess_id != null && vprocess_id !== "") {
+        // MQTT notifications for invoice upload
+        await mqttclient.publishMqttMessage(
+          "Notification",
+          "Vendor Invoice Added Successfully"
+        );
+        await mqttclient.publishMqttMessage(
+          "refresh",
+          "Vendor Invoice Added Successfully"
+        );
+        
+        return helper.getSuccessResponse(
+          true,
+          "success",
+          "Invoice Added Successfully",
+          {
+            vprocess_id: vprocess_id,
+            process_id: querydata.processid,
+          },
+          secret
+        );
+      } else {
+        return helper.getErrorResponse(
+          false,
+          "Error while adding the invoice.",
+          "ADD INVOICE",
+          secret
+        );
+      }
+    } catch (er) {
+      return helper.getErrorResponse(
+        false,
+        "Internal error. Please contact Administration",
+        er.message,
+        secret
+      );
+    }
+  } catch (er) {
+    // Extract secret if available from request body
+    const secret = (req && req.body && req.body.STOKEN) ? req.body.STOKEN.substring(0, 16) : "";
+    return helper.getErrorResponse(
+      false,
+      "error",
+      "Internal error. Please contact Administration",
+      er.message,
+      secret
+    );
+  }
+}
+
 module.exports = {
   AddVendor,
-  GetVendor,
+  GetVendorWithFile,
   AddQuotation,
   vendorDetailsPreLoader,
   activevendors,
-  GetProcessList,
   PostRFQ,
-  GetSubProcessList,
-  UpdateVendorRegistrationCert,
-  UpdateVendorPAN,
-  UpdateVendorCancelledCheque,
-  UpdateVendorLogo,
   GetProducts,
   getNotes,
-  GetCombinedProcessList,
   GetAllProcessList,
   getBinaryFile,
   ArchiveProcess,
@@ -5930,7 +5702,10 @@ module.exports = {
   addFeedback,
   PostRRFQ,
   approveVendorQuotation,
-  getVendorQuotationApproval
+  getVendorQuotationApproval,
+  popreloader,
+  GetVendor,
+  AddInvoice
 };
 
 //##################################################################################################################################################################################################

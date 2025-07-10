@@ -1126,7 +1126,7 @@ async function sendVendorQuotationApproval(
     var bSSL = false;
     if (qSMTPSecure == "true") bSSL = true;
 
-    var transporter = nodemailer.createTransporter({
+    var transporter = nodemailer.createTransport({
       host: qHost,
       port: qPort,
       secure: true,
