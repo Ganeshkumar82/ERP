@@ -177,4 +177,13 @@ router.post('/popreloader', async function(req, res, next) {
   }
 });
 
+router.post('/uploadinvoice', async function(req, res, next) {
+  try {
+    res.json(await vendor.AddInvoice(req, res));
+  } catch (er) {
+    console.log(`Error adding vendor invoice -> ${er}`);
+    next(er);
+  }
+});
+
 module.exports = router;

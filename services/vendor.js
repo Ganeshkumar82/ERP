@@ -2501,94 +2501,99 @@ async function GetAllProcessList(vendorData) {
     }
 
     var sql;
+    
+    // Base query with improved timeline event logic
+    const baseQuery = `
+      SELECT 
+        vpm.vprocess_id AS processid,
+        (
+          SELECT vpl1.process_name 
+          FROM vprocesslist vpl1 
+          WHERE vpl1.process_id = vpm.vprocess_id 
+          ORDER BY vpl1.Row_updated_date ASC 
+          LIMIT 1
+        ) AS title,
+        vm.vendor_name,
+        DATE_FORMAT(vpm.Process_date, '%Y%m%d') AS Process_date,
+        ABS(DATEDIFF(CURDATE(), vpm.Process_date)) AS age_in_days,
+        COUNT(vpm.vprocess_id) OVER(PARTITION BY vpm.Vendor_id) AS process_count,
+
+        (
+          SELECT JSON_ARRAYAGG(t.TimelineEvent)
+          FROM (
+            SELECT JSON_OBJECT(
+              'Eventid', vpl2.vprocess_id,
+              'Eventname', vpsl2.processname,
+              'feedback', vpl2.feedback,
+              'Allowed_process',
+                CASE
+                  WHEN vpsl2.processname = 'QUOTATION' AND vpl2.Row_updated_date = (
+                    SELECT MAX(vpl3.Row_updated_date)
+                    FROM vprocesslist vpl3
+                    JOIN vprocessshowlist vpsl3 ON vpsl3.processshowlist_id = vpl3.process_type
+                    WHERE vpl3.process_id = vpm.vprocess_id AND vpsl3.processname = 'QUOTATION'
+                  ) AND vpl2.Approved_status = 1 THEN (
+                    SELECT vpsl4.allowed_process
+                    FROM vprocessshowlist vpsl4
+                    WHERE vpsl4.processname = 'APPROVE'
+                    LIMIT 1
+                  )
+                  WHEN vpsl2.processname = 'QUOTATION' AND vpl2.Row_updated_date = (
+                    SELECT MAX(vpl3.Row_updated_date)
+                    FROM vprocesslist vpl3
+                    JOIN vprocessshowlist vpsl3 ON vpsl3.processshowlist_id = vpl3.process_type
+                    WHERE vpl3.process_id = vpm.vprocess_id AND vpsl3.processname = 'QUOTATION'
+                  ) AND vpl2.Approved_status = 2 THEN (
+                    SELECT vpsl5.allowed_process
+                    FROM vprocessshowlist vpsl5
+                    WHERE vpsl5.processname = 'REJECT'
+                    LIMIT 1
+                  )
+                  ELSE vpsl2.allowed_process
+                END,
+              'pdfpath', vpl2.Process_filepath,
+              'apporvedstatus', vpl2.Approved_status,
+              'internalstatus', vpl2.status
+            ) AS TimelineEvent
+            FROM vprocesslist vpl2
+            LEFT JOIN vprocessshowlist vpsl2 
+              ON vpsl2.processshowlist_id = vpl2.process_type
+            WHERE vpl2.process_id = vpm.vprocess_id
+              AND vpsl2.processname NOT IN ('APPROVE', 'REJECT')
+            ORDER BY vpl2.Row_updated_date ASC
+          ) t
+        ) AS TimelineEvents
+
+      FROM vendorprocessmaster vpm 
+      JOIN vendors vm ON vpm.Vendor_id = vm.vendorid 
+      LEFT JOIN vprocesslist vpl ON vpl.process_id = vpm.vprocess_id 
+      LEFT JOIN vprocessshowlist vpsl ON vpsl.processshowlist_id = vpl.process_type 
+
+      WHERE vpm.status = 1 
+        AND vpm.deleted_flag = 0`;
+
     if (querydata.listtype == 1) {
       // Archived processes (listtype 1 = show archived data)
       if (querydata.vendorid == 0) {
-        // All vendors
+        // All vendors - archived
         sql = await db.query(
-          `SELECT 
-            vpm.vprocess_id processid,
-            (SELECT vpl1.process_name 
-              FROM vprocesslist vpl1 
-              WHERE vpl1.process_id = vpm.vprocess_id 
-              ORDER BY vpl1.Row_updated_date ASC 
-              LIMIT 1) AS title,
-            vm.vendor_name,
-            DATE_FORMAT(vpm.Process_date, '%Y%m%d') AS Process_date,
-            ABS(DATEDIFF(CURDATE(), vpm.Process_date)) AS age_in_days,
-            COUNT(vpm.vprocess_id) OVER(PARTITION BY vpm.Vendor_id) AS process_count, 
-            (
-              SELECT JSON_ARRAYAGG(t.TimelineEvent)
-              FROM (
-                SELECT JSON_OBJECT(
-                         'Eventid', vpl2.vprocess_id,
-                         'Eventname', vpsl2.processname,
-                         'feedback', vpl2.feedback,
-                         'Allowed_process', CAST(
-                          '{"PO": false, "RRFQ": false, "UPLOAD_DC": false, "GET_APPROVAL": false, "UPLOAD_QUOTE": false, "UPLOAD_INVOICE": false}' 
-                          AS JSON),
-                         'pdfpath', vpl2.Process_filepath,
-                         'apporvedstatus', vpl2.Approved_status,
-                         'internalstatus', vpl2.status
-                       ) AS TimelineEvent
-                FROM vprocesslist vpl2
-                LEFT JOIN vprocessshowlist vpsl2 
-                  ON vpsl2.processshowlist_id = vpl2.process_type
-                WHERE vpl2.process_id = vpm.vprocess_id
-                ORDER BY vpl2.Row_updated_date ASC
-              ) t
-            ) AS TimelineEvents  
-          FROM vendorprocessmaster vpm 
-          JOIN vendors vm ON vpm.Vendor_id = vm.vendorid 
-          LEFT JOIN vprocesslist vpl ON vpl.process_id = vpm.vprocess_id 
-          LEFT JOIN vprocessshowlist vpsl ON vpsl.processshowlist_id = vpl.process_type 
-          WHERE vpm.status = 1 
-          AND vpm.deleted_flag = 0 AND vpm.archive_data = 1
-          GROUP BY vpm.vprocess_id, vpm.Vendor_id, vpm.Process_date, vm.vendor_name
+          baseQuery + ` AND vpm.archive_data = 1
+          GROUP BY 
+            vpm.vprocess_id, 
+            vpm.Vendor_id, 
+            vpm.Process_date, 
+            vm.vendor_name
           ORDER BY vpm.Row_updated_date DESC`
         );
       } else {
-        // Specific vendor
+        // Specific vendor - archived
         sql = await db.query(
-          `SELECT 
-            vpm.vprocess_id processid,
-            (SELECT vpl1.process_name 
-              FROM vprocesslist vpl1 
-              WHERE vpl1.process_id = vpm.vprocess_id 
-              ORDER BY vpl1.Row_updated_date ASC 
-              LIMIT 1) AS title,
-            vm.vendor_name,
-            DATE_FORMAT(vpm.Process_date, '%Y%m%d') AS Process_date,
-            ABS(DATEDIFF(CURDATE(), vpm.Process_date)) AS age_in_days,
-            COUNT(vpm.vprocess_id) OVER(PARTITION BY vpm.Vendor_id) AS process_count, 
-            (
-              SELECT JSON_ARRAYAGG(t.TimelineEvent)
-              FROM (
-                SELECT JSON_OBJECT(
-                         'Eventid', vpl2.vprocess_id,
-                         'Eventname', vpsl2.processname,
-                         'feedback', vpl2.feedback,
-                         'Allowed_process', CAST(
-                          '{"PO": false, "RRFQ": false, "UPLOAD_DC": false, "GET_APPROVAL": false, "UPLOAD_QUOTE": false, "UPLOAD_INVOICE": false}' 
-                          AS JSON),
-                         'pdfpath', vpl2.Process_filepath,
-                         'apporvedstatus', vpl2.Approved_status,
-                         'internalstatus', vpl2.status
-                       ) AS TimelineEvent
-                FROM vprocesslist vpl2
-                LEFT JOIN vprocessshowlist vpsl2 
-                  ON vpsl2.processshowlist_id = vpl2.process_type
-                WHERE vpl2.process_id = vpm.vprocess_id
-                ORDER BY vpl2.Row_updated_date ASC
-              ) t
-            ) AS TimelineEvents  
-          FROM vendorprocessmaster vpm 
-          JOIN vendors vm ON vpm.Vendor_id = vm.vendorid 
-          LEFT JOIN vprocesslist vpl ON vpl.process_id = vpm.vprocess_id 
-          LEFT JOIN vprocessshowlist vpsl ON vpsl.processshowlist_id = vpl.process_type 
-          WHERE vpm.status = 1 AND vpm.deleted_flag = 0 AND vpm.archive_data = 1
-          AND vpm.Vendor_id = ?
-          GROUP BY vpm.vprocess_id, vpm.Vendor_id, vpm.Process_date, vm.vendor_name
+          baseQuery + ` AND vpm.archive_data = 1 AND vpm.Vendor_id = ?
+          GROUP BY 
+            vpm.vprocess_id, 
+            vpm.Vendor_id, 
+            vpm.Process_date, 
+            vm.vendor_name
           ORDER BY vpm.Row_updated_date DESC`,
           [querydata.vendorid]
         );
@@ -2596,116 +2601,44 @@ async function GetAllProcessList(vendorData) {
     } else {
       // Active processes (listtype != 1 = show unarchived data)
       if (querydata.vendorid == 0) {
-        // All vendors
+        // All vendors - active
         sql = await db.query(
-          `SELECT 
-            vpm.vprocess_id processid,
-            (SELECT vpl1.process_name 
-              FROM vprocesslist vpl1 
-              WHERE vpl1.process_id = vpm.vprocess_id 
-              ORDER BY vpl1.Row_updated_date ASC 
-              LIMIT 1) AS title,
-            vm.vendor_name,
-            DATE_FORMAT(vpm.Process_date, '%Y%m%d') AS Process_date,
-            ABS(DATEDIFF(CURDATE(), vpm.Process_date)) AS age_in_days,
-            COUNT(vpm.vprocess_id) OVER(PARTITION BY vpm.Vendor_id) AS process_count, 
-            (
-              SELECT JSON_ARRAYAGG(t.TimelineEvent)
-              FROM (
-                SELECT JSON_OBJECT(
-                         'Eventid', vpl2.vprocess_id,
-                         'Eventname', vpsl2.processname,
-                         'feedback', vpl2.feedback,
-                         'Allowed_process', vpsl2.allowed_process,
-                         'pdfpath', vpl2.Process_filepath,
-                         'apporvedstatus', vpl2.Approved_status,
-                         'internalstatus', vpl2.status
-                       ) AS TimelineEvent
-                FROM vprocesslist vpl2
-                LEFT JOIN vprocessshowlist vpsl2 
-                  ON vpsl2.processshowlist_id = vpl2.process_type
-                WHERE vpl2.process_id = vpm.vprocess_id
-                ORDER BY vpl2.Row_updated_date ASC
-              ) t
-            ) AS TimelineEvents 
-          FROM vendorprocessmaster vpm 
-          JOIN vendors vm ON vpm.Vendor_id = vm.vendorid 
-          LEFT JOIN vprocesslist vpl ON vpl.process_id = vpm.vprocess_id 
-          LEFT JOIN vprocessshowlist vpsl ON vpsl.processshowlist_id = vpl.process_type 
-          WHERE vpm.status = 1 
-          AND vpm.deleted_flag = 0 AND vpm.archive_data = 0
-          GROUP BY vpm.vprocess_id, vpm.Vendor_id, vpm.Process_date, vm.vendor_name
+          baseQuery + ` AND vpm.archive_data = 0
+          GROUP BY 
+            vpm.vprocess_id, 
+            vpm.Vendor_id, 
+            vpm.Process_date, 
+            vm.vendor_name
           ORDER BY vpm.Row_updated_date DESC`
         );
       } else {
-        // Specific vendor
+        // Specific vendor - active
         sql = await db.query(
-          `SELECT 
-            vpm.vprocess_id processid,
-            (SELECT vpl1.process_name 
-              FROM vprocesslist vpl1 
-              WHERE vpl1.process_id = vpm.vprocess_id 
-              ORDER BY vpl1.Row_updated_date ASC 
-              LIMIT 1) AS title,
-            vm.vendor_name,
-            DATE_FORMAT(vpm.Process_date, '%Y%m%d') AS Process_date,
-            ABS(DATEDIFF(CURDATE(), vpm.Process_date)) AS age_in_days,
-            COUNT(vpm.vprocess_id) OVER(PARTITION BY vpm.Vendor_id) AS process_count, 
-            (
-              SELECT JSON_ARRAYAGG(t.TimelineEvent)
-              FROM (
-                SELECT JSON_OBJECT(
-                         'Eventid', vpl2.vprocess_id,
-                         'Eventname', vpsl2.processname,
-                         'feedback', vpl2.feedback,
-                         'Allowed_process', vpsl2.allowed_process,
-                         'pdfpath', vpl2.Process_filepath,
-                         'apporvedstatus', vpl2.Approved_status,
-                         'internalstatus', vpl2.status
-                       ) AS TimelineEvent
-                FROM vprocesslist vpl2
-                LEFT JOIN vprocessshowlist vpsl2 
-                  ON vpsl2.processshowlist_id = vpl2.process_type
-                WHERE vpl2.process_id = vpm.vprocess_id
-                ORDER BY vpl2.Row_updated_date ASC
-              ) t
-            ) AS TimelineEvents 
-          FROM vendorprocessmaster vpm 
-          JOIN vendors vm ON vpm.Vendor_id = vm.vendorid 
-          LEFT JOIN vprocesslist vpl ON vpl.process_id = vpm.vprocess_id 
-          LEFT JOIN vprocessshowlist vpsl ON vpsl.processshowlist_id = vpl.process_type 
-          WHERE vpm.status = 1 AND vpm.deleted_flag = 0 AND vpm.archive_data = 0
-          AND vpm.Vendor_id = ?
-          GROUP BY vpm.vprocess_id, vpm.Vendor_id, vpm.Process_date, vm.vendor_name
+          baseQuery + ` AND vpm.archive_data = 0 AND vpm.Vendor_id = ?
+          GROUP BY 
+            vpm.vprocess_id, 
+            vpm.Vendor_id, 
+            vpm.Process_date, 
+            vm.vendor_name
           ORDER BY vpm.Row_updated_date DESC`,
           [querydata.vendorid]
         );
       }
     }
     
-    if (sql[0]) {
-      return helper.getSuccessResponse(
-        true,
-        "success",
-        "Vendor process Fetched successfully",
-        sql,
-        secret
-      );
-    } else {
-      return helper.getSuccessResponse(
-        true,
-        "success",
-        "Vendor process Fetched successfully",
-        sql,
-        secret
-      );
-    }
+    return helper.getSuccessResponse(
+      true,
+      "success",
+      "Vendor process Fetched successfully",
+      sql,
+      secret
+    );
   } catch (er) {
     return helper.getErrorResponse(
       false,
       "error",
       "Internal Error. Please contact Administration",
-      er,
+      er.message,
       secret
     );
   }
@@ -4991,17 +4924,18 @@ async function approveVendorQuotation(req, res) {
       return res.sendFile(path.join(htmlPath, "internal_error.html"));
     }
 
-    // Update the database with correct Approved_status values
+    // Update the database with correct Approved_status values and process_type
     // 0: null/not done anything (they will take it)
     // 1: approved
     // 2: mail sent but no action taken  
     // 3: rejected
     const approvalStatus = vendorData.s == 1 ? 1 : 3; // 1 for approved, 3 for rejected
+    const processType = vendorData.s == 1 ? 3.1 : 3.2; // 3.1 for approved, 3.2 for rejected
     
     await db.query(
-      `UPDATE vprocesslist SET Approved_status = ?, feedback = ?, Row_updated_date = NOW() 
+      `UPDATE vprocesslist SET Approved_status = ?, feedback = ?, process_type = ?, Row_updated_date = NOW() 
        WHERE vprocess_id = ? AND process_name = 'QUOTATION'`,
-      [approvalStatus, vendorData.feedback, vendorData.eventid]
+      [approvalStatus, vendorData.feedback, processType, vendorData.eventid]
     );
 
     // Update tracking table
