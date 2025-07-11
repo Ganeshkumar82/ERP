@@ -1023,6 +1023,53 @@ let uploadFilePostPO = multer({
 
 let uploadPostPO = util.promisify(uploadFilePostPO);
 
+// Add this after your existing upload configurations
+
+// Storage configuration for vendor DC uploads
+const storageVendorDC = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const currentDate = new Date();
+    const year = currentDate.getFullYear();
+    const month = currentDate.toLocaleString('default', { month: 'long' });
+    const day = currentDate.getDate();
+
+    const uploadPath = `${config.filestorage}/${year}/${month}/${day}/VendorDC`;
+    
+    // Create directory if it doesn't exist
+    if (!fs.existsSync(uploadPath)) {
+      fs.mkdirSync(uploadPath, { recursive: true });
+    }
+    
+    cb(null, uploadPath);
+  },
+  filename: (req, file, cb) => {
+    const timestamp = Date.now();
+    cb(null, `${timestamp}_${file.originalname}`);
+  }
+});
+
+// File filter for DC uploads (PDF only)
+const fileFilterDC = (req, file, cb) => {
+  // Allow PDF files only
+  if (file.mimetype === 'application/pdf') {
+    cb(null, true);
+  } else {
+    cb(new Error('Only PDF files are allowed for DC uploads!'), false);
+  }
+};
+
+// Multer upload configuration for vendor DC
+const uploadVendorDCMulter = multer({
+  storage: storageVendorDC,
+  fileFilter: fileFilterDC,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+  },
+});
+
+// Upload middleware function for vendor DC
+const uploadVendorDC = util.promisify(uploadVendorDCMulter.single("file"));
+
 module.exports = {
   uploadFileMOR,
   uploadFileInvoice,
@@ -1046,5 +1093,6 @@ module.exports = {
   uploadVendorLogo,
   uploadVendorKYCDocuments,
   uploadPostRRFQ,
-  uploadPostPO, 
+  uploadPostPO,
+  uploadVendorDC
 };

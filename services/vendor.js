@@ -2733,11 +2733,12 @@ async function activevendors(vendorData) {
 //########################################### REQUEST BODY FOR GET BINARY FILE #####################################################################################
 // {
 //   "STOKEN": "your_session_token",
-//   "querystring": "encrypted_data_containing_event_id"
+//   "querystring": "encrypted_data_containing_event_id_and_type"
 // }
 // Required querystring data:
 // {
-//   "eventid": 1  // Required - vprocess_id from vprocesslist to get the binary file
+//   "eventid": 1,          // Required - vprocess_id from vprocesslist to get the binary file
+//   "eventtype": "RFQ"     // Required - process_name from vprocesslist (RFQ, RRFQ, QUOTATION, INVOICE, DC, PO)
 // }
 //####################################################################### RESPONSE BODY FOR GET BINARY FILE #######################################################
 // {
@@ -2839,10 +2840,23 @@ async function getBinaryFile(vendorData) {
       );
     }
 
-    // Query to get the file path from vprocesslist using vprocess_id (eventid)
+    // Validate event type
+    if (!querydata.hasOwnProperty("eventtype") || querydata.eventtype == "") {
+      return helper.getErrorResponse(
+        false,
+        "error",
+        "Event type missing. Please provide the event type (RFQ, RRFQ, QUOTATION, INVOICE, DC, PO)",
+        "GET BINARY DATA FOR PDF",
+        secret
+      );
+    }
+
+    // Query to get the file path from vprocesslist using vprocess_id (eventid) and process_name (eventtype)
     const sql = await db.query(
-      `SELECT Process_filepath FROM vprocesslist WHERE vprocess_id = ?`,
-      [querydata.eventid]
+      `SELECT Process_filepath, process_name, vprocess_gen_id, vendor_name 
+       FROM vprocesslist 
+       WHERE vprocess_id = ? AND process_name = ? AND deleted_flag = 0`,
+      [querydata.eventid, querydata.eventtype]
     );
 
     if (sql.length > 0) {
@@ -2885,7 +2899,7 @@ async function getBinaryFile(vendorData) {
       return helper.getErrorResponse(
         false,
         "error",
-        "Event not found or no file associated",
+        `Event with ID ${querydata.eventid} and type ${querydata.eventtype} not found or no file associated`,
         "GET BINARY DATA FOR PDF",
         secret
       );
@@ -5283,6 +5297,21 @@ async function popreloader(vendorData) {
 
       const rfqDetails = rfqDetailsQuery[0];
 
+      // Step 4: Get approved quotations for this process
+      const quotations = await db.query(
+        `SELECT 
+          vprocess_id,
+          process_name,
+          Process_filepath,
+          Process_date,
+          Approved_status,
+          feedback,
+          vprocess_gen_id
+         FROM vprocesslist 
+         WHERE process_id = ? AND process_name = 'QUOTATION' AND Approved_status = 1 AND deleted_flag = 0
+         ORDER BY Row_updated_date DESC`,
+        [querydata.processid]
+      );
 
       // Step 5: Parse JSON fields if they exist and are valid JSON strings
       let parsedNotes = [];
@@ -5334,7 +5363,7 @@ async function popreloader(vendorData) {
       
       // Create response with correct field names based on source
       let po_details_base = {
-        id: rfqDetails.id,
+        genid: rfqDetails.genid,
         vendor_id: rfqDetails.vendor_id,
         vendor_name: rfqDetails.vendor_name,
         gstin: rfqDetails.gstin,
@@ -5354,8 +5383,9 @@ async function popreloader(vendorData) {
         deleted_flag: rfqDetails.deleted_flag,
         process_type: rfqDetails.rfq_type,
         source_table: rfqDetails.source_table,
-
+        quotations: quotations || []
       };
+
 
       const responseData = {
         po_id: poId,
@@ -5998,7 +6028,7 @@ async function PostPO(req, res) {
           0, // deleted_flag
           userid,
           poGenId,
-          6, // process_type for PO
+          4, // process_type for PO
           querydata.vendoraddress || vendor.address || '',
           querydata.vendorname || vendor.vendor_name,
           querydata.processid // Parent process_id from vendorprocessmaster
@@ -6208,6 +6238,220 @@ async function PostPO(req, res) {
   }
 }
 
+//##################################################################################################################################################################################################
+//##################################################################################################################################################################################################
+//########################################### REQUEST BODY FOR ADD DC #####################################################################################
+// {
+//   "STOKEN": "your_session_token",
+//   "querystring": "encrypted_data_containing_process_id"
+// }
+// File upload in form-data with key "file"
+// Required querystring data:
+// {
+//   "processid": 38,    // process_id from vendorprocessmaster (parent process)
+//   "feedback": "Optional vendor feedback on delivery challan"
+// }
+//####################################################################### RESPONSE BODY FOR ADD DC #######################################################
+// {"code":true,"message":"DC Added Successfully","Value":{"vprocess_id": 39, "process_id": 38}}
+//##################################################################################################################################################################################################
+//##################################################################################################################################################################################################
+
+async function AddDC(req, res) {
+  try {
+    // Upload the PDF file first
+    try {
+      await uploadFile.uploadVendorDC(req, res);
+
+      if (!req.file) {
+        return helper.getErrorResponse(
+          false,
+          "Please upload a PDF file!",
+          "ADD DC",
+          "",
+          ""
+        );
+      }
+    } catch (er) {
+      return helper.getErrorResponse(
+        false,
+        `Could not upload the file. ${er.message}`,
+        "ADD DC",
+        "",
+        ""
+      );
+    }
+
+    let dc = req.body;
+
+    // Check if the session token exists
+    if (!dc.STOKEN) {
+      return helper.getErrorResponse(
+        false,
+        "Login session token missing. Please provide the Login session token",
+        "ADD DC",
+        "",
+        ""
+      );
+    }
+
+    // Validate session token length
+    if (dc.STOKEN.length > 50 || dc.STOKEN.length < 30) {
+      return helper.getErrorResponse(
+        false,
+        "Login session token size invalid. Please provide the valid Session token",
+        "ADD DC",
+        "",
+        ""
+      );
+    }
+
+    // Validate session token
+    const [result] = await db.spcall(
+      "CALL SP_STOKEN_CHECK(?,@result); SELECT @result;",
+      [dc.STOKEN]
+    );
+    const objectvalue = result[1][0];
+    const userid = objectvalue["@result"];
+
+    if (userid == null) {
+      return helper.getErrorResponse(
+        false,
+        "error",
+        "Login session token Invalid. Please provide the valid session token",
+        "ADD DC",
+        dc.STOKEN.substring(0, 16)
+      );
+    }
+
+    // Check if querystring is provided
+    if (!dc.querystring) {
+      return helper.getErrorResponse(
+        false,
+        "error",
+        "Querystring missing. Please provide the querystring",
+        "ADD DC",
+        dc.STOKEN.substring(0, 16)
+      );
+    }
+
+    var secret = dc.STOKEN.substring(0, 16);
+    var querydata;
+
+    // Decrypt querystring
+    try {
+      querydata = await helper.decrypt(dc.querystring, secret);
+    } catch (ex) {
+      return helper.getErrorResponse(
+        false,
+        "Querystring Invalid error. Please provide the valid querystring.",
+        "ADD DC",
+        secret
+      );
+    }
+
+    // Parse the decrypted querystring
+    try {
+      querydata = JSON.parse(querydata);
+    } catch (ex) {
+      return helper.getErrorResponse(
+        false,
+        "Querystring JSON error. Please provide valid JSON",
+        "ADD DC",
+        secret
+      );
+    }
+
+    if (!querydata.processid || querydata.processid == "") {
+      return helper.getErrorResponse(
+        false,
+        "Process ID missing. Please provide the processid",
+        "ADD DC",
+        secret
+      );
+    }
+
+    try {
+      // Get the file path from the uploaded file
+      const filePath = req.file.path;
+      const currentDate = new Date();
+      const formattedDate = currentDate.toISOString().slice(0, 10); // YYYY-MM-DD
+
+      // Insert into vprocesslist with proper relationship linking
+      const sql = await db.query(
+        `INSERT INTO vprocesslist (
+          Process_filepath,
+          Process_date,
+          Created_by,
+          process_type,
+          process_name,
+          process_id,
+          feedback,
+          Row_updated_date
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, NOW())`,
+        [
+          filePath,
+          formattedDate,
+          userid,
+          6,  // process_type for DC
+          'DC',
+          querydata.processid,
+          querydata.feedback || null
+        ]
+      );
+
+      // Get the inserted vprocess_id (auto-increment primary key)
+      const vprocess_id = sql.insertId;
+      
+      if (vprocess_id != null && vprocess_id !== "") {
+        // MQTT notifications for DC upload
+        await mqttclient.publishMqttMessage(
+          "Notification",
+          "Vendor DC Added Successfully"
+        );
+        await mqttclient.publishMqttMessage(
+          "refresh",
+          "Vendor DC Added Successfully"
+        );
+        
+        return helper.getSuccessResponse(
+          true,
+          "success",
+          "DC Added Successfully",
+          {
+            vprocess_id: vprocess_id,
+            process_id: querydata.processid,
+          },
+          secret
+        );
+      } else {
+        return helper.getErrorResponse(
+          false,
+          "Error while adding the DC.",
+          "ADD DC",
+          secret
+        );
+      }
+    } catch (er) {
+      return helper.getErrorResponse(
+        false,
+        "Internal error. Please contact Administration",
+        er.message,
+        secret
+      );
+    }
+  } catch (er) {
+    // Extract secret if available from request body
+    const secret = (req && req.body && req.body.STOKEN) ? req.body.STOKEN.substring(0, 16) : "";
+    return helper.getErrorResponse(
+      false,
+      "error",
+      "Internal error. Please contact Administration",
+      er.message,
+      secret
+    );
+  }
+}
+
 module.exports = {
   AddVendor,
   GetVendorWithFile,
@@ -6229,7 +6473,8 @@ module.exports = {
   popreloader,
   GetVendor,
   AddInvoice,
-  PostPO
+  PostPO,
+  AddDC
 };
 
 //##################################################################################################################################################################################################

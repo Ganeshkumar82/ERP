@@ -195,4 +195,13 @@ router.post('/postpo', async function(req, res, next) {
   }
 });
 
+router.post('/adddc', async function(req, res, next) {
+  try {
+    res.json(await vendor.AddDC(req, res));
+  } catch (er) {
+    console.log(`Error adding vendor DC -> ${er}`);
+    next(er);
+  }
+});
+
 module.exports = router;
