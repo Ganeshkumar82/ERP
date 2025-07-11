@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const vendor = require('../services/vendor');
-const { uploadVendorRegistrationCert, uploadVendorPAN, uploadVendorCancelledCheque, uploadVendorLogo, uploadVendorKYCDocuments } = require('../middleware');
+const { uploadVendorKYCDocuments } = require('../middleware');
 
 
 router.post('/addvendor', uploadVendorKYCDocuments, async function(req,res,next){
@@ -182,6 +182,15 @@ router.post('/uploadinvoice', async function(req, res, next) {
     res.json(await vendor.AddInvoice(req, res));
   } catch (er) {
     console.log(`Error adding vendor invoice -> ${er}`);
+    next(er);
+  }
+});
+
+router.post('/postpo', async function(req, res, next) {
+  try {
+    res.json(await vendor.PostPO(req, res));
+  } catch (er) {
+    console.log(`Error posting PO -> ${er}`);
     next(er);
   }
 });

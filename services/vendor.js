@@ -2691,14 +2691,15 @@ async function activevendors(vendorData) {
     }
 
     try {
-      // Query to fetch active vendors with vendorid and vendor_name
+      // Query to fetch active vendors from vendorprocessmaster with vendor_name and Vendor_id
       const sql = await db.query(
-        `SELECT 
-          vendorid, 
-          vendor_name
-        FROM vendors 
-        WHERE status = 1 AND deleted_flag = 0
-        ORDER BY vendor_name ASC`
+        `SELECT DISTINCT
+          vpm.Vendor_id, 
+          vm.vendor_name
+        FROM vendorprocessmaster vpm
+        LEFT JOIN vendors vm ON vpm.Vendor_id = vm.vendorid
+        WHERE vpm.status = 1 AND vpm.deleted_flag = 0
+        ORDER BY vm.vendor_name ASC`
       );
 
       return helper.getSuccessResponse(
@@ -4386,6 +4387,19 @@ async function PostRRFQ(req, res) {
 
       const vprocess_id = processResult.insertId;
 
+      // Update vendorprocessmaster with the RRFQ ID after successful vprocesslist insertion
+      try {
+        await db.query(
+          `UPDATE vendorprocessmaster 
+           SET vprocess_gen_id = ?, Row_updated_date = NOW() 
+           WHERE vprocess_id = ?`,
+          [rrfqGenId, querydata.processid]
+        );
+      } catch (updateError) {
+        console.log("Warning: Could not update vendorprocessmaster with RRFQ ID:", updateError);
+        // Continue execution even if update fails
+      }
+
       // Initialize response flags
       let emailSent = false;
       let whatsappSent = false;
@@ -5225,11 +5239,11 @@ async function popreloader(vendorData) {
       const processInfo = processQuery[0];
       const vprocessGenId = processInfo.vprocess_gen_id;
 
-      // Step 3: Get the latest RFQ or RRFQ details for this process using the unified view
-      const rfqDetailsQuery = await db.query(
+      // Step 3: Get the latest RFQ or RRFQ details for this process using unified view
+      let rfqDetailsQuery = await db.query(
         `SELECT 
           id,
-          rfqgenid,
+          genid as rfqgenid,
           vendor_id,
           vendor_name,
           gstin,
@@ -5242,15 +5256,16 @@ async function popreloader(vendorData) {
           cc_email,
           message_type,
           feedback,
-          rfq_date,
+          date_created as rfq_date,
           notes,
           products,
           row_updated_date,
           status,
           deleted_flag,
-          source_table
+          rfq_type,
+          rfq_type as source_table
          FROM vendor_all_rfq_details 
-         WHERE TRIM(LOWER(rfqgenid)) = TRIM(LOWER(?)) AND deleted_flag = 0
+         WHERE TRIM(LOWER(genid)) = TRIM(LOWER(?)) AND deleted_flag = 0
          ORDER BY row_updated_date DESC
          LIMIT 1`,
         [vprocessGenId]
@@ -5268,30 +5283,8 @@ async function popreloader(vendorData) {
 
       const rfqDetails = rfqDetailsQuery[0];
 
-      // Step 5: Get all quotations for this process (approved quotations only)
-      const quotationsQuery = await db.query(
-        `SELECT 
-          vprocess_id,
-          process_name,
-          Process_filepath,
-          Process_date,
-          Approved_status,
-          status,
-          deleted_flag,
-          Created_by,
-          vprocess_gen_id,
-          process_type,
-          vendor_address,
-          vendor_name,
-          feedback,
-          Row_updated_date
-         FROM vprocesslist 
-         WHERE process_id = ? AND process_name = 'QUOTATION' AND deleted_flag = 0 AND Approved_status = 1
-         ORDER BY Row_updated_date DESC`,
-        [querydata.processid]
-      );
 
-      // Step 4: Parse JSON fields if they exist and are valid JSON strings
+      // Step 5: Parse JSON fields if they exist and are valid JSON strings
       let parsedNotes = [];
       let parsedProducts = [];
 
@@ -5338,43 +5331,35 @@ async function popreloader(vendorData) {
       }
 
       // Step 6: Format the response
-      const isRRFQ = rfqDetails.source_table === 'vendor_rrfq_details';
       
+      // Create response with correct field names based on source
+      let po_details_base = {
+        id: rfqDetails.id,
+        vendor_id: rfqDetails.vendor_id,
+        vendor_name: rfqDetails.vendor_name,
+        gstin: rfqDetails.gstin,
+        pan: rfqDetails.pan,
+        contact_person: rfqDetails.contact_person,
+        vendor_address: rfqDetails.vendor_address,
+        title: rfqDetails.title,
+        email_id: rfqDetails.email_id,
+        phone_no: rfqDetails.phone_no,
+        cc_email: rfqDetails.cc_email,
+        message_type: rfqDetails.message_type,
+        feedback: rfqDetails.feedback,
+        notes: parsedNotes,
+        products: parsedProducts,
+        row_updated_date: rfqDetails.row_updated_date,
+        status: rfqDetails.status,
+        deleted_flag: rfqDetails.deleted_flag,
+        process_type: rfqDetails.rfq_type,
+        source_table: rfqDetails.source_table,
+
+      };
+
       const responseData = {
         po_id: poId,
-        rfq_details: {
-          id: rfqDetails.id,
-          rfqgenid: rfqDetails.rfqgenid,
-          vendor_id: rfqDetails.vendor_id,
-          vendor_name: rfqDetails.vendor_name,
-          gstin: rfqDetails.gstin,
-          pan: rfqDetails.pan,
-          contact_person: rfqDetails.contact_person,
-          vendor_address: rfqDetails.vendor_address,
-          title: rfqDetails.title,
-          email_id: rfqDetails.email_id,
-          phone_no: rfqDetails.phone_no,
-          cc_email: rfqDetails.cc_email,
-          message_type: rfqDetails.message_type,
-          feedback: rfqDetails.feedback,
-          rfq_date: rfqDetails.rfq_date,
-          notes: parsedNotes,
-          products: parsedProducts,
-          row_updated_date: rfqDetails.row_updated_date,
-          status: rfqDetails.status,
-          deleted_flag: rfqDetails.deleted_flag,
-          quotations: quotationsQuery.map(q => ({
-            vprocess_id: q.vprocess_id,
-            process_name: q.process_name,
-            Process_filepath: q.Process_filepath,
-            Process_date: q.Process_date,
-            Approved_status: q.Approved_status,
-            feedback: q.feedback,
-            Row_updated_date: q.Row_updated_date
-          })),
-          process_type: isRRFQ ? 'RRFQ' : 'RFQ',
-          source_table: rfqDetails.source_table
-        }
+        po_details: po_details_base
       };
 
       return helper.getSuccessResponse(
@@ -5619,6 +5604,610 @@ async function AddInvoice(req, res) {
   }
 }
 
+//##################################################################################################################################################################################################
+//##################################################################################################################################################################################################
+//########################################### REQUEST BODY FOR POST PO #####################################################################################
+// {
+//   "STOKEN": "your_session_token",
+//   "querystring": "encrypted_data_containing_po_details"
+// }
+// File upload in form-data with key "file"
+// Required querystring data:
+// {
+//   "pogenid": "SSIPL-PO/2507/01",
+//   "vendorid": 1,
+//   "processid": 4  // parent process_id from vendorprocessmaster
+// }
+// Optional querystring data:
+// {
+//   "vendorname": "JK Construction",
+//   "gstin": "33AATFN1941J1Z0",
+//   "pan": "NAEPK8086H",
+//   "contact_person": "Ravi Kumar",
+//   "vendor_address": "123 Main Street",
+//   "title": "Purchase Order for Steel Products",
+//   "email_id": "vendor@example.com",
+//   "phone_no": "9344268155",
+//   "cc_email": "cc@example.com",
+//   "message_type": 1,  // 1 = email only, 2 = WhatsApp only, 3 = both (default: 1)
+//   "feedback": "Please provide delivery as per schedule",
+//   "notes": ["Delivery instructions", "Quality requirements"],
+//   "products": [{"productsno": 1, "productname": "Steel Rods", "productquantity": 100, "gstpercent": 18, "hsn": "7207", "price": 600}]
+// }
+//####################################################################### RESPONSE BODY FOR POST PO #######################################################
+// {
+//   "code": true,
+//   "message": "PO Posted Successfully",
+//   "Value": {
+//     "vprocess_id": 6,
+//     "po_details_id": 4,
+//     "vendor_name": "JK Construction",
+//     "pogenid": "SSIPL-PO/2507/01",
+//     "emailsent": true,
+//     "whatsappsent": false,
+//     "messagetype": 1,
+//     "products_mapped": 3
+//   }
+// }
+//##################################################################################################################################################################################################
+//##################################################################################################################################################################################################
+
+async function PostPO(req, res) {
+  try {
+    // Upload the PDF file first using dedicated PO upload function
+    try {
+      await uploadFile.uploadPostPO(req, res);
+
+      if (!req.file) {
+        return helper.getErrorResponse(
+          false,
+          "Please upload a PDF file!",
+          "POST PO",
+          ""
+        );
+      }
+    } catch (er) {
+      return helper.getErrorResponse(
+        false,
+        `Could not upload the file. ${er.message}`,
+        "POST PO",
+        ""
+      );
+    }
+
+    let poData = req.body;
+
+    // Check if the session token exists
+    if (!poData || !("STOKEN" in poData) || poData.STOKEN === undefined) {
+      return helper.getErrorResponse(
+        false,
+        "Login session token missing. Please provide the Login session token",
+        "POST PO",
+        ""
+      );
+    }
+
+    // Validate session token length
+    if (poData.STOKEN.length > 50 || poData.STOKEN.length < 30) {
+      return helper.getErrorResponse(
+        false,
+        "Login session token size invalid. Please provide the valid Session token",
+        "POST PO",
+        ""
+      );
+    }
+
+    // Validate session token
+    const [result] = await db.spcall(
+      "CALL SP_STOKEN_CHECK(?,@result); SELECT @result;",
+      [poData.STOKEN]
+    );
+    const objectvalue = result[1][0];
+    const userid = objectvalue["@result"];
+
+    if (userid == null) {
+      return helper.getErrorResponse(
+        false,
+        "error",
+        "Login session token Invalid. Please provide the valid session token",
+        "POST PO",
+        poData.STOKEN.substring(0, 16)
+      );
+    }
+
+    // Check if querystring is provided
+    if (!poData || !("querystring" in poData) || poData.querystring === undefined) {
+      return helper.getErrorResponse(
+        false,
+        "error",
+        "Querystring missing. Please provide the querystring",
+        "POST PO",
+        poData && poData.STOKEN ? poData.STOKEN.substring(0, 16) : ""
+      );
+    }
+
+    var secret = poData.STOKEN.substring(0, 16);
+    var querydata;
+
+    // Decrypt querystring
+    try {
+      querydata = await helper.decrypt(poData.querystring, secret);
+    } catch (ex) {
+      return helper.getErrorResponse(
+        false,
+        "Querystring Invalid error. Please provide the valid querystring.",
+        "POST PO",
+        secret
+      );
+    }
+
+    // Parse the decrypted querystring
+    try {
+      querydata = JSON.parse(querydata);
+    } catch (ex) {
+      return helper.getErrorResponse(
+        false,
+        "Querystring JSON error. Please provide valid JSON",
+        "POST PO",
+        secret
+      );
+    }
+
+    // Validate required fields
+    if (!querydata || !("vendorid" in querydata) || querydata.vendorid === "" || querydata.vendorid === undefined) {
+      return helper.getErrorResponse(
+        false,
+        "Vendor ID missing. Please provide the Vendor ID",
+        "POST PO",
+        secret
+      );
+    }
+
+    if (!querydata || !("processid" in querydata) || querydata.processid === "" || querydata.processid === undefined) {
+      return helper.getErrorResponse(
+        false,
+        "error",
+        "Process ID missing. Please provide the Process ID (parent process)",
+        "POST PO",
+        secret
+      );
+    }
+
+    // Validate messagetype if provided
+    if (querydata && ("messagetype" in querydata) && ![1, 2, 3].includes(querydata.messagetype)) {
+      return helper.getErrorResponse(
+        false,
+        "Invalid message type. Use 1 for email only, 2 for WhatsApp only, 3 for both",
+        "POST PO",
+        secret
+      );
+    }
+
+    // Set default messagetype to 1 (email only) if not provided
+    const messagetype = querydata.messagetype || 1;
+
+    try {
+      // Get basic vendor details for communication
+      const vendorDetails = await db.query(
+        `SELECT 
+          vendor_name, 
+          email, 
+          contact_person_phone
+        FROM vendors WHERE vendorid = ?`,
+        [querydata.vendorid]
+      );
+
+      if (!vendorDetails || vendorDetails.length === 0) {
+        return helper.getErrorResponse(
+          false,
+          "Vendor not found or inactive",
+          "POST PO",
+          secret
+        );
+      }
+
+      const vendor = vendorDetails[0];
+
+      // Validate PO ID is provided (should come from popreloader endpoint)
+      if (!querydata.pogenid || querydata.pogenid.trim() === '') {
+        return helper.getErrorResponse(
+          false,
+          "PO ID missing. Please use popreloader endpoint to generate PO ID first",
+          "POST PO",
+          secret
+        );
+      }
+
+      const poGenId = querydata.pogenid;
+      const filePath = req.file.path;
+      const currentDate = new Date();
+      const formattedDate = currentDate.toISOString().slice(0, 10); // YYYY-MM-DD
+
+      // Insert vendor PO details into vendor_po_details table using querystring data
+      const poDetailsResult = await db.query(
+        `INSERT INTO vendor_po_details (
+          pogenid,
+          vendor_id,
+          vendor_name,
+          gstin,
+          pan,
+          contact_person,
+          vendor_address,
+          title,
+          email_id,
+          phone_no,
+          cc_email,
+          message_type,
+          feedback,
+          po_date,
+          notes,
+          products,
+          row_updated_date,
+          status,
+          deleted_flag
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, ?)`,
+        [
+          poGenId,
+          querydata.vendorid,
+          querydata.vendorname || '',
+          querydata.GSTIN || '',
+          querydata.PAN || '',
+          querydata.Contact_person || '',
+          querydata.vendoraddress || '',
+          querydata.title || '',
+          querydata.emailid || '',
+          querydata.phoneno || '',
+          querydata.ccemail || '',
+          messagetype,
+          querydata.feedback || '',
+          querydata.date ? new Date(querydata.date) : new Date(),
+          querydata.notes ? JSON.stringify(querydata.notes) : JSON.stringify([]),
+          querydata.product ? JSON.stringify(querydata.product) : JSON.stringify([]),
+          1, // status
+          0  // deleted_flag
+        ]
+      );
+
+      // Insert/Update products in vendorproducts table
+      let productsMappedendar = 0;
+      if (querydata.product && Array.isArray(querydata.product) && querydata.product.length > 0) {
+        for (const productItem of querydata.product) {
+          try {
+            // Extract product details
+            const productName = productItem.productname || '';
+            const gstPercent = productItem.gstpercent || 0;
+            const hsn = productItem.hsn || '';
+            const price = productItem.price || 0;
+
+            // Skip empty products
+            if (!productName.trim()) {
+              continue;
+            }
+
+            // Check if product already exists for this vendor
+            const existingProduct = await db.query(
+              `SELECT id FROM vendorproducts 
+               WHERE vendorid = ? AND TRIM(LOWER(productname)) = TRIM(LOWER(?))
+               LIMIT 1`,
+              [querydata.vendorid, productName]
+            );
+
+            if (existingProduct.length > 0) {
+              // Update existing product with latest details
+              await db.query(
+                `UPDATE vendorproducts SET 
+                  gstpercent = ?, 
+                  hsn = ?, 
+                  price = ?
+                WHERE id = ?`,
+                [gstPercent, hsn, price, existingProduct[0].id]
+              );
+            } else {
+              // Insert new product
+              await db.query(
+                `INSERT INTO vendorproducts (
+                  vendorid, 
+                  productname, 
+                  gstpercent, 
+                  hsn, 
+                  price
+                ) VALUES (?, ?, ?, ?, ?)`,
+                [querydata.vendorid, productName, gstPercent, hsn, price]
+              );
+            }
+            productsMappedendar++;
+          } catch (productError) {
+            console.error('Error mapping product:', productError);
+            // Continue processing other products even if one fails
+          }
+        }
+      }
+
+      // Insert notes into vendor_notesmaster table (if notes exist)
+      if (querydata.notes && Array.isArray(querydata.notes) && querydata.notes.length > 0) {
+        for (const noteItem of querydata.notes) {
+          try {
+            // Extract note content based on structure (handle both string and object notes)
+            let noteContent = '';
+            if (typeof noteItem === 'string') {
+              noteContent = noteItem.trim();
+            } else if (typeof noteItem === 'object' && noteItem.note) {
+              noteContent = noteItem.note.trim();
+            } else if (typeof noteItem === 'object' && noteItem.notes) {
+              noteContent = noteItem.notes.trim();
+            }
+
+            // Skip empty notes
+            if (!noteContent) {
+              continue;
+            }
+
+            // Format note as JSON array (based on your table structure)
+            const formattedNote = JSON.stringify([noteContent]);
+
+            // Check if note already exists in vendor_notesmaster
+            const existingNote = await db.query(
+              `SELECT notes_id FROM vendor_notesmaster 
+               WHERE JSON_EXTRACT(notes, '$[0]') = ? AND deleted_flag = 0 
+               LIMIT 1`,
+              [noteContent]
+            );
+
+            // Insert note only if it doesn't exist
+            if (!existingNote || existingNote.length === 0) {
+              await db.query(
+                `INSERT INTO vendor_notesmaster (
+                  notes, 
+                  row_updated_date, 
+                  status, 
+                  deleted_flag
+                ) VALUES (?, NOW(), 1, 0)`,
+                [formattedNote]
+              );
+            }
+          } catch (noteError) {
+            console.error('Error inserting note:', noteError);
+            // Continue processing other notes even if one fails
+          }
+        }
+      }
+
+      // Insert into vprocesslist as a subprocess (no vendorprocessmaster entry for PO)
+      const processResult = await db.query(
+        `INSERT INTO vprocesslist (
+          process_name,
+          Process_filepath,
+          Process_date,
+          Approved_status,
+          status,
+          deleted_flag,
+          Created_by,
+          vprocess_gen_id,
+          process_type,
+          vendor_address,
+          vendor_name,
+          process_id,
+          Row_updated_date
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+        [
+          'PO',
+          filePath,
+          formattedDate,
+          0, // Approved_status
+          1, // status
+          0, // deleted_flag
+          userid,
+          poGenId,
+          6, // process_type for PO
+          querydata.vendoraddress || vendor.address || '',
+          querydata.vendorname || vendor.vendor_name,
+          querydata.processid // Parent process_id from vendorprocessmaster
+        ]
+      );
+
+      const vprocess_id = processResult.insertId;
+
+      // Initialize response flags
+      let emailSent = false;
+      let whatsappSent = false;
+
+      // Update generatepoids status to 0 (mark as used) after successful vprocesslist insertion
+      // This ensures the PO ID cannot be reused for another process
+      try {
+        await db.query(
+          `UPDATE generatepoids SET status = 0, row_updated_date = NOW() 
+           WHERE TRIM(LOWER(po_id)) = TRIM(LOWER(?))`,
+          [poGenId]
+        );
+      } catch (updateError) {
+        console.log("Warning: Could not update PO ID status:", updateError);
+        // Continue execution even if update fails
+      }
+
+      // Get required modules
+      const mailer = require("../mailer");
+      const axios = require("axios");
+      const config = require("../config");
+
+      // Prepare email and WhatsApp data
+      const vendorEmail = /*vendor.email ||*/ "kishorekkumar34@gmail.com"; // Fallback email
+      const ccEmail = querydata.cc_email || "";
+      const subject = `Purchase Order - ${poGenId}`;
+      const notes = querydata.feedback || querydata.notes || "Please find the attached Purchase Order for your review and confirmation.";
+      
+      // Process phone numbers (handle single or comma-separated numbers)
+      const phoneNumbers = vendor.contact_person_phone 
+        ? vendor.contact_person_phone
+            .split(",")
+            .map((num) => num.trim())
+            .filter((num) => num !== "") // Remove empty values
+        : [];
+
+      // Send based on messagetype
+      if (messagetype === 1) {
+        // Send only email
+        try {
+          emailSent = await mailer.sendVendorPO(
+            vendor.vendor_name,
+            vendorEmail,
+            subject,
+            "VENDORPO", // module tag for email settings
+            filePath, // file path for attachment
+            poGenId, // PO ID
+            notes, // additional notes
+            ccEmail // CC email
+          );
+        } catch (emailError) {
+          console.log("Warning: Email sending error:", emailError);
+          emailSent = false;
+        }
+      } else if (messagetype === 2) {
+        // Send only WhatsApp
+        if (phoneNumbers.length > 0) {
+          try {
+            const whatsappResults = await Promise.all(
+              phoneNumbers.map(async (number) => {
+                try {
+                  const response = await axios.post(
+                    `${config.whatsappip}/billing/sendpdf`,
+                    {
+                      phoneno: number,
+                      feedback: notes,
+                      pdfpath: filePath,
+                    }
+                  );
+                  return response.data.code || false;
+                } catch (error) {
+                  console.error(`WhatsApp Error for ${number}:`, error.message);
+                  return false;
+                }
+              })
+            );
+            whatsappSent = whatsappResults.some(result => result === true);
+          } catch (whatsappError) {
+            console.log("Warning: WhatsApp sending error:", whatsappError);
+            whatsappSent = false;
+          }
+        } else {
+          console.log("Warning: No phone numbers available for WhatsApp sending");
+          whatsappSent = false;
+        }
+      } else if (messagetype === 3) {
+        // Send both email and WhatsApp
+        const promises = [];
+
+        // Email promise
+        promises.push(
+          mailer.sendVendorPO(
+            vendor.vendor_name,
+            vendorEmail,
+            subject,
+            "VENDORPO",
+            filePath,
+            poGenId,
+            notes,
+            ccEmail
+          ).then(result => {
+            emailSent = result;
+            return result;
+          }).catch(error => {
+            console.log("Warning: Email sending error:", error);
+            emailSent = false;
+            return false;
+          })
+        );
+
+        // WhatsApp promise
+        if (phoneNumbers.length > 0) {
+          promises.push(
+            Promise.all(
+              phoneNumbers.map(async (number) => {
+                try {
+                  const response = await axios.post(
+                    `${config.whatsappip}/billing/sendpdf`,
+                    {
+                      phoneno: number,
+                      feedback: notes,
+                      pdfpath: filePath,
+                    }
+                  );
+                  return response.data.code || false;
+                } catch (error) {
+                  console.error(`WhatsApp Error for ${number}:`, error.message);
+                  return false;
+                }
+              })
+            ).then(results => {
+              whatsappSent = results.some(result => result === true);
+              return whatsappSent;
+            }).catch(error => {
+              console.log("Warning: WhatsApp sending error:", error);
+              whatsappSent = false;
+              return false;
+            })
+          );
+        } else {
+          console.log("Warning: No phone numbers available for WhatsApp sending");
+          whatsappSent = false;
+        }
+
+        // Wait for all promises to complete
+        await Promise.all(promises);
+      }
+
+      if (vprocess_id != null && poDetailsResult.insertId != null) {
+        // MQTT notifications for PO posting
+        await mqttclient.publishMqttMessage(
+          "Notification",
+          "PO Posted Successfully to " + vendor.vendor_name
+        );
+        await mqttclient.publishMqttMessage(
+          "refresh",
+          "PO Posted Successfully"
+        );
+        
+        return helper.getSuccessResponse(
+          true,
+          "success",
+          "PO Posted Successfully",
+          {
+            vprocess_id: vprocess_id,
+            po_details_id: poDetailsResult.insertId,
+            vendor_name: vendor.vendor_name,
+            pogenid: poGenId,
+            emailsent: emailSent,
+            whatsappsent: whatsappSent,
+            messagetype: messagetype,
+            products_mapped: productsMappedendar
+          },
+          secret
+        );
+      } else {
+        return helper.getErrorResponse(
+          false,
+          "Error while posting the PO.",
+          "POST PO",
+          secret
+        );
+      }
+    } catch (er) {
+      return helper.getErrorResponse(
+        false,
+        "Internal error. Please contact Administration",
+        er.message,
+        secret
+      );
+    }
+  } catch (er) {
+    return helper.getErrorResponse(
+      false,
+      "Internal error. Please contact Administration",
+      er.message,
+      ""
+    );
+  }
+}
+
 module.exports = {
   AddVendor,
   GetVendorWithFile,
@@ -5639,7 +6228,8 @@ module.exports = {
   getVendorQuotationApproval,
   popreloader,
   GetVendor,
-  AddInvoice
+  AddInvoice,
+  PostPO
 };
 
 //##################################################################################################################################################################################################
