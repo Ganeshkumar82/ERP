@@ -195,7 +195,7 @@ router.post('/postpo', async function(req, res, next) {
   }
 });
 
-router.post('/adddc', async function(req, res, next) {
+router.post('/uploaddc', async function(req, res, next) {
   try {
     res.json(await vendor.AddDC(req, res));
   } catch (er) {

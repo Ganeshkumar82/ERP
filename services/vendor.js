@@ -207,20 +207,20 @@ async function AddVendor(req, res) {
     
     // Validate required fields
     const requiredFields = [
-      { field: "vendorname", message: "Vendor name missing. Please provide the Vendor name" },
+      { field: "vendor_name", message: "Vendor name missing. Please provide the Vendor name" },
       { field: "email", message: "Email missing. Please provide the Email" },
-      { field: "contactpersonphone", message: "Contact person phone missing. Please provide the Contact person phone" },
-      { field: "businesstype", message: "Business type missing. Please provide the Business type" },
-      { field: "yearofestablishment", message: "Year of establishment missing. Please provide the Year of establishment" },
-      { field: "gstnumber", message: "GST number missing. Please provide the GST number" },
-      { field: "pannumber", message: "PAN number missing. Please provide the PAN number" },
-      { field: "annualturnover", message: "Annual turnover missing. Please provide the Annual turnover" },
-      { field: "productsservices", message: "Products/Services missing. Please provide the Products/Services" },
-      { field: "hsnsaccode", message: "HSN/SAC code missing. Please provide the HSN/SAC code" },
-      { field: "bankname", message: "Bank name missing. Please provide the Bank name" },
-      { field: "branchname", message: "Branch name missing. Please provide the Branch name" },
-      { field: "accountnumber", message: "Account number missing. Please provide the Account number" },
-      { field: "ifsccode", message: "IFSC code missing. Please provide the IFSC code" }
+      { field: "contact_person_phone", message: "Contact person phone missing. Please provide the Contact person phone" },
+      { field: "business_type", message: "Business type missing. Please provide the Business type" },
+      { field: "year_of_establishment", message: "Year of establishment missing. Please provide the Year of establishment" },
+      { field: "gst_number", message: "GST number missing. Please provide the GST number" },
+      { field: "pan_number", message: "PAN number missing. Please provide the PAN number" },
+      { field: "annual_turnover", message: "Annual turnover missing. Please provide the Annual turnover" },
+      { field: "products_services", message: "Products/Services missing. Please provide the Products/Services" },
+      { field: "hsn_sac_code", message: "HSN/SAC code missing. Please provide the HSN/SAC code" },
+      { field: "bank_name", message: "Bank name missing. Please provide the Bank name" },
+      { field: "branch_name", message: "Branch name missing. Please provide the Branch name" },
+      { field: "account_number", message: "Account number missing. Please provide the Account number" },
+      { field: "ifsc_code", message: "IFSC code missing. Please provide the IFSC code" }
     ];
 
     for (const { field, message } of requiredFields) {
@@ -248,7 +248,7 @@ async function AddVendor(req, res) {
         
         // Build dynamic update query - only update fields that are provided
         updateFields.push('vendor_name = ?');
-        updateValues.push(querydata.vendorname);
+        updateValues.push(querydata.vendor_name);
         
         if (querydata.address !== undefined) {
           updateFields.push('address = ?');
@@ -265,42 +265,42 @@ async function AddVendor(req, res) {
           updateValues.push(querydata.pincode || null);
         }
         
-        if (querydata.contactpersonname !== undefined) {
+        if (querydata.contact_person_name !== undefined) {
           updateFields.push('contact_person_name = ?');
-          updateValues.push(querydata.contactpersonname || null);
+          updateValues.push(querydata.contact_person_name || null);
         }
         
-        if (querydata.contactpersondesignation !== undefined) {
+        if (querydata.contact_person_designation !== undefined) {
           updateFields.push('contact_person_designation = ?');
-          updateValues.push(querydata.contactpersondesignation || null);
+          updateValues.push(querydata.contact_person_designation || null);
         }
         
         updateFields.push('contact_person_phone = ?');
-        updateValues.push(querydata.contactpersonphone);
+        updateValues.push(querydata.contact_person_phone);
         
         updateFields.push('email = ?');
         updateValues.push(querydata.email);
         
         updateFields.push('business_type = ?');
-        updateValues.push(querydata.businesstype);
+        updateValues.push(querydata.business_type);
         
         updateFields.push('year_of_establishment = ?');
-        updateValues.push(querydata.yearofestablishment);
+        updateValues.push(querydata.year_of_establishment);
         
         updateFields.push('gst_number = ?');
-        updateValues.push(querydata.gstnumber);
+        updateValues.push(querydata.gst_number);
         
         updateFields.push('pan_number = ?');
-        updateValues.push(querydata.pannumber);
+        updateValues.push(querydata.pan_number);
         
         updateFields.push('annual_turnover = ?');
-        updateValues.push(querydata.annualturnover);
+        updateValues.push(querydata.annual_turnover);
         
         updateFields.push('products_services = ?');
-        updateValues.push(querydata.productsservices);
+        updateValues.push(querydata.products_services);
         
         updateFields.push('hsn_sac_code = ?');
-        updateValues.push(querydata.hsnsaccode);
+        updateValues.push(querydata.hsn_sac_code);
         
         if (querydata.description !== undefined) {
           updateFields.push('description = ?');
@@ -308,25 +308,25 @@ async function AddVendor(req, res) {
         }
         
         updateFields.push('bank_name = ?');
-        updateValues.push(querydata.bankname);
+        updateValues.push(querydata.bank_name);
         
         updateFields.push('branch_name = ?');
-        updateValues.push(querydata.branchname);
+        updateValues.push(querydata.branch_name);
         
         updateFields.push('account_number = ?');
-        updateValues.push(querydata.accountnumber);
+        updateValues.push(querydata.account_number);
         
         updateFields.push('ifsc_code = ?');
-        updateValues.push(querydata.ifsccode);
+        updateValues.push(querydata.ifsc_code);
         
         if (querydata.isocertification !== undefined) {
           updateFields.push('iso_certification = ?');
-          updateValues.push(querydata.isocertification || null);
+          updateValues.push(querydata.iso_certification || null);
         }
         
         if (querydata.othercertifications !== undefined) {
           updateFields.push('other_certifications = ?');
-          updateValues.push(querydata.othercertifications || null);
+          updateValues.push(querydata.other_certifications || null);
         }
         
         // Only update file paths if new files were uploaded
@@ -357,7 +357,7 @@ async function AddVendor(req, res) {
         // Add vendorid for WHERE clause
         updateValues.push(querydata.vendorid);
         
-        const updateSql = `UPDATE vendors SET ${updateFields.join(', ')} WHERE vendor_id = ?`;
+        const updateSql = `UPDATE vendors SET ${updateFields.join(', ')} WHERE vendorid = ?`;
         
         result = await db.query(updateSql, updateValues);
         vendorid = querydata.vendorid;
@@ -406,28 +406,28 @@ async function AddVendor(req, res) {
             other_certifications, registration_certificate_path, pan_upload_path, cancelled_cheque_path, logo_path
           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
-            querydata.vendorname,
+            querydata.vendor_name,
             querydata.address || null,
             querydata.state || null,
             querydata.pincode || null,
-            querydata.contactpersonname || null,
-            querydata.contactpersondesignation || null,
-            querydata.contactpersonphone,
+            querydata.contact_person_name || null,
+            querydata.contact_person_designation || null,
+            querydata.contact_person_phone,
             querydata.email,
-            querydata.businesstype,
-            querydata.yearofestablishment,
-            querydata.gstnumber,
-            querydata.pannumber,
-            querydata.annualturnover,
-            querydata.productsservices,
-            querydata.hsnsaccode,
+            querydata.business_type,
+            querydata.year_of_establishment,
+            querydata.gst_number,
+            querydata.pan_number,
+            querydata.annual_turnover,
+            querydata.products_services,
+            querydata.hsn_sac_code,
             querydata.description || null,
-            querydata.bankname,
-            querydata.branchname,
-            querydata.accountnumber,
-            querydata.ifsccode,
-            querydata.isocertification || null,
-            querydata.othercertifications || null,
+            querydata.bank_name,
+            querydata.branch_name,
+            querydata.account_number,
+            querydata.ifsc_code,
+            querydata.iso_certification || null,
+            querydata.other_certifications || null,
             registrationCertPath,
             panUploadPath,
             cancelledChequePath,
@@ -523,68 +523,23 @@ async function AddVendor(req, res) {
 
 //##################################################################################################################################################################################################
 //##################################################################################################################################################################################################
-//########################################### REQUEST BODY FOR GET VENDOR #####################################################################################
+//########################################### REQUEST BODY FOR GET VENDOR WITH FILE #####################################################################################
 // {
 //   "STOKEN": "your_session_token",
-//   "querystring": "encrypted_data_containing_vendor_id_and_optional_type"
+//   "querystring": "encrypted_data_containing_vendor_id_and_type"
 // }
 // Required querystring data:
 // {
-//   "vendorid": 1  // Optional - specific vendor ID (0 or omit for all vendors)
+//   "vendorid": 1,     // Required - specific vendor ID
+//   "type": "logo"     // Required - file type ("registration", "pan", "cheque", "logo")
 // }
-// Optional querystring data:
-// {
-//   "type": "pan"  // Optional - filename key for specific file ("registration", "pan", "cheque", "logo")
-// }
-//####################################################################### RESPONSE BODY FOR GET VENDOR #######################################################
-// Scenario 1 - No vendorid (all vendors with logo always as base64):
+//####################################################################### RESPONSE BODY FOR GET VENDOR WITH FILE #######################################################
 // {
 //   "code": true,
-//   "message": "Vendor Fetched Successfully",
-//   "Value": [
-//     {
-//       "vendorid": 1,
-//       "vendor_name": "JK Construction",
-//       "address": "123 Main Street, Coimbatore",
-//       // ... all other fields ...
-//       "registration_certificate_path": "/path/to/registration.pdf",
-//       "pan_upload_path": "/path/to/pan.pdf",
-//       "cancelled_cheque_path": "/path/to/cheque.pdf",
-//       "logo_path": "/path/to/logo.png",
-//       "logo_base64": "base64_encoded_logo_content_here",  // Always included
-//       "updated_at": "2025-07-07 10:30:00",
-//       "created_at": "2025-07-07 10:30:00"
-//     }
-//   ]
+//   "message": "File fetched successfully",
+//   "Value": "base64_encoded_file_content_here"
 // }
-// Scenario 2 - vendorid only (specific vendor with logo always as base64):
-// {
-//   "code": true,
-//   "message": "Vendor Fetched Successfully",
-//   "Value": [
-//     {
-//       "vendorid": 1,
-//       "vendor_name": "JK Construction",
-//       // ... all other fields same as above ...
-//       "logo_base64": "base64_encoded_logo_content_here"  // Always included
-//     }
-//   ]
-// }
-// Scenario 3 - vendorid + type (specific vendor with logo always + specified file as base64):
-// Example: type="pan"
-// {
-//   "code": true,
-//   "message": "Vendor Fetched Successfully",
-//   "Value": [
-//     {
-//       "vendorid": 1,
-//       "vendor_name": "JK Construction",
-//       // ... all other fields same as above ...
-//       "logo_base64": "base64_encoded_logo_content_here",  // Always included
-//       "pan_base64": "base64_encoded_pan_content_here"     // Additional file when type specified
-//     }
-//   ]
-// }
+//##################################################################################################################################################################################################
 
 
 async function GetVendor(vendor) {
@@ -856,103 +811,108 @@ async function GetVendorWithFile(vendor) {
     }
     
     try {
-      let sql;
-      
-      // Determine the scenario based on provided parameters
-      const hasVendorId = querydata.vendorid && querydata.vendorid != 0;
-      const hasType = querydata.type !== undefined;
-      const hasFilename = querydata.type && querydata.type !== "";
-      
-      if (!hasVendorId) {
-        // Scenario 1: No vendorid given - fetch all vendors with paths + logo as base64
-        sql = await db.query(
-          `SELECT vendorid, vendor_name, address, state, pincode, contact_person_name, 
-           contact_person_designation, contact_person_phone, email, business_type, 
-           year_of_establishment, gst_number, pan_number, annual_turnover, 
-           products_services, hsn_sac_code, description, bank_name, branch_name, 
-           account_number, ifsc_code, iso_certification, other_certifications,
-           registration_certificate_path, pan_upload_path, cancelled_cheque_path,
-           created_at, updated_at, logo_path
-           FROM vendors ORDER BY created_at DESC`
-        );
-      } else {
-        // Scenario 2: vendorid given - fetch specific vendor
-        sql = await db.query(
-          `SELECT vendorid, vendor_name, address, state, pincode, contact_person_name, 
-           contact_person_designation, contact_person_phone, email, business_type, 
-           year_of_establishment, gst_number, pan_number, annual_turnover, 
-           products_services, hsn_sac_code, description, bank_name, branch_name, 
-           account_number, ifsc_code, iso_certification, other_certifications,
-           registration_certificate_path, pan_upload_path, cancelled_cheque_path,
-           created_at, updated_at, logo_path
-           FROM vendors WHERE vendorid = ?`,
-          [querydata.vendorid]
+      // Validate required fields
+      if (!querydata.vendorid || querydata.vendorid == 0) {
+        return helper.getErrorResponse(
+          false,
+          "error",
+          "Vendor ID missing. Please provide the vendor ID",
+          "FETCH VENDOR FILE",
+          secret
         );
       }
 
-      // Process each vendor record
-      for (let i = 0; i < sql.length; i++) {
-        // Always convert logo to base64 for all scenarios
-        if (sql[i].logo_path) {
-          try {
-            const binaryData = await helper.convertFileToBinary(sql[i].logo_path);
-            sql[i].logo_base64 = binaryData;
-            // Keep the path as well
-          } catch (error) {
-            console.error("Error reading logo:", sql[i].logo_path, error);
-            sql[i].logo_base64 = null;
-          }
-        }
-
-        // Additional file conversion when vendorid + type + filename is provided
-        if (hasVendorId && hasType && hasFilename) {
-          // The filename is passed in querydata.type as a key
-          const filename = querydata.type.toLowerCase();
-          
-          if (filename === 'registration' && sql[i].registration_certificate_path) {
-            try {
-              const binaryData = await helper.convertFileToBinary(sql[i].registration_certificate_path);
-              sql[i].registration_certificate_base64 = binaryData;
-            } catch (error) {
-              console.error("Error reading registration certificate:", sql[i].registration_certificate_path, error);
-              sql[i].registration_certificate_base64 = null;
-            }
-          } else if (filename === 'pan' && sql[i].pan_upload_path) {
-            try {
-              const binaryData = await helper.convertFileToBinary(sql[i].pan_upload_path);
-              sql[i].pan_upload_base64 = binaryData;
-            } catch (error) {
-              console.error("Error reading PAN upload:", sql[i].pan_upload_path, error);
-              sql[i].pan_upload_base64 = null;
-            }
-          } else if (filename === 'cheque' && sql[i].cancelled_cheque_path) {
-            try {
-              const binaryData = await helper.convertFileToBinary(sql[i].cancelled_cheque_path);
-              sql[i].cancelled_cheque_base64 = binaryData;
-            } catch (error) {
-              console.error("Error reading cancelled cheque:", sql[i].cancelled_cheque_path, error);
-              sql[i].cancelled_cheque_base64 = null;
-            }
-          }
-          // Note: logo is already handled above, so no need to handle it again here
-        }
-
-        // Format the dates
-        if (sql[i].created_at) {
-          sql[i].created_at = new Date(sql[i].created_at).toISOString().slice(0, 19).replace('T', ' ');
-        }
-        if (sql[i].updated_at) {
-          sql[i].updated_at = new Date(sql[i].updated_at).toISOString().slice(0, 19).replace('T', ' ');
-        }
+      if (!querydata.type || querydata.type.trim() === "") {
+        return helper.getErrorResponse(
+          false,
+          "error",
+          "File type missing. Please provide the file type (registration, pan, cheque, logo)",
+          "FETCH VENDOR FILE",
+          secret
+        );
       }
 
-      return helper.getSuccessResponse(
-        true,
-        "success",
-        "Vendor Fetched Successfully",
-        sql,
-        secret
+      const filename = querydata.type.toLowerCase();
+      let pathColumn;
+      let fileDescription;
+
+      // Map file type to database column
+      switch (filename) {
+        case 'gstreg':
+          pathColumn = 'registration_certificate_path';
+          fileDescription = 'Registration Certificate';
+          break;
+        case 'pan':
+          pathColumn = 'pan_upload_path';
+          fileDescription = 'PAN Document';
+          break;
+        case 'cheque':
+          pathColumn = 'cancelled_cheque_path';
+          fileDescription = 'Cancelled Cheque';
+          break;
+        case 'logo':
+          pathColumn = 'logo_path';
+          fileDescription = 'Logo';
+          break;
+        default:
+          return helper.getErrorResponse(
+            false,
+            "error",
+            "Invalid file type. Supported types: registration, pan, cheque, logo",
+            "FETCH VENDOR FILE",
+            secret
+          );
+      }
+
+      // Get the specific file path for the vendor
+      const sql = await db.query(
+        `SELECT ${pathColumn} as file_path FROM vendors WHERE vendorid = ?`,
+        [querydata.vendorid]
       );
+
+      if (sql.length === 0) {
+        return helper.getErrorResponse(
+          false,
+          "error",
+          "Vendor not found",
+          "FETCH VENDOR FILE",
+          secret
+        );
+      }
+
+      const filePath = sql[0].file_path;
+
+      if (!filePath) {
+        return helper.getErrorResponse(
+          false,
+          "error",
+          `${fileDescription} not found for this vendor`,
+          "FETCH VENDOR FILE",
+          secret
+        );
+      }
+
+      // Convert file to base64
+      try {
+        const binaryData = await helper.convertFileToBinary(filePath);
+        
+        return helper.getSuccessResponse(
+          true,
+          "success",
+          `${fileDescription} fetched successfully`,
+          binaryData,
+          secret
+        );
+      } catch (fileError) {
+        console.error(`Error reading ${fileDescription}:`, filePath, fileError);
+        return helper.getErrorResponse(
+          false,
+          "error",
+          `Error reading ${fileDescription} file`,
+          "FETCH VENDOR FILE",
+          secret
+        );
+      }
     } catch (er) {
       return helper.getErrorResponse(
         false,
