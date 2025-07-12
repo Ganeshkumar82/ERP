@@ -68,6 +68,7 @@ async function AddVendor(req, res) {
     console.log("AddVendor - req.files (processed by middleware):", req.files);
     
     // Extract file paths from uploaded files (already processed by middleware)
+    // Note: Middleware now ensures all files have proper extensions
     let registrationCertPath = null;
     let panUploadPath = null;
     let cancelledChequePath = null;
@@ -881,6 +882,7 @@ async function GetVendorWithFile(vendor) {
       }
 
       const filePath = sql[0].file_path;
+      console.log(`GetVendorWithFile: Retrieved file path from database: ${filePath}`);
 
       if (!filePath) {
         return helper.getErrorResponse(
@@ -894,7 +896,33 @@ async function GetVendorWithFile(vendor) {
 
       // Convert file to base64
       try {
-        const binaryData = await helper.convertFileToBinary(filePath);
+        // First try the exact path as stored in database
+        let finalFilePath = filePath;
+        
+        // If the exact path doesn't exist, try with common extensions
+        const fs = require('fs');
+        if (!fs.existsSync(filePath)) {
+          console.log(`File not found at exact path: ${filePath}, trying with extensions...`);
+          const possibleExtensions = ['.pdf', '.jpg', '.jpeg', '.png'];
+          let found = false;
+          
+          for (const ext of possibleExtensions) {
+            const testPath = filePath + ext;
+            if (fs.existsSync(testPath)) {
+              finalFilePath = testPath;
+              found = true;
+              console.log(`Found file with extension: ${testPath}`);
+              break;
+            }
+          }
+          
+          if (!found) {
+            console.log(`File not found even with extensions. Original path: ${filePath}`);
+            throw new Error(`File not found: ${filePath}`);
+          }
+        }
+        
+        const binaryData = await helper.convertFileToBinary(finalFilePath);
         
         return helper.getSuccessResponse(
           true,
@@ -908,7 +936,7 @@ async function GetVendorWithFile(vendor) {
         return helper.getErrorResponse(
           false,
           "error",
-          `Error reading ${fileDescription} file`,
+          `Error reading ${fileDescription} file. File may not exist or may be corrupted.`,
           "FETCH VENDOR FILE",
           secret
         );

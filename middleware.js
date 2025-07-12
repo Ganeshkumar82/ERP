@@ -736,7 +736,12 @@ let storageVendorRegCert = multer.diskStorage({
   },
   filename: (req, file, cb) => {
     const timestamp = Date.now();
-    cb(null, `${timestamp}_${file.originalname}`);
+    // Ensure the file has an extension - if originalname has no extension, add .pdf as default
+    let originalName = file.originalname;
+    if (!originalName.includes('.')) {
+      originalName += '.pdf'; // Default to PDF for registration certificate
+    }
+    cb(null, `${timestamp}_${originalName}`);
   },
 });
 
@@ -770,7 +775,12 @@ let storageVendorPAN = multer.diskStorage({
   },
   filename: (req, file, cb) => {
     const timestamp = Date.now();
-    cb(null, `${timestamp}_${file.originalname}`);
+    // Ensure the file has an extension - if originalname has no extension, add .pdf as default
+    let originalName = file.originalname;
+    if (!originalName.includes('.')) {
+      originalName += '.pdf'; // Default to PDF for PAN document
+    }
+    cb(null, `${timestamp}_${originalName}`);
   },
 });
 
@@ -804,7 +814,12 @@ let storageVendorCheque = multer.diskStorage({
   },
   filename: (req, file, cb) => {
     const timestamp = Date.now();
-    cb(null, `${timestamp}_${file.originalname}`);
+    // Ensure the file has an extension - if originalname has no extension, add .pdf as default
+    let originalName = file.originalname;
+    if (!originalName.includes('.')) {
+      originalName += '.pdf'; // Default to PDF for cancelled cheque
+    }
+    cb(null, `${timestamp}_${originalName}`);
   },
 });
 
@@ -838,7 +853,13 @@ let storageVendorLogo = multer.diskStorage({
   },
   filename: (req, file, cb) => {
     const timestamp = Date.now();
-    cb(null, `${timestamp}_${file.originalname}`);
+    // Ensure the file has an extension - if originalname has no extension, add appropriate extension
+    let originalName = file.originalname;
+    if (!originalName.includes('.')) {
+      // For logos, default to .png if no extension provided
+      originalName += '.png';
+    }
+    cb(null, `${timestamp}_${originalName}`);
   },
 });
 
@@ -972,7 +993,12 @@ let storageVendorKYC = multer.diskStorage({
   },
   filename: (req, file, cb) => {
     const timestamp = Date.now();
-    cb(null, `${timestamp}_${file.originalname}`);
+    // Ensure the file has an extension - if originalname has no extension, add .pdf as default
+    let originalName = file.originalname;
+    if (!originalName.includes('.')) {
+      originalName += '.pdf'; // Default to PDF for vendor KYC documents
+    }
+    cb(null, `${timestamp}_${originalName}`);
   },
 });
 
