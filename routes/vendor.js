@@ -213,4 +213,41 @@ router.post('/uploaddc', async function(req, res, next) {
   }
 });
 
+router.post('/sharelink', async function(req, res, next) {
+  try {
+    res.json(await vendor.ShareFormLink(req.body));
+  } catch (er) {
+    console.log(`Error sharing form link -> ${er}`);
+    next(er);
+  }
+});
+
+router.post('/getrequests', async function(req, res, next) {
+  try {
+    res.json(await vendor.GetFormLinkRequests(req.body));
+  } catch (er) {
+    console.log(`Error fetching form link requests -> ${er}`);
+    next(er);
+  }
+});
+
+router.post('/addvendorresponse', async function(req, res, next) {
+  try {
+    res.json(await vendor.AddVendorResponse(req.body));
+  } catch (er) {
+    console.log(`Error adding vendor response -> ${er}`);
+    next(er);
+  }
+});
+
+router.post('/getresponses', async function(req, res, next) {
+  try {
+    res.json(await vendor.GetVendorDetails(req.body));
+  } catch (er) {
+    console.log(`Error fetching vendor responses -> ${er}`);
+    next(er);
+  }
+});
+
+
 module.exports = router;

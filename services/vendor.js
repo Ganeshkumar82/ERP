@@ -3129,23 +3129,23 @@ async function getBinaryFile(vendorData) {
       );
     }
 
-    // Validate event type
-    if (!querydata.hasOwnProperty("eventtype") || querydata.eventtype == "") {
-      return helper.getErrorResponse(
-        false,
-        "error",
-        "Event type missing. Please provide the event type (RFQ, RRFQ, QUOTATION, INVOICE, DC, PO)",
-        "GET BINARY DATA FOR PDF",
-        secret
-      );
-    }
+    // // Validate event type
+    // if (!querydata.hasOwnProperty("eventtype") || querydata.eventtype == "") {
+    //   return helper.getErrorResponse(
+    //     false,
+    //     "error",
+    //     "Event type missing. Please provide the event type (RFQ, RRFQ, QUOTATION, INVOICE, DC, PO)",
+    //     "GET BINARY DATA FOR PDF",
+    //     secret
+    //   );
+    // }
 
     // Query to get the file path from vprocesslist using vprocess_id (eventid) and process_name (eventtype)
     const sql = await db.query(
       `SELECT Process_filepath, process_name, vprocess_gen_id, vendor_name 
        FROM vprocesslist 
-       WHERE vprocess_id = ? AND process_name = ? AND deleted_flag = 0`,
-      [querydata.eventid, querydata.eventtype]
+       WHERE vprocess_id = ? AND deleted_flag = 0`,
+      [querydata.eventid]
     );
 
     if (sql.length > 0) {
@@ -3188,7 +3188,7 @@ async function getBinaryFile(vendorData) {
       return helper.getErrorResponse(
         false,
         "error",
-        `Event with ID ${querydata.eventid} and type ${querydata.eventtype} not found or no file associated`,
+        `Event with ID ${querydata.eventid} and not found or no file associated`,
         "GET BINARY DATA FOR PDF",
         secret
       );
@@ -6411,6 +6411,7 @@ async function PostPO(req, res) {
           console.log("Warning: No phone numbers available for WhatsApp sending");
           whatsappSent = false;
         }
+        
       } else if (messagetype === 3) {
         // Send both email and WhatsApp
         const promises = [];
@@ -6741,6 +6742,948 @@ async function AddDC(req, res) {
   }
 }
 
+// ...existing code...
+
+//##################################################################################################################################################################################################
+//##################################################################################################################################################################################################
+//########################################### REQUEST BODY FOR SHARE FORM LINK #####################################################################################
+// {
+//   "STOKEN": "your_session_token",
+//   "querystring": "encrypted_data_containing_contact_details"
+// }
+// Required querystring data:
+// {
+//   "phone_number": "9344268155",
+//   "email_id": "vendor@example.com",
+//   "message_type": 1  // 1 = email only, 2 = WhatsApp only, 3 = both (default: 1)
+// }
+// Optional querystring data:
+// {
+//   "notes": "Please complete the vendor registration form at your earliest convenience"
+// }
+//####################################################################### RESPONSE BODY FOR SHARE FORM LINK #######################################################
+// {
+//   "code": true,
+//   "message": "Form link shared successfully",
+//   "Value": {
+//     "id": 1,
+//     "phone_number": "9344268155",
+//     "email_id": "vendor@example.com",
+//     "form_link": "https://yourform.com/vendor-registration",
+//     "email_sent": true,
+//     "whatsapp_sent": false,
+//     "message_type": 1,
+//     "sent_by_user_id": 4
+//   }
+// }
+//##################################################################################################################################################################################################
+//##################################################################################################################################################################################################
+
+async function ShareFormLink(vendorData) {
+  try {
+    // Check if the session token exists
+    if (!vendorData.hasOwnProperty("STOKEN")) {
+      return helper.getErrorResponse(
+        false,
+        "error",
+        "Login session token missing. Please provide the Login session token",
+        "SHARE FORM LINK",
+        ""
+      );
+    }
+
+    // Validate session token length
+    if (vendorData.STOKEN.length > 50 || vendorData.STOKEN.length < 30) {
+      return helper.getErrorResponse(
+        false,
+        "error",
+        "Login session token size invalid. Please provide the valid Session token",
+        "SHARE FORM LINK",
+        ""
+      );
+    }
+
+    var secret = vendorData.STOKEN.substring(0, 16);
+
+    // Validate session token
+    const [result] = await db.spcall(
+      "CALL SP_STOKEN_CHECK(?,@result); SELECT @result;",
+      [vendorData.STOKEN]
+    );
+    const objectvalue = result[1][0];
+    const userid = objectvalue["@result"];
+
+    if (userid == null) {
+      return helper.getErrorResponse(
+        false,
+        "error",
+        "Login session token Invalid. Please provide the valid session token",
+        "SHARE FORM LINK",
+        secret
+      );
+    }
+
+    // Check if querystring is provided
+    if (!vendorData.hasOwnProperty("querystring")) {
+      return helper.getErrorResponse(
+        false,
+        "error",
+        "Querystring missing. Please provide the querystring",
+        "SHARE FORM LINK",
+        secret
+      );
+    }
+
+    var querydata;
+
+    // Decrypt querystring
+    try {
+      querydata = await helper.decrypt(vendorData.querystring, secret);
+    } catch (ex) {
+      return helper.getErrorResponse(
+        false,
+        "error",
+        "Querystring Invalid error. Please provide the valid querystring.",
+        "SHARE FORM LINK",
+        secret
+      );
+    }
+
+    // Parse the decrypted querystring
+    try {
+      querydata = JSON.parse(querydata);
+    } catch (ex) {
+      return helper.getErrorResponse(
+        false,
+        "error",
+        "Querystring JSON error. Please provide valid JSON",
+        "SHARE FORM LINK",
+        secret
+      );
+    }
+
+    // Validate required fields
+    if (!querydata.hasOwnProperty("phone_number") || querydata.phone_number === "" || querydata.phone_number === null) {
+      return helper.getErrorResponse(
+        false,
+        "error",
+        "Phone number missing. Please provide the phone number",
+        "SHARE FORM LINK",
+        secret
+      );
+    }
+
+    if (!querydata.hasOwnProperty("email_id") || querydata.email_id === "" || querydata.email_id === null) {
+      return helper.getErrorResponse(
+        false,
+        "error",
+        "Email ID missing. Please provide the email ID",
+        "SHARE FORM LINK",
+        secret
+      );
+    }
+
+    // Validate messagetype if provided
+    if (querydata.hasOwnProperty("message_type") && ![1, 2, 3].includes(querydata.message_type)) {
+      return helper.getErrorResponse(
+        false,
+        "error",
+        "Invalid message type. Use 1 for email only, 2 for WhatsApp only, 3 for both",
+        "SHARE FORM LINK",
+        secret
+      );
+    }
+
+    // Set default messagetype to 1 (email only) if not provided
+    const messagetype = querydata.message_type || 1;
+
+    try {
+      // Hardcoded form link (you can modify this as needed)
+      const formLink = "https://forms.sporadasecure.com/vendor-registration";
+      
+      // Initialize response flags
+      let emailSent = false;
+      let whatsappSent = false;
+
+      // Get required modules
+      const mailer = require("../mailer");
+      const axios = require("axios");
+      const config = require("../config");
+
+      // Prepare email and WhatsApp data
+      const subject = "Vendor Registration Form - Sporada Secure";
+      const notes = querydata.notes || "Please complete the vendor registration form to become our registered vendor.";
+      
+      // Process phone numbers (handle single or comma-separated numbers)
+      const phoneNumbers = querydata.phone_number 
+        ? querydata.phone_number
+            .split(",")
+            .map((num) => num.trim())
+            .filter((num) => num !== "") // Remove empty values
+        : [];
+
+      // Send based on messagetype
+      if (messagetype === 1) {
+        // Send only email
+        try {
+          emailSent = await mailer.sendVendorFormLink(
+            "Vendor", // recipient name
+            querydata.email_id,
+            subject,
+            "FORMLINK", // module tag for email settings
+            formLink,
+            notes
+          );
+        } catch (emailError) {
+          console.log("Warning: Email sending error:", emailError);
+          emailSent = false;
+        }
+      } else if (messagetype === 2) {
+        // Send only WhatsApp
+        if (phoneNumbers.length > 0) {
+          try {
+            const whatsappResults = await Promise.all(
+              phoneNumbers.map(async (number) => {
+                try {
+                  const response = await axios.post(
+                    `${config.whatsappip}/billing/sendmessage`,
+                    {
+                      phoneno: number,
+                      message: `Dear Vendor,\n\nWe invite you to register with Sporada Secure. Please complete the vendor registration form:\n\n${formLink}\n\n${notes}\n\nBest regards,\nSporada Secure Procurement Team`,
+                    }
+                  );
+                  return response.data.code || false;
+                } catch (error) {
+                  console.error(`WhatsApp Error for ${number}:`, error.message);
+                  return false;
+                }
+              })
+            );
+            whatsappSent = whatsappResults.some(result => result === true);
+          } catch (whatsappError) {
+            console.log("Warning: WhatsApp sending error:", whatsappError);
+            whatsappSent = false;
+          }
+        } else {
+          console.log("Warning: No phone numbers available for WhatsApp sending");
+          whatsappSent = false;
+        }
+      } else if (messagetype === 3) {
+        // Send both email and WhatsApp
+        const promises = [];
+
+        // Email promise
+        promises.push(
+          mailer.sendVendorFormLink(
+            "Vendor",
+            querydata.email_id,
+            subject,
+            "FORMLINK",
+            formLink,
+            notes
+          ).then(result => {
+            emailSent = result;
+            return result;
+          }).catch(error => {
+            console.log("Warning: Email sending error:", error);
+            emailSent = false;
+            return false;
+          })
+        );
+
+        // WhatsApp promise
+        if (phoneNumbers.length > 0) {
+          promises.push(
+            Promise.all(
+              phoneNumbers.map(async (number) => {
+                try {
+                  const response = await axios.post(
+                    `${config.whatsappip}/billing/sendmessage`,
+                    {
+                      phoneno: number,
+                      message: `Dear Vendor,\n\nWe invite you to register with Sporada Secure. Please complete the vendor registration form:\n\n${formLink}\n\n${notes}\n\nBest regards,\nSporada Secure Procurement Team`,
+                    }
+                  );
+                  return response.data.code || false;
+                } catch (error) {
+                  console.error(`WhatsApp Error for ${number}:`, error.message);
+                  return false;
+                }
+              })
+            ).then(results => {
+              whatsappSent = results.some(result => result === true);
+              return whatsappSent;
+            }).catch(error => {
+              console.log("Warning: WhatsApp sending error:", error);
+              whatsappSent = false;
+              return false;
+            })
+          );
+        } else {
+          console.log("Warning: No phone numbers available for WhatsApp sending");
+          whatsappSent = false;
+        }
+
+        // Wait for all promises to complete
+        await Promise.all(promises);
+      }
+
+      // Insert the record into the database after successful sending
+      const insertResult = await db.query(
+        `INSERT INTO vendor_form_link_requests (
+          phone_number,
+          email_id,
+          message_type,
+          form_link,
+          email_sent,
+          whatsapp_sent,
+          sent_by_user_id,
+          sent_date,
+          status,
+          notes,
+          row_updated_date
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), 1, ?, NOW())`,
+        [
+          querydata.phone_number,
+          querydata.email_id,
+          messagetype,
+          formLink,
+          emailSent ? 1 : 0,
+          whatsappSent ? 1 : 0,
+          userid,
+          notes
+        ]
+      );
+
+      const requestId = insertResult.insertId;
+
+      if (requestId != null) {
+        // MQTT notifications for form link sharing
+        await mqttclient.publishMqttMessage(
+          "Notification",
+          `Form link shared successfully to ${querydata.email_id}`
+        );
+        await mqttclient.publishMqttMessage(
+          "refresh",
+          "Form link shared successfully"
+        );
+        
+        return helper.getSuccessResponse(
+          true,
+          "success",
+          "Form link shared successfully",
+          {
+            id: requestId,
+            phone_number: querydata.phone_number,
+            email_id: querydata.email_id,
+            form_link: formLink,
+            email_sent: emailSent,
+            whatsapp_sent: whatsappSent,
+            message_type: messagetype,
+            sent_by_user_id: userid,
+            notes: notes
+          },
+          secret
+        );
+      } else {
+        return helper.getErrorResponse(
+          false,
+          "error",
+          "Error while saving form link request.",
+          "SHARE FORM LINK",
+          secret
+        );
+      }
+
+    } catch (er) {
+      return helper.getErrorResponse(
+        false,
+        "error",
+        "Internal error. Please contact Administration",
+        er.message,
+        secret
+      );
+    }
+  } catch (er) {
+    return helper.getErrorResponse(
+      false,
+      "error",
+      "Internal error. Please contact Administration",
+      er.message,
+      ""
+    );
+  }
+}
+//##################################################################################################################################################################################################
+//##################################################################################################################################################################################################
+
+//##################################################################################################################################################################################################
+//##################################################################################################################################################################################################
+//########################################### REQUEST BODY FOR GET FORM LINK REQUESTS #####################################################################################
+// {
+//   "STOKEN": "your_session_token",
+//   "querystring": "encrypted_data_containing_optional_filters"
+// }
+// Optional querystring data:
+// {
+//   "id": 1,                    // Optional - specific request ID
+//   "email_id": "vendor@example.com",  // Optional - filter by email
+//   "phone_number": "9344268155",      // Optional - filter by phone number
+//   "message_type": 1,                 // Optional - filter by message type (1=email, 2=WhatsApp, 3=both)
+//   "email_sent": 1,                   // Optional - filter by email sent status (0/1)
+//   "whatsapp_sent": 0,                // Optional - filter by WhatsApp sent status (0/1)
+//   "sent_by_user_id": 4,              // Optional - filter by user who sent the request
+//   "limit": 50,                       // Optional - limit number of results (default: 100)
+//   "offset": 0                        // Optional - offset for pagination (default: 0)
+// }
+//####################################################################### RESPONSE BODY FOR GET FORM LINK REQUESTS #######################################################
+// {
+//   "code": true,
+//   "message": "Form link requests fetched successfully",
+//   "Value": {
+//     "total_count": 25,
+//     "requests": [
+//       {
+//         "id": 1,
+//         "phone_number": "9344268155",
+//         "email_id": "vendor@example.com",
+//         "message_type": 1,
+//         "form_link": "https://forms.sporadasecure.com/vendor-registration",
+//         "email_sent": 1,
+//         "whatsapp_sent": 0,
+//         "sent_by_user_id": 4,
+//         "sent_by_username": "Admin User",
+//         "sent_date": "2025-07-14 10:30:00",
+//         "status": 1,
+//         "notes": "Please complete registration at earliest",
+//         "row_updated_date": "2025-07-14 10:30:00"
+//       }
+//     ]
+//   }
+// }
+//##################################################################################################################################################################################################
+//##################################################################################################################################################################################################
+
+async function GetFormLinkRequests(vendorData) {
+  try {
+    // Check if the session token exists
+    if (!vendorData.hasOwnProperty("STOKEN")) {
+      return helper.getErrorResponse(
+        false,
+        "error",
+        "Login session token missing. Please provide the Login session token",
+        "GET FORM LINK REQUESTS",
+        ""
+      );
+    }
+
+    // Validate session token length
+    if (vendorData.STOKEN.length > 50 || vendorData.STOKEN.length < 30) {
+      return helper.getErrorResponse(
+        false,
+        "error",
+        "Login session token size invalid. Please provide the valid Session token",
+        "GET FORM LINK REQUESTS",
+        ""
+      );
+    }
+
+    var secret = vendorData.STOKEN.substring(0, 16);
+
+    // Validate session token
+    const [result] = await db.spcall(
+      "CALL SP_STOKEN_CHECK(?,@result); SELECT @result;",
+      [vendorData.STOKEN]
+    );
+    const objectvalue = result[1][0];
+    const userid = objectvalue["@result"];
+
+    if (userid == null) {
+      return helper.getErrorResponse(
+        false,
+        "error",
+        "Login session token Invalid. Please provide the valid session token",
+        "GET FORM LINK REQUESTS",
+        secret
+      );
+    }
+
+    // Initialize querydata for optional filtering
+    var querydata = {};
+
+    // Check if querystring is provided (optional for this endpoint)
+    if (vendorData.hasOwnProperty("querystring") && vendorData.querystring) {
+      try {
+        // Decrypt querystring
+        const decryptedQuery = await helper.decrypt(vendorData.querystring, secret);
+        querydata = JSON.parse(decryptedQuery);
+      } catch (ex) {
+        // If querystring is provided but invalid, return error
+        return helper.getErrorResponse(
+          false,
+          "error",
+          "Querystring Invalid error. Please provide valid querystring or omit it for all records.",
+          "GET FORM LINK REQUESTS",
+          secret
+        );
+      }
+    }
+
+    try {
+      // Build dynamic WHERE clause based on provided filters
+      let whereConditions = [];
+      let queryParams = [];
+
+      // Optional filters
+      if (querydata.id) {
+        whereConditions.push("flr.id = ?");
+        queryParams.push(querydata.id);
+      }
+
+      if (querydata.email_id) {
+        whereConditions.push("flr.email_id LIKE ?");
+        queryParams.push(`%${querydata.email_id}%`);
+      }
+
+      if (querydata.phone_number) {
+        whereConditions.push("flr.phone_number LIKE ?");
+        queryParams.push(`%${querydata.phone_number}%`);
+      }
+
+      if (querydata.message_type !== undefined) {
+        whereConditions.push("flr.message_type = ?");
+        queryParams.push(querydata.message_type);
+      }
+
+      if (querydata.email_sent !== undefined) {
+        whereConditions.push("flr.email_sent = ?");
+        queryParams.push(querydata.email_sent);
+      }
+
+      if (querydata.whatsapp_sent !== undefined) {
+        whereConditions.push("flr.whatsapp_sent = ?");
+        queryParams.push(querydata.whatsapp_sent);
+      }
+
+      if (querydata.sent_by_user_id) {
+        whereConditions.push("flr.sent_by_user_id = ?");
+        queryParams.push(querydata.sent_by_user_id);
+      }
+
+      // Build WHERE clause
+      const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
+
+      // Pagination
+      const limit = querydata.limit || 100;
+      const offset = querydata.offset || 0;
+
+      // Get total count for pagination
+      const countQuery = `
+        SELECT COUNT(*) as total_count
+        FROM vendor_form_link_requests flr
+        LEFT JOIN usermaster um ON flr.sent_by_user_id = um.userid
+        ${whereClause}
+      `;
+
+      const countResult = await db.query(countQuery, queryParams);
+      const totalCount = countResult[0].total_count;
+
+      // Main query to get form link requests with user details
+      const mainQuery = `
+        SELECT 
+          flr.id,
+          flr.phone_number,
+          flr.email_id,
+          flr.message_type,
+          flr.form_link,
+          flr.email_sent,
+          flr.whatsapp_sent,
+          flr.sent_by_user_id,
+          COALESCE(um.username, 'Unknown User') as sent_by_username,
+          flr.sent_date,
+          flr.status,
+          flr.notes,
+          flr.row_updated_date,
+          CASE 
+            WHEN flr.message_type = 1 THEN 'Email Only'
+            WHEN flr.message_type = 2 THEN 'WhatsApp Only'
+            WHEN flr.message_type = 3 THEN 'Email & WhatsApp'
+            ELSE 'Unknown'
+          END as message_type_description,
+          CASE 
+            WHEN flr.email_sent = 1 AND flr.whatsapp_sent = 1 THEN 'Both Sent'
+            WHEN flr.email_sent = 1 THEN 'Email Sent'
+            WHEN flr.whatsapp_sent = 1 THEN 'WhatsApp Sent'
+            ELSE 'Not Sent'
+          END as delivery_status
+        FROM vendor_form_link_requests flr
+        LEFT JOIN usermaster um ON flr.sent_by_user_id = um.userid
+        ${whereClause}
+        ORDER BY flr.sent_date DESC
+        LIMIT ? OFFSET ?
+      `;
+
+      const mainParams = [...queryParams, limit, offset];
+      const requests = await db.query(mainQuery, mainParams);
+
+      // Format dates for better readability
+      requests.forEach(request => {
+        if (request.sent_date) {
+          request.sent_date = new Date(request.sent_date).toISOString().slice(0, 19).replace('T', ' ');
+        }
+        if (request.row_updated_date) {
+          request.row_updated_date = new Date(request.row_updated_date).toISOString().slice(0, 19).replace('T', ' ');
+        }
+      });
+
+      return helper.getSuccessResponse(
+        true,
+        "success",
+        "Form link requests fetched successfully",
+        {
+          total_count: totalCount,
+          returned_count: requests.length,
+          limit: limit,
+          offset: offset,
+          requests: requests
+        },
+        secret
+      );
+
+    } catch (er) {
+      return helper.getErrorResponse(
+        false,
+        "error",
+        "Internal error. Please contact Administration",
+        er.message,
+        secret
+      );
+    }
+  } catch (er) {
+    return helper.getErrorResponse(
+      false,
+      "error",
+      "Internal error. Please contact Administration",
+      er.message,
+      ""
+    );
+  }
+}
+
+//##################################################################################################################################################################################################
+//##################################################################################################################################################################################################
+//########################################### REQUEST BODY FOR GET VENDOR DETAILS #####################################################################################
+// {
+//   "STOKEN": "your_session_token",
+//   "querystring": "encrypted_data_containing_optional_filters"
+// }
+// Optional querystring data:
+// {
+//   "vendorid": 1,              // Optional - specific vendor ID
+//   "vendor_name": "JK",        // Optional - filter by vendor name (partial match)
+//   "email": "jk@gmail.com",    // Optional - filter by email (partial match)
+//   "business_type": "Manufacturer", // Optional - filter by business type
+//   "state": "Tamil Nadu",      // Optional - filter by state
+//   "status": 1,                // Optional - filter by status (0/1)
+//   "deleted_flag": 0,          // Optional - filter by deleted flag (0/1)
+//   "limit": 50,                // Optional - limit number of results (default: 100)
+//   "offset": 0                 // Optional - offset for pagination (default: 0)
+// }
+//####################################################################### RESPONSE BODY FOR GET VENDOR DETAILS #######################################################
+// {
+//   "code": true,
+//   "message": "Vendor details fetched successfully",
+//   "Value": {
+//     "total_count": 25,
+//     "returned_count": 10,
+//     "limit": 10,
+//     "offset": 0,
+//     "vendors": [
+//       {
+//         "vendorid": 1,
+//         "vendor_name": "JK Construction",
+//         "address": "123 Main Street, Coimbatore",
+//         "state": "Tamil Nadu",
+//         "pincode": "641001",
+//         "contact_person_name": "John Doe",
+//         "contact_person_designation": "Manager",
+//         "contact_person_phone": "9344268155",
+//         "email": "jk@gmail.com",
+//         "business_type": "Manufacturer",
+//         "year_of_establishment": 2010,
+//         "gst_number": "33ABCD43wsd123",
+//         "pan_number": "ABCPD1234E",
+//         "annual_turnover": 50000000.00,
+//         "products_services": "Construction materials, cement, steel",
+//         "hsn_sac_code": "2523,7207",
+//         "description": "Leading manufacturer of construction materials",
+//         "bank_name": "State Bank of India",
+//         "branch_name": "Coimbatore Main",
+//         "account_number": "1234567890",
+//         "ifsc_code": "SBIN0001234",
+//         "iso_certification": "ISO 9001:2015",
+//         "other_certifications": "BIS certification for cement",
+//         "registration_certificate_path": "/path/to/registration.pdf",
+//         "pan_upload_path": "/path/to/pan.pdf",
+//         "cancelled_cheque_path": "/path/to/cheque.pdf",
+//         "logo_path": "/path/to/logo.png",
+//         "created_at": "2025-07-14 10:30:00",
+//         "updated_at": "2025-07-14 15:45:00",
+//         "status": 1,
+//         "deleted_flag": 0
+//       }
+//     ]
+//   }
+// }
+//##################################################################################################################################################################################################
+//##################################################################################################################################################################################################
+
+async function GetVendorDetails(vendorData) {
+  try {
+    // Check if the session token exists
+    if (!vendorData.hasOwnProperty("STOKEN")) {
+      return helper.getErrorResponse(
+        false,
+        "error",
+        "Login session token missing. Please provide the Login session token",
+        "GET VENDOR DETAILS",
+        ""
+      );
+    }
+
+    // Validate session token length
+    if (vendorData.STOKEN.length > 50 || vendorData.STOKEN.length < 30) {
+      return helper.getErrorResponse(
+        false,
+        "error",
+        "Login session token size invalid. Please provide the valid Session token",
+        "GET VENDOR DETAILS",
+        ""
+      );
+    }
+
+    var secret = vendorData.STOKEN.substring(0, 16);
+
+    // Validate session token
+    const [result] = await db.spcall(
+      "CALL SP_STOKEN_CHECK(?,@result); SELECT @result;",
+      [vendorData.STOKEN]
+    );
+    const objectvalue = result[1][0];
+    const userid = objectvalue["@result"];
+
+    if (userid == null) {
+      return helper.getErrorResponse(
+        false,
+        "error",
+        "Login session token Invalid. Please provide the valid session token",
+        "GET VENDOR DETAILS",
+        secret
+      );
+    }
+
+    // Initialize querydata for optional filtering
+    var querydata = {};
+
+    // Check if querystring is provided (optional for this endpoint)
+    if (vendorData.hasOwnProperty("querystring") && vendorData.querystring) {
+      try {
+        // Decrypt querystring
+        const decryptedQuery = await helper.decrypt(vendorData.querystring, secret);
+        querydata = JSON.parse(decryptedQuery);
+      } catch (ex) {
+        // If querystring is provided but invalid, return error
+        return helper.getErrorResponse(
+          false,
+          "error",
+          "Querystring Invalid error. Please provide valid querystring or omit it for all records.",
+          "GET VENDOR DETAILS",
+          secret
+        );
+      }
+    }
+
+    try {
+      // Build dynamic WHERE clause based on provided filters
+      let whereConditions = [];
+      let queryParams = [];
+
+      // Optional filters
+      if (querydata.vendorid) {
+        whereConditions.push("vd.vendorid = ?");
+        queryParams.push(querydata.vendorid);
+      }
+
+      if (querydata.vendor_name) {
+        whereConditions.push("vd.vendor_name LIKE ?");
+        queryParams.push(`%${querydata.vendor_name}%`);
+      }
+
+      if (querydata.email) {
+        whereConditions.push("vd.email LIKE ?");
+        queryParams.push(`%${querydata.email}%`);
+      }
+
+      if (querydata.business_type) {
+        whereConditions.push("vd.business_type LIKE ?");
+        queryParams.push(`%${querydata.business_type}%`);
+      }
+
+      if (querydata.state) {
+        whereConditions.push("vd.state LIKE ?");
+        queryParams.push(`%${querydata.state}%`);
+      }
+
+      if (querydata.status !== undefined) {
+        whereConditions.push("vd.status = ?");
+        queryParams.push(querydata.status);
+      }
+
+      if (querydata.deleted_flag !== undefined) {
+        whereConditions.push("vd.deleted_flag = ?");
+        queryParams.push(querydata.deleted_flag);
+      }
+
+      if (querydata.contact_person_phone) {
+        whereConditions.push("vd.contact_person_phone LIKE ?");
+        queryParams.push(`%${querydata.contact_person_phone}%`);
+      }
+
+      if (querydata.gst_number) {
+        whereConditions.push("vd.gst_number LIKE ?");
+        queryParams.push(`%${querydata.gst_number}%`);
+      }
+
+      if (querydata.pan_number) {
+        whereConditions.push("vd.pan_number LIKE ?");
+        queryParams.push(`%${querydata.pan_number}%`);
+      }
+
+      // Build WHERE clause
+      const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
+
+      // Pagination
+      const limit = querydata.limit || 100;
+      const offset = querydata.offset || 0;
+
+      // Get total count for pagination
+      const countQuery = `
+        SELECT COUNT(*) as total_count
+        FROM vendor_details vd
+        ${whereClause}
+      `;
+
+      const countResult = await db.query(countQuery, queryParams);
+      const totalCount = countResult[0].total_count;
+
+      // Main query to get vendor details
+      const mainQuery = `
+        SELECT 
+          vd.vendorid,
+          vd.vendor_name,
+          vd.address,
+          vd.state,
+          vd.pincode,
+          vd.contact_person_name,
+          vd.contact_person_designation,
+          vd.contact_person_phone,
+          vd.email,
+          vd.business_type,
+          vd.year_of_establishment,
+          vd.gst_number,
+          vd.pan_number,
+          vd.annual_turnover,
+          vd.products_services,
+          vd.hsn_sac_code,
+          vd.description,
+          vd.bank_name,
+          vd.branch_name,
+          vd.account_number,
+          vd.ifsc_code,
+          vd.iso_certification,
+          vd.other_certifications,
+          vd.registration_certificate_path,
+          vd.pan_upload_path,
+          vd.cancelled_cheque_path,
+          vd.logo_path,
+          vd.created_at,
+          vd.updated_at,
+          vd.status,
+          vd.deleted_flag,
+          CASE 
+            WHEN vd.status = 1 THEN 'Active'
+            WHEN vd.status = 0 THEN 'Inactive'
+            ELSE 'Unknown'
+          END as status_description,
+          CASE 
+            WHEN vd.deleted_flag = 0 THEN 'Not Deleted'
+            WHEN vd.deleted_flag = 1 THEN 'Deleted'
+            ELSE 'Unknown'
+          END as delete_status_description
+        FROM vendor_details vd
+        ${whereClause}
+        ORDER BY vd.created_at DESC
+        LIMIT ? OFFSET ?
+      `;
+
+      const mainParams = [...queryParams, limit, offset];
+      const vendors = await db.query(mainQuery, mainParams);
+
+      // Format dates and numbers for better readability
+      vendors.forEach(vendor => {
+        // Format dates
+        if (vendor.created_at) {
+          vendor.created_at = new Date(vendor.created_at).toISOString().slice(0, 19).replace('T', ' ');
+        }
+        if (vendor.updated_at) {
+          vendor.updated_at = new Date(vendor.updated_at).toISOString().slice(0, 19).replace('T', ' ');
+        }
+        
+        // Format annual turnover
+        if (vendor.annual_turnover) {
+          vendor.annual_turnover = parseFloat(vendor.annual_turnover);
+        }
+        
+        // Format year of establishment
+        if (vendor.year_of_establishment) {
+          vendor.year_of_establishment = parseInt(vendor.year_of_establishment);
+        }
+      });
+
+      return helper.getSuccessResponse(
+        true,
+        "success",
+        "Vendor details fetched successfully",
+        {
+          total_count: totalCount,
+          returned_count: vendors.length,
+          limit: limit,
+          offset: offset,
+          vendors: vendors
+        },
+        secret
+      );
+
+    } catch (er) {
+      return helper.getErrorResponse(
+        false,
+        "error",
+        "Internal error. Please contact Administration",
+        er.message,
+        secret
+      );
+    }
+  } catch (er) {
+    return helper.getErrorResponse(
+      false,
+      "error",
+      "Internal error. Please contact Administration",
+      er.message,
+      ""
+    );
+  }
+}
+
 module.exports = {
   AddVendor,
   GetVendorWithFile,
@@ -6763,8 +7706,13 @@ module.exports = {
   GetVendor,
   AddInvoice,
   PostPO,
-  AddDC
+  AddDC,
+  AddVendorResponse,
+  ShareFormLink,
+  GetFormLinkRequests,
+  GetVendorDetails
 };
+
 
 //##################################################################################################################################################################################################
 //##################################################################################################################################################################################################
