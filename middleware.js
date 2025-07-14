@@ -1096,6 +1096,48 @@ const uploadVendorDCMulter = multer({
 // Upload middleware function for vendor DC
 const uploadVendorDC = util.promisify(uploadVendorDCMulter.single("file"));
 
+//#############################################################################################################################################################################################
+// Storage configuration for vendor Invoice uploads
+const storageVendorInvoice = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const currentDate = new Date();
+    const year = currentDate.getFullYear();
+    const month = currentDate.toLocaleString('default', { month: 'long' });
+    const day = currentDate.getDate();
+
+    const uploadPath = `${config.filestorage}/${year}/${month}/${day}/VendorInvoice`;
+    
+    // Create directory if it doesn't exist
+    if (!fs.existsSync(uploadPath)) {
+      fs.mkdirSync(uploadPath, { recursive: true });
+    }
+    
+    cb(null, uploadPath);
+  },
+  filename: (req, file, cb) => {
+    const timestamp = Date.now();
+    // Ensure the file has an extension - if originalname has no extension, add .pdf as default
+    let originalName = file.originalname;
+    if (!originalName.includes('.')) {
+      originalName += '.pdf'; // Default to PDF for invoice uploads
+    }
+    cb(null, `${timestamp}_${originalName}`);
+  }
+});
+
+
+
+// Multer upload configuration for vendor Invoice (no file type filter)
+const uploadVendorInvoiceMulter = multer({
+  storage: storageVendorInvoice,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+  },
+});
+
+// Upload middleware function for vendor Invoice
+const uploadVendorInvoice = util.promisify(uploadVendorInvoiceMulter.single("file"));
+
 module.exports = {
   uploadFileMOR,
   uploadFileInvoice,
@@ -1120,5 +1162,6 @@ module.exports = {
   uploadVendorKYCDocuments,
   uploadPostRRFQ,
   uploadPostPO,
-  uploadVendorDC
+  uploadVendorDC,
+  uploadVendorInvoice  // Add this line
 };

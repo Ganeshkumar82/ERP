@@ -1409,7 +1409,7 @@ async function GetVendorWithFile(vendor) {
 // Required querystring data:
 // {
 //   "processid": 1,  // vprocess_id from vendorprocessmaster
-//   "eventid": 2,    // process_id from vprocesslist (parent event)
+//   "quotation_number": "QUO-2025-001",  // quotation number to be stored in vprocess_gen_id
 //   "feedback": "Optional vendor feedback on quotation"
 // }
 //####################################################################### RESPONSE BODY  ##############################################################################################################
@@ -1531,6 +1531,15 @@ async function AddQuotation(req, res) {
       );
     }
 
+    if (!querydata.quotation_number || querydata.quotation_number == "") {
+      return helper.getErrorResponse(
+        false,
+        "Quotation number missing. Please provide the quotation_number",
+        "ADD QUOTATION",
+        secret
+      );
+    }
+
     try {
       // Get the file path from the uploaded file
       const filePath = req.file.path;
@@ -1547,9 +1556,10 @@ async function AddQuotation(req, res) {
           process_type,
           process_name,
           process_id,
+          vprocess_gen_id,
           feedback,
           Row_updated_date
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, NOW())`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
         [
           filePath,
           formattedDate,
@@ -1557,6 +1567,7 @@ async function AddQuotation(req, res) {
           2,
           'QUOTATION',
           querydata.processid,
+          querydata.quotation_number,
           querydata.feedback || null
         ]
       );
@@ -5546,7 +5557,7 @@ async function popreloader(vendorData) {
       let rfqDetailsQuery = await db.query(
         `SELECT 
           id,
-          genid as rfqgenid,
+          genid,
           vendor_id,
           vendor_name,
           gstin,
@@ -5652,7 +5663,6 @@ async function popreloader(vendorData) {
       
       // Create response with correct field names based on source
       let po_details_base = {
-        genid: rfqDetails.genid,
         vendor_id: rfqDetails.vendor_id,
         vendor_name: rfqDetails.vendor_name,
         gstin: rfqDetails.gstin,
@@ -5678,6 +5688,8 @@ async function popreloader(vendorData) {
 
       const responseData = {
         po_id: poId,
+        rfq_number: rfqDetails.genid,
+        quotation_number: quotations.vprocess_gen_id || null,
         po_details: po_details_base
       };
 
@@ -5720,6 +5732,7 @@ async function popreloader(vendorData) {
 // Required querystring data:
 // {
 //   "processid": 38,    // process_id from vendorprocessmaster (parent process)
+//   "invoice_number": "INV-2025-001",  // invoice number to be stored in vprocess_gen_id
 //   "feedback": "Optional vendor feedback on invoice"
 // }
 //####################################################################### RESPONSE BODY FOR ADD INVOICE #######################################################
@@ -5841,6 +5854,15 @@ async function AddInvoice(req, res) {
       );
     }
 
+    if (!querydata.invoice_number || querydata.invoice_number == "") {
+      return helper.getErrorResponse(
+        false,
+        "Invoice number missing. Please provide the invoice_number",
+        "ADD INVOICE",
+        secret
+      );
+    }
+
     try {
       // Get the file path from the uploaded file
       const filePath = req.file.path;
@@ -5856,9 +5878,10 @@ async function AddInvoice(req, res) {
           process_type,
           process_name,
           process_id,
+          vprocess_gen_id,
           feedback,
           Row_updated_date
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, NOW())`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
         [
           filePath,
           formattedDate,
@@ -5866,6 +5889,7 @@ async function AddInvoice(req, res) {
           5,  // process_type for INVOICE
           'INVOICE',
           querydata.processid,
+          querydata.invoice_number || null,  // vprocess_gen_id
           querydata.feedback || null
         ]
       );
@@ -7710,7 +7734,8 @@ module.exports = {
   AddVendorResponse,
   ShareFormLink,
   GetFormLinkRequests,
-  GetVendorDetails
+  GetVendorDetails,
+
 };
 
 
