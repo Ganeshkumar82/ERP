@@ -492,6 +492,443 @@ async function AddVendor(req, res) {
   }
 }
 
+
+//##################################################################################################################################################################################################
+//##################################################################################################################################################################################################
+
+async function AddVendorResponse(req, res) {
+  let secret = ""; // Initialize secret early to avoid undefined errors
+  
+  try {
+    // Debug logging - files and body are already processed by middleware
+    console.log("AddVendor - req.body (processed by middleware):", req.body);
+    console.log("AddVendor - req.files (processed by middleware):", req.files);
+    
+    // Extract file paths from uploaded files (already processed by middleware)
+    // Note: Middleware now ensures all files have proper extensions
+    let registrationCertPath = null;
+    let panUploadPath = null;
+    let cancelledChequePath = null;
+    let logoPath = null;
+
+    // Process the files that were already uploaded by middleware
+    if (req.files && Array.isArray(req.files)) {
+      console.log(`Processing ${req.files.length} uploaded files`);
+      for (const file of req.files) {
+        console.log(`Processing file: fieldname=${file.fieldname}, originalname=${file.originalname}, path=${file.path}`);
+        
+        // Handle file mapping - check originalname when fieldname is 'files', otherwise use fieldname
+        let fileIdentifier;
+        if (file.fieldname === 'files' && file.originalname) {
+          fileIdentifier = file.originalname;
+        } else {
+          fileIdentifier = file.fieldname;
+        }
+        
+        switch (fileIdentifier) {
+          case 'registration_certificate':
+            registrationCertPath = file.path;
+            console.log(`Mapped registration_certificate: ${file.path}`);
+            break;
+          case 'pan_upload':
+            panUploadPath = file.path;
+            console.log(`Mapped pan_upload: ${file.path}`);
+            break;
+          case 'cancelled_cheque':
+            cancelledChequePath = file.path;
+            console.log(`Mapped cancelled_cheque: ${file.path}`);
+            break;
+          case 'logo_upload':
+            logoPath = file.path;
+            console.log(`Mapped logo_upload: ${file.path}`);
+            break;
+          default:
+            console.log(`Unknown file field/name: ${fileIdentifier} (fieldname: ${file.fieldname}, originalname: ${file.originalname})`);
+            break;
+        }
+      }
+    } else {
+      console.log("No files received in request");
+    }
+
+    let vendor = req.body;
+
+    // Get secret from request body if available for error handling
+    if (vendor && vendor.STOKEN && vendor.STOKEN.length >= 16) {
+      secret = vendor.STOKEN.substring(0, 16);
+    }
+
+    // Check if the session token exists
+    if (!vendor.STOKEN) {
+      return helper.getErrorResponse(
+        false,
+        "error",
+        "Login session token missing. Please provide the Login session token",
+        "ADD VENDOR",
+        secret
+      );
+    }
+
+    // Update secret from STOKEN once we know it exists and is valid
+    secret = vendor.STOKEN.substring(0, 16);
+
+    // Validate session token length
+    if (vendor.STOKEN.length > 50 || vendor.STOKEN.length < 30) {
+      return helper.getErrorResponse(
+        false,
+        "error",
+        "Login session token size invalid. Please provide the valid Session token",
+        "ADD VENDOR",
+        secret
+      );
+    }
+
+    // Validate session token
+    const [result] = await db.spcall(
+      "CALL SP_STOKEN_CHECK(?,@result); SELECT @result;",
+      [vendor.STOKEN]
+    );
+    const objectvalue = result[1][0];
+    const userid = objectvalue["@result"];
+
+    if (userid == null) {
+      return helper.getErrorResponse(
+        false,
+        "error",
+        "Login session token Invalid. Please provide the valid session token",
+        "ADD VENDOR",
+        secret
+      );
+    }
+
+    // Check if querystring is provided
+    if (!vendor.querystring) {
+      return helper.getErrorResponse(
+        false,
+        "error",
+        "Querystring missing. Please provide the querystring",
+        "ADD VENDOR",
+        secret
+      );
+    }
+
+    var querydata;
+
+    // Decrypt querystring
+    try {
+      querydata = await helper.decrypt(vendor.querystring, secret);
+    } catch (ex) {
+      return helper.getErrorResponse(
+        false,
+        "error",
+        "Querystring Invalid error. Please provide the valid querystring.",
+        "ADD VENDOR",
+        secret
+      );
+    }
+
+    // Parse the decrypted querystring
+    try {
+      querydata = JSON.parse(querydata);
+    } catch (ex) {
+      return helper.getErrorResponse(
+        false,
+        "error",
+        "Querystring JSON error. Please provide valid JSON",
+        "ADD VENDOR",
+        secret
+      );
+    }
+
+    // Check if this is an update operation (vendorid provided) or add operation
+    const isUpdate = querydata.vendorid && querydata.vendorid !== "" && querydata.vendorid != null;
+    
+    // Validate required fields
+    const requiredFields = [
+      { field: "vendor_name", message: "Vendor name missing. Please provide the Vendor name" },
+      { field: "email", message: "Email missing. Please provide the Email" },
+      { field: "contact_person_phone", message: "Contact person phone missing. Please provide the Contact person phone" },
+      { field: "business_type", message: "Business type missing. Please provide the Business type" },
+      { field: "year_of_establishment", message: "Year of establishment missing. Please provide the Year of establishment" },
+      { field: "gst_number", message: "GST number missing. Please provide the GST number" },
+      { field: "pan_number", message: "PAN number missing. Please provide the PAN number" },
+      { field: "annual_turnover", message: "Annual turnover missing. Please provide the Annual turnover" },
+      { field: "products_services", message: "Products/Services missing. Please provide the Products/Services" },
+      { field: "hsn_sac_code", message: "HSN/SAC code missing. Please provide the HSN/SAC code" },
+      { field: "bank_name", message: "Bank name missing. Please provide the Bank name" },
+      { field: "branch_name", message: "Branch name missing. Please provide the Branch name" },
+      { field: "account_number", message: "Account number missing. Please provide the Account number" },
+      { field: "ifsc_code", message: "IFSC code missing. Please provide the IFSC code" }
+    ];
+
+    for (const { field, message } of requiredFields) {
+      if (!querydata[field] || querydata[field] === "" || querydata[field] == null) {
+        return helper.getErrorResponse(
+          false,
+          "error",
+          message,
+          "ADD VENDOR",
+          secret
+        );
+      }
+    }
+
+
+    try {
+      // File paths are already set from individual uploads above
+      let result;
+      let vendorid;
+
+      if (isUpdate) {
+        // Update existing vendor
+        const updateFields = [];
+        const updateValues = [];
+        
+        // Build dynamic update query - only update fields that are provided
+        updateFields.push('vendor_name = ?');
+        updateValues.push(querydata.vendor_name);
+        
+        if (querydata.address !== undefined) {
+          updateFields.push('address = ?');
+          updateValues.push(querydata.address || null);
+        }
+        
+        if (querydata.state !== undefined) {
+          updateFields.push('state = ?');
+          updateValues.push(querydata.state || null);
+        }
+        
+        if (querydata.pincode !== undefined) {
+          updateFields.push('pincode = ?');
+          updateValues.push(querydata.pincode || null);
+        }
+        
+        if (querydata.contact_person_name !== undefined) {
+          updateFields.push('contact_person_name = ?');
+          updateValues.push(querydata.contact_person_name || null);
+        }
+        
+        if (querydata.contact_person_designation !== undefined) {
+          updateFields.push('contact_person_designation = ?');
+          updateValues.push(querydata.contact_person_designation || null);
+        }
+        
+        updateFields.push('contact_person_phone = ?');
+        updateValues.push(querydata.contact_person_phone);
+        
+        updateFields.push('email = ?');
+        updateValues.push(querydata.email);
+        
+        updateFields.push('business_type = ?');
+        updateValues.push(querydata.business_type);
+        
+        updateFields.push('year_of_establishment = ?');
+        updateValues.push(querydata.year_of_establishment);
+        
+        updateFields.push('gst_number = ?');
+        updateValues.push(querydata.gst_number);
+        
+        updateFields.push('pan_number = ?');
+        updateValues.push(querydata.pan_number);
+        
+        updateFields.push('annual_turnover = ?');
+        updateValues.push(querydata.annual_turnover);
+        
+        updateFields.push('products_services = ?');
+        updateValues.push(querydata.products_services);
+        
+        updateFields.push('hsn_sac_code = ?');
+        updateValues.push(querydata.hsn_sac_code);
+        
+        if (querydata.description !== undefined) {
+          updateFields.push('description = ?');
+          updateValues.push(querydata.description || null);
+        }
+        
+        updateFields.push('bank_name = ?');
+        updateValues.push(querydata.bank_name);
+        
+        updateFields.push('branch_name = ?');
+        updateValues.push(querydata.branch_name);
+        
+        updateFields.push('account_number = ?');
+        updateValues.push(querydata.account_number);
+        
+        updateFields.push('ifsc_code = ?');
+        updateValues.push(querydata.ifsc_code);
+        
+        if (querydata.isocertification !== undefined) {
+          updateFields.push('iso_certification = ?');
+          updateValues.push(querydata.iso_certification || null);
+        }
+        
+        if (querydata.othercertifications !== undefined) {
+          updateFields.push('other_certifications = ?');
+          updateValues.push(querydata.other_certifications || null);
+        }
+        
+        // Only update file paths if new files were uploaded
+        if (registrationCertPath) {
+          updateFields.push('registration_certificate_path = ?');
+          updateValues.push(registrationCertPath);
+        }
+        // If no new registration_certificate uploaded, the old path remains unchanged
+        
+        if (panUploadPath) {
+          updateFields.push('pan_upload_path = ?');
+          updateValues.push(panUploadPath);
+        }
+        
+        if (cancelledChequePath) {
+          updateFields.push('cancelled_cheque_path = ?');
+          updateValues.push(cancelledChequePath);
+        }
+        
+        if (logoPath) {
+          updateFields.push('logo_path = ?');
+          updateValues.push(logoPath);
+        }
+        
+        // Add updated_at timestamp
+        updateFields.push('updated_at = NOW()');
+        
+        // Add vendorid for WHERE clause
+        updateValues.push(querydata.vendorid);
+        
+        const updateSql = `UPDATE vendor_details SET ${updateFields.join(', ')} WHERE vendorid = ?`;
+        
+        result = await db.query(updateSql, updateValues);
+        vendorid = querydata.vendorid;
+        
+        if (result.affectedRows > 0) {
+          // MQTT notifications for vendor update
+          await mqttclient.publishMqttMessage(
+            "Notification",
+            "Vendor Updated Successfully - " + querydata.vendorname
+          );
+          await mqttclient.publishMqttMessage(
+            "refresh",
+            "Vendor Updated Successfully"
+          );
+          
+          return helper.getSuccessResponse(
+            true,
+            "success",
+            "Vendor Updated Successfully",
+            {
+              vendorid: vendorid,
+              registration_certificate_uploaded: !!registrationCertPath,
+              pan_upload_uploaded: !!panUploadPath,
+              cancelled_cheque_uploaded: !!cancelledChequePath,
+              logo_uploaded: !!logoPath
+            },
+            secret
+          );
+        } else {
+          return helper.getErrorResponse(
+            false,
+            "error",
+            "Vendor not found or no changes made.",
+            "ADD VENDOR",
+            secret
+          );
+        }
+      } else {
+        // Insert new vendor
+        result = await db.query(
+          `INSERT INTO vendor_details (
+            vendor_name, address, state, pincode, contact_person_name, contact_person_designation, 
+            contact_person_phone, email, business_type, year_of_establishment, gst_number, 
+            pan_number, annual_turnover, products_services, hsn_sac_code, description,
+            bank_name, branch_name, account_number, ifsc_code, iso_certification, 
+            other_certifications, registration_certificate_path, pan_upload_path, cancelled_cheque_path, logo_path
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            querydata.vendor_name,
+            querydata.address || null,
+            querydata.state || null,
+            querydata.pincode || null,
+            querydata.contact_person_name || null,
+            querydata.contact_person_designation || null,
+            querydata.contact_person_phone,
+            querydata.email,
+            querydata.business_type,
+            querydata.year_of_establishment,
+            querydata.gst_number,
+            querydata.pan_number,
+            querydata.annual_turnover,
+            querydata.products_services,
+            querydata.hsn_sac_code,
+            querydata.description || null,
+            querydata.bank_name,
+            querydata.branch_name,
+            querydata.account_number,
+            querydata.ifsc_code,
+            querydata.iso_certification || null,
+            querydata.other_certifications || null,
+            registrationCertPath,
+            panUploadPath,
+            cancelledChequePath,
+            logoPath
+          ]
+        );
+
+        vendorid = result.insertId;
+
+        if (vendorid != null && vendorid !== "") {
+          // MQTT notifications for new vendor
+          await mqttclient.publishMqttMessage(
+            "Notification",
+            "Vendor Added Successfully - " + querydata.vendorname
+          );
+          await mqttclient.publishMqttMessage(
+            "refresh",
+            "Vendor Added Successfully"
+          );
+          
+          return helper.getSuccessResponse(
+            true,
+            "success",
+            "Vendor Added Successfully",
+            {
+              vendorid: vendorid,
+              registration_certificate_uploaded: !!registrationCertPath,
+              pan_upload_uploaded: !!panUploadPath,
+              cancelled_cheque_uploaded: !!cancelledChequePath,
+              logo_uploaded: !!logoPath
+            },
+            secret
+          );
+        } else {
+          return helper.getErrorResponse(
+            false,
+            "error",
+            "Error while adding the vendor.",
+            "ADD VENDOR",
+            secret
+          );
+        }
+      }
+    } catch (er) {
+      return helper.getErrorResponse(
+        false,
+        "error",
+        "Internal error. Please contact Administration",
+        er.message,
+        secret
+      );
+    }
+  } catch (er) {
+    return helper.getErrorResponse(
+      false,
+      "error",
+      "Internal error. Please contact Administration",
+      er.message,
+      secret
+    );
+  }
+}
+
 //##################################################################################################################################################################################################
 //##################################################################################################################################################################################################
 //########################################### REQUEST BODY FOR GET VENDOR #####################################################################################

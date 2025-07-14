@@ -13,6 +13,15 @@ router.post('/addvendor', uploadVendorKYCDocuments, async function(req,res,next)
   }
 });
 
+router.post('/addvendordetails', uploadVendorKYCDocuments, async function(req,res,next){
+  try{
+    res.json(await vendor.AddVendorResponse(req, res));
+  }catch(er){
+    console.log(`Error adding the vendor -> ${er}`);
+    next(er);
+  }
+});
+
 router.post('/getvendor', async function(req,res,next){
   try{
    res.json(await vendor.GetVendor(req.body));
