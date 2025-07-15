@@ -1074,20 +1074,9 @@ const storageVendorDC = multer.diskStorage({
   }
 });
 
-// File filter for DC uploads (PDF only)
-const fileFilterDC = (req, file, cb) => {
-  // Allow PDF files only
-  if (file.mimetype === 'application/pdf') {
-    cb(null, true);
-  } else {
-    cb(new Error('Only PDF files are allowed for DC uploads!'), false);
-  }
-};
-
 // Multer upload configuration for vendor DC
 const uploadVendorDCMulter = multer({
   storage: storageVendorDC,
-  fileFilter: fileFilterDC,
   limits: {
     fileSize: 10 * 1024 * 1024, // 10MB limit
   },

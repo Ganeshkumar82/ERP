@@ -6684,13 +6684,22 @@ async function AddDC(req, res) {
       );
     }
 
+    if (!querydata.dc_number || querydata.dc_number == "") {
+      return helper.getErrorResponse(
+        false,
+        "DC Number missing. Please provide the dc_number",
+        "ADD DC",
+        secret
+      );
+    }
+
     try {
       // Get the file path from the uploaded file
       const filePath = req.file.path;
       const currentDate = new Date();
       const formattedDate = currentDate.toISOString().slice(0, 10); // YYYY-MM-DD
 
-      // Insert into vprocesslist with proper relationship linking
+      // Insert into vprocesslist with vprocess_gen_id for DC number if provided
       const sql = await db.query(
         `INSERT INTO vprocesslist (
           Process_filepath,
@@ -6699,9 +6708,10 @@ async function AddDC(req, res) {
           process_type,
           process_name,
           process_id,
+          vprocess_gen_id,
           feedback,
           Row_updated_date
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, NOW())`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
         [
           filePath,
           formattedDate,
@@ -6709,6 +6719,7 @@ async function AddDC(req, res) {
           6,  // process_type for DC
           'DC',
           querydata.processid,
+          querydata.dc_number || null,
           querydata.feedback || null
         ]
       );
@@ -6765,8 +6776,6 @@ async function AddDC(req, res) {
     );
   }
 }
-
-// ...existing code...
 
 //##################################################################################################################################################################################################
 //##################################################################################################################################################################################################
