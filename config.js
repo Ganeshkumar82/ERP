@@ -30,8 +30,8 @@ const config = {
   whatsappip: process.env.WHATSAPP_IP,
   filestorage: `\\\\192.168.0.156\\Backup_ganesh\\invoices`,
   printpath: `\\\\192.168.0.156\\Venkat\\Print\\New Invoices - print`,
-  apiserver: `http://192.168.0.200:8081`,
-  apiserver1: `http://192.168.0.200:8081`,
+  apiserver: `http://192.168.0.200:8083`,
+  apiserver1: `http://192.168.0.200:8083`,
   serverurl: process.env.SERVER_URL,
   apikey: process.env.API_KEY,
 };

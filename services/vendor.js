@@ -3,6 +3,8 @@ const helper = require("../helper");
 const uploadFile = require("../middleware");
 const mqttclient = require("../mqttclient");
 const path = require("path");
+const config = require("../config");
+const apiserver = config.apiserver;
 
 //##################################################################################################################################################################################################
 //##################################################################################################################################################################################################
@@ -29,7 +31,7 @@ const path = require("path");
 // {
 //   "vendorname": "JK Construction",
 //   "address": "123 Main Street, Coimbatore",
-//   "state": "Tamil Nadu", 
+//   "state": "Tamil Nadu",
 //   "pincode": "641001",
 //   "contactpersonname": "John Doe",
 //   "contactpersondesignation": "Manager",
@@ -52,7 +54,7 @@ const path = require("path");
 // }
 // File uploads (form-data):
 // - registration_certificate: PDF/Image file
-// - pan_upload: PDF/Image file  
+// - pan_upload: PDF/Image file
 // - cancelled_cheque: PDF/Image file
 // - logo_upload: PDF/Image file
 //####################################################################### RESPONSE BODY FOR ADD VENDOR #######################################################
@@ -61,12 +63,12 @@ const path = require("path");
 //##################################################################################################################################################################################################
 async function AddVendor(req, res) {
   let secret = ""; // Initialize secret early to avoid undefined errors
-  
+
   try {
     // Debug logging - files and body are already processed by middleware
     console.log("AddVendor - req.body (processed by middleware):", req.body);
     console.log("AddVendor - req.files (processed by middleware):", req.files);
-    
+
     // Extract file paths from uploaded files (already processed by middleware)
     // Note: Middleware now ensures all files have proper extensions
     let registrationCertPath = null;
@@ -78,35 +80,39 @@ async function AddVendor(req, res) {
     if (req.files && Array.isArray(req.files)) {
       console.log(`Processing ${req.files.length} uploaded files`);
       for (const file of req.files) {
-        console.log(`Processing file: fieldname=${file.fieldname}, originalname=${file.originalname}, path=${file.path}`);
-        
+        console.log(
+          `Processing file: fieldname=${file.fieldname}, originalname=${file.originalname}, path=${file.path}`
+        );
+
         // Handle file mapping - check originalname when fieldname is 'files', otherwise use fieldname
         let fileIdentifier;
-        if (file.fieldname === 'files' && file.originalname) {
+        if (file.fieldname === "files" && file.originalname) {
           fileIdentifier = file.originalname;
         } else {
           fileIdentifier = file.fieldname;
         }
-        
+
         switch (fileIdentifier) {
-          case 'registration_certificate':
+          case "registration_certificate":
             registrationCertPath = file.path;
             console.log(`Mapped registration_certificate: ${file.path}`);
             break;
-          case 'pan_upload':
+          case "pan_upload":
             panUploadPath = file.path;
             console.log(`Mapped pan_upload: ${file.path}`);
             break;
-          case 'cancelled_cheque':
+          case "cancelled_cheque":
             cancelledChequePath = file.path;
             console.log(`Mapped cancelled_cheque: ${file.path}`);
             break;
-          case 'logo_upload':
+          case "logo_upload":
             logoPath = file.path;
             console.log(`Mapped logo_upload: ${file.path}`);
             break;
           default:
-            console.log(`Unknown file field/name: ${fileIdentifier} (fieldname: ${file.fieldname}, originalname: ${file.originalname})`);
+            console.log(
+              `Unknown file field/name: ${fileIdentifier} (fieldname: ${file.fieldname}, originalname: ${file.originalname})`
+            );
             break;
         }
       }
@@ -204,28 +210,77 @@ async function AddVendor(req, res) {
     }
 
     // Check if this is an update operation (vendorid provided) or add operation
-    const isUpdate = querydata.vendorid && querydata.vendorid !== "" && querydata.vendorid != null;
-    
+    const isUpdate =
+      querydata.vendorid &&
+      querydata.vendorid !== "" &&
+      querydata.vendorid != null;
+
     // Validate required fields
     const requiredFields = [
-      { field: "vendor_name", message: "Vendor name missing. Please provide the Vendor name" },
+      {
+        field: "vendor_name",
+        message: "Vendor name missing. Please provide the Vendor name",
+      },
       { field: "email", message: "Email missing. Please provide the Email" },
-      { field: "contact_person_phone", message: "Contact person phone missing. Please provide the Contact person phone" },
-      { field: "business_type", message: "Business type missing. Please provide the Business type" },
-      { field: "year_of_establishment", message: "Year of establishment missing. Please provide the Year of establishment" },
-      { field: "gst_number", message: "GST number missing. Please provide the GST number" },
-      { field: "pan_number", message: "PAN number missing. Please provide the PAN number" },
-      { field: "annual_turnover", message: "Annual turnover missing. Please provide the Annual turnover" },
-      { field: "products_services", message: "Products/Services missing. Please provide the Products/Services" },
-      { field: "hsn_sac_code", message: "HSN/SAC code missing. Please provide the HSN/SAC code" },
-      { field: "bank_name", message: "Bank name missing. Please provide the Bank name" },
-      { field: "branch_name", message: "Branch name missing. Please provide the Branch name" },
-      { field: "account_number", message: "Account number missing. Please provide the Account number" },
-      { field: "ifsc_code", message: "IFSC code missing. Please provide the IFSC code" }
+      {
+        field: "contact_person_phone",
+        message:
+          "Contact person phone missing. Please provide the Contact person phone",
+      },
+      {
+        field: "business_type",
+        message: "Business type missing. Please provide the Business type",
+      },
+      {
+        field: "year_of_establishment",
+        message:
+          "Year of establishment missing. Please provide the Year of establishment",
+      },
+      {
+        field: "gst_number",
+        message: "GST number missing. Please provide the GST number",
+      },
+      {
+        field: "pan_number",
+        message: "PAN number missing. Please provide the PAN number",
+      },
+      {
+        field: "annual_turnover",
+        message: "Annual turnover missing. Please provide the Annual turnover",
+      },
+      {
+        field: "products_services",
+        message:
+          "Products/Services missing. Please provide the Products/Services",
+      },
+      {
+        field: "hsn_sac_code",
+        message: "HSN/SAC code missing. Please provide the HSN/SAC code",
+      },
+      {
+        field: "bank_name",
+        message: "Bank name missing. Please provide the Bank name",
+      },
+      {
+        field: "branch_name",
+        message: "Branch name missing. Please provide the Branch name",
+      },
+      {
+        field: "account_number",
+        message: "Account number missing. Please provide the Account number",
+      },
+      {
+        field: "ifsc_code",
+        message: "IFSC code missing. Please provide the IFSC code",
+      },
     ];
 
     for (const { field, message } of requiredFields) {
-      if (!querydata[field] || querydata[field] === "" || querydata[field] == null) {
+      if (
+        !querydata[field] ||
+        querydata[field] === "" ||
+        querydata[field] == null
+      ) {
         return helper.getErrorResponse(
           false,
           "error",
@@ -236,7 +291,6 @@ async function AddVendor(req, res) {
       }
     }
 
-
     try {
       // File paths are already set from individual uploads above
       let result;
@@ -246,123 +300,125 @@ async function AddVendor(req, res) {
         // Update existing vendor
         const updateFields = [];
         const updateValues = [];
-        
+
         // Build dynamic update query - only update fields that are provided
-        updateFields.push('vendor_name = ?');
+        updateFields.push("vendor_name = ?");
         updateValues.push(querydata.vendor_name);
-        
+
         if (querydata.address !== undefined) {
-          updateFields.push('address = ?');
+          updateFields.push("address = ?");
           updateValues.push(querydata.address || null);
         }
-        
+
         if (querydata.state !== undefined) {
-          updateFields.push('state = ?');
+          updateFields.push("state = ?");
           updateValues.push(querydata.state || null);
         }
-        
+
         if (querydata.pincode !== undefined) {
-          updateFields.push('pincode = ?');
+          updateFields.push("pincode = ?");
           updateValues.push(querydata.pincode || null);
         }
-        
+
         if (querydata.contact_person_name !== undefined) {
-          updateFields.push('contact_person_name = ?');
+          updateFields.push("contact_person_name = ?");
           updateValues.push(querydata.contact_person_name || null);
         }
-        
+
         if (querydata.contact_person_designation !== undefined) {
-          updateFields.push('contact_person_designation = ?');
+          updateFields.push("contact_person_designation = ?");
           updateValues.push(querydata.contact_person_designation || null);
         }
-        
-        updateFields.push('contact_person_phone = ?');
+
+        updateFields.push("contact_person_phone = ?");
         updateValues.push(querydata.contact_person_phone);
-        
-        updateFields.push('email = ?');
+
+        updateFields.push("email = ?");
         updateValues.push(querydata.email);
-        
-        updateFields.push('business_type = ?');
+
+        updateFields.push("business_type = ?");
         updateValues.push(querydata.business_type);
-        
-        updateFields.push('year_of_establishment = ?');
+
+        updateFields.push("year_of_establishment = ?");
         updateValues.push(querydata.year_of_establishment);
-        
-        updateFields.push('gst_number = ?');
+
+        updateFields.push("gst_number = ?");
         updateValues.push(querydata.gst_number);
-        
-        updateFields.push('pan_number = ?');
+
+        updateFields.push("pan_number = ?");
         updateValues.push(querydata.pan_number);
-        
-        updateFields.push('annual_turnover = ?');
+
+        updateFields.push("annual_turnover = ?");
         updateValues.push(querydata.annual_turnover);
-        
-        updateFields.push('products_services = ?');
+
+        updateFields.push("products_services = ?");
         updateValues.push(querydata.products_services);
-        
-        updateFields.push('hsn_sac_code = ?');
+
+        updateFields.push("hsn_sac_code = ?");
         updateValues.push(querydata.hsn_sac_code);
-        
+
         if (querydata.description !== undefined) {
-          updateFields.push('description = ?');
+          updateFields.push("description = ?");
           updateValues.push(querydata.description || null);
         }
-        
-        updateFields.push('bank_name = ?');
+
+        updateFields.push("bank_name = ?");
         updateValues.push(querydata.bank_name);
-        
-        updateFields.push('branch_name = ?');
+
+        updateFields.push("branch_name = ?");
         updateValues.push(querydata.branch_name);
-        
-        updateFields.push('account_number = ?');
+
+        updateFields.push("account_number = ?");
         updateValues.push(querydata.account_number);
-        
-        updateFields.push('ifsc_code = ?');
+
+        updateFields.push("ifsc_code = ?");
         updateValues.push(querydata.ifsc_code);
-        
+
         if (querydata.isocertification !== undefined) {
-          updateFields.push('iso_certification = ?');
+          updateFields.push("iso_certification = ?");
           updateValues.push(querydata.iso_certification || null);
         }
-        
+
         if (querydata.othercertifications !== undefined) {
-          updateFields.push('other_certifications = ?');
+          updateFields.push("other_certifications = ?");
           updateValues.push(querydata.other_certifications || null);
         }
-        
+
         // Only update file paths if new files were uploaded
         if (registrationCertPath) {
-          updateFields.push('registration_certificate_path = ?');
+          updateFields.push("registration_certificate_path = ?");
           updateValues.push(registrationCertPath);
         }
         // If no new registration_certificate uploaded, the old path remains unchanged
-        
+
         if (panUploadPath) {
-          updateFields.push('pan_upload_path = ?');
+          updateFields.push("pan_upload_path = ?");
           updateValues.push(panUploadPath);
         }
-        
+
         if (cancelledChequePath) {
-          updateFields.push('cancelled_cheque_path = ?');
+          updateFields.push("cancelled_cheque_path = ?");
           updateValues.push(cancelledChequePath);
         }
-        
+
         if (logoPath) {
-          updateFields.push('logo_path = ?');
+          updateFields.push("logo_path = ?");
           updateValues.push(logoPath);
         }
-        
+
         // Add updated_at timestamp
-        updateFields.push('updated_at = NOW()');
-        
+        updateFields.push("updated_at = NOW()");
+
         // Add vendorid for WHERE clause
         updateValues.push(querydata.vendorid);
-        
-        const updateSql = `UPDATE vendors SET ${updateFields.join(', ')} WHERE vendorid = ?`;
-        
+
+        const updateSql = `UPDATE vendors SET ${updateFields.join(
+          ", "
+        )} WHERE vendorid = ?`;
+
         result = await db.query(updateSql, updateValues);
         vendorid = querydata.vendorid;
-        
+
         if (result.affectedRows > 0) {
           // MQTT notifications for vendor update
           await mqttclient.publishMqttMessage(
@@ -373,7 +429,7 @@ async function AddVendor(req, res) {
             "refresh",
             "Vendor Updated Successfully"
           );
-          
+
           return helper.getSuccessResponse(
             true,
             "success",
@@ -383,7 +439,7 @@ async function AddVendor(req, res) {
               registration_certificate_uploaded: !!registrationCertPath,
               pan_upload_uploaded: !!panUploadPath,
               cancelled_cheque_uploaded: !!cancelledChequePath,
-              logo_uploaded: !!logoPath
+              logo_uploaded: !!logoPath,
             },
             secret
           );
@@ -432,7 +488,7 @@ async function AddVendor(req, res) {
             registrationCertPath,
             panUploadPath,
             cancelledChequePath,
-            logoPath
+            logoPath,
           ]
         );
 
@@ -448,7 +504,7 @@ async function AddVendor(req, res) {
             "refresh",
             "Vendor Added Successfully"
           );
-          
+
           return helper.getSuccessResponse(
             true,
             "success",
@@ -458,7 +514,7 @@ async function AddVendor(req, res) {
               registration_certificate_uploaded: !!registrationCertPath,
               pan_upload_uploaded: !!panUploadPath,
               cancelled_cheque_uploaded: !!cancelledChequePath,
-              logo_uploaded: !!logoPath
+              logo_uploaded: !!logoPath,
             },
             secret
           );
@@ -492,18 +548,501 @@ async function AddVendor(req, res) {
   }
 }
 
+// async function AddVendorWeb(req, res) {
+//   let secret = ""; // Initialize secret early to avoid undefined errors
+
+//   try {
+//     // Debug logging - files and body are already processed by middleware
+//     console.log("AddVendor - req.body (processed by middleware):", req.body);
+//     console.log("AddVendor - req.files (processed by middleware):", req.files);
+
+//     // Extract file paths from uploaded files (already processed by middleware)
+//     // Note: Middleware now ensures all files have proper extensions
+//     let registrationCertPath = null;
+//     let panUploadPath = null;
+//     let cancelledChequePath = null;
+//     let logoPath = null;
+
+//     // Process the files that were already uploaded by middleware
+//     if (req.files && Array.isArray(req.files)) {
+//       console.log(`Processing ${req.files.length} uploaded files`);
+//       for (const file of req.files) {
+//         console.log(
+//           `Processing file: fieldname=${file.fieldname}, originalname=${file.originalname}, path=${file.path}`
+//         );
+
+//         // Handle file mapping - check originalname when fieldname is 'files', otherwise use fieldname
+//         let fileIdentifier;
+//         if (file.fieldname === "files" && file.originalname) {
+//           fileIdentifier = file.originalname;
+//         } else {
+//           fileIdentifier = file.fieldname;
+//         }
+
+//         switch (fileIdentifier) {
+//           case "registration_certificate":
+//             registrationCertPath = file.path;
+//             console.log(`Mapped registration_certificate: ${file.path}`);
+//             break;
+//           case "pan_upload":
+//             panUploadPath = file.path;
+//             console.log(`Mapped pan_upload: ${file.path}`);
+//             break;
+//           case "cancelled_cheque":
+//             cancelledChequePath = file.path;
+//             console.log(`Mapped cancelled_cheque: ${file.path}`);
+//             break;
+//           case "logo_upload":
+//             logoPath = file.path;
+//             console.log(`Mapped logo_upload: ${file.path}`);
+//             break;
+//           default:
+//             console.log(
+//               `Unknown file field/name: ${fileIdentifier} (fieldname: ${file.fieldname}, originalname: ${file.originalname})`
+//             );
+//             break;
+//         }
+//       }
+//     } else {
+//       console.log("No files received in request");
+//     }
+
+//     let vendor = req.body;
+
+//     // Get secret from request body if available for error handling
+//     if (vendor && vendor.STOKEN && vendor.STOKEN.length >= 16) {
+//       secret = vendor.STOKEN.substring(0, 16);
+//     }
+
+//     // Check if the session token exists
+//     if (!vendor.STOKEN) {
+//       return helper.getErrorResponse(
+//         false,
+//         "error",
+//         "Login session token missing. Please provide the Login session token",
+//         "ADD VENDOR",
+//         secret
+//       );
+//     }
+
+//     // Update secret from STOKEN once we know it exists and is valid
+//     secret = vendor.STOKEN.substring(0, 16);
+
+//     // Validate session token length
+//     if (vendor.STOKEN.length > 50 || vendor.STOKEN.length < 15) {
+//       return helper.getErrorResponse(
+//         false,
+//         "error",
+//         "Login session token size invalid. Please provide the valid Session token",
+//         "ADD VENDOR",
+//         secret
+//       );
+//     }
+
+//     // Validate session token
+//     const result = await db.query(
+//       `select secret from apikey where secret = ? and status = 1`,
+//       [vendor.STOKEN]
+//     );
+//     if (result.length == 0) {
+//       return helper.getErrorResponse(
+//         false,
+//         "error",
+//         "Login sessiontoken Invalid. Please provide the valid sessiontoken",
+//         "APPROVE THE QUOTATION",
+//         secret
+//       );
+//     }
+
+//     // Check if querystring is provided
+//     if (!vendor.querystring) {
+//       return helper.getErrorResponse(
+//         false,
+//         "error",
+//         "Querystring missing. Please provide the querystring",
+//         "ADD VENDOR",
+//         secret
+//       );
+//     }
+
+//     var querydata;
+
+//     // Decrypt querystring
+//     try {
+//       querydata = await helper.decrypt(vendor.querystring, secret);
+//     } catch (ex) {
+//       return helper.getErrorResponse(
+//         false,
+//         "error",
+//         "Querystring Invalid error. Please provide the valid querystring.",
+//         "ADD VENDOR",
+//         secret
+//       );
+//     }
+
+//     // Parse the decrypted querystring
+//     try {
+//       querydata = JSON.parse(querydata);
+//     } catch (ex) {
+//       return helper.getErrorResponse(
+//         false,
+//         "error",
+//         "Querystring JSON error. Please provide valid JSON",
+//         "ADD VENDOR",
+//         secret
+//       );
+//     }
+
+//     // Check if this is an update operation (vendorid provided) or add operation
+//     const isUpdate =
+//       querydata.vendorid &&
+//       querydata.vendorid !== "" &&
+//       querydata.vendorid != null;
+
+//     // Validate required fields
+//     const requiredFields = [
+//       {
+//         field: "vendor_name",
+//         message: "Vendor name missing. Please provide the Vendor name",
+//       },
+//       { field: "email", message: "Email missing. Please provide the Email" },
+//       {
+//         field: "contact_person_phone",
+//         message:
+//           "Contact person phone missing. Please provide the Contact person phone",
+//       },
+//       {
+//         field: "business_type",
+//         message: "Business type missing. Please provide the Business type",
+//       },
+//       {
+//         field: "year_of_establishment",
+//         message:
+//           "Year of establishment missing. Please provide the Year of establishment",
+//       },
+//       {
+//         field: "gst_number",
+//         message: "GST number missing. Please provide the GST number",
+//       },
+//       {
+//         field: "pan_number",
+//         message: "PAN number missing. Please provide the PAN number",
+//       },
+//       {
+//         field: "annual_turnover",
+//         message: "Annual turnover missing. Please provide the Annual turnover",
+//       },
+//       {
+//         field: "products_services",
+//         message:
+//           "Products/Services missing. Please provide the Products/Services",
+//       },
+//       {
+//         field: "hsn_sac_code",
+//         message: "HSN/SAC code missing. Please provide the HSN/SAC code",
+//       },
+//       {
+//         field: "bank_name",
+//         message: "Bank name missing. Please provide the Bank name",
+//       },
+//       {
+//         field: "branch_name",
+//         message: "Branch name missing. Please provide the Branch name",
+//       },
+//       {
+//         field: "account_number",
+//         message: "Account number missing. Please provide the Account number",
+//       },
+//       {
+//         field: "ifsc_code",
+//         message: "IFSC code missing. Please provide the IFSC code",
+//       },
+//     ];
+
+//     for (const { field, message } of requiredFields) {
+//       if (
+//         !querydata[field] ||
+//         querydata[field] === "" ||
+//         querydata[field] == null
+//       ) {
+//         return helper.getErrorResponse(
+//           false,
+//           "error",
+//           message,
+//           "ADD VENDOR",
+//           secret
+//         );
+//       }
+//     }
+
+//     try {
+//       // File paths are already set from individual uploads above
+//       let result;
+//       let vendorid;
+
+//       if (isUpdate) {
+//         // Update existing vendor
+//         const updateFields = [];
+//         const updateValues = [];
+
+//         // Build dynamic update query - only update fields that are provided
+//         updateFields.push("vendor_name = ?");
+//         updateValues.push(querydata.vendor_name);
+
+//         if (querydata.address !== undefined) {
+//           updateFields.push("address = ?");
+//           updateValues.push(querydata.address || null);
+//         }
+
+//         if (querydata.state !== undefined) {
+//           updateFields.push("state = ?");
+//           updateValues.push(querydata.state || null);
+//         }
+
+//         if (querydata.pincode !== undefined) {
+//           updateFields.push("pincode = ?");
+//           updateValues.push(querydata.pincode || null);
+//         }
+
+//         if (querydata.contact_person_name !== undefined) {
+//           updateFields.push("contact_person_name = ?");
+//           updateValues.push(querydata.contact_person_name || null);
+//         }
+
+//         if (querydata.contact_person_designation !== undefined) {
+//           updateFields.push("contact_person_designation = ?");
+//           updateValues.push(querydata.contact_person_designation || null);
+//         }
+
+//         updateFields.push("contact_person_phone = ?");
+//         updateValues.push(querydata.contact_person_phone);
+
+//         updateFields.push("email = ?");
+//         updateValues.push(querydata.email);
+
+//         updateFields.push("business_type = ?");
+//         updateValues.push(querydata.business_type);
+
+//         updateFields.push("year_of_establishment = ?");
+//         updateValues.push(querydata.year_of_establishment);
+
+//         updateFields.push("gst_number = ?");
+//         updateValues.push(querydata.gst_number);
+
+//         updateFields.push("pan_number = ?");
+//         updateValues.push(querydata.pan_number);
+
+//         updateFields.push("annual_turnover = ?");
+//         updateValues.push(querydata.annual_turnover);
+
+//         updateFields.push("products_services = ?");
+//         updateValues.push(querydata.products_services);
+
+//         updateFields.push("hsn_sac_code = ?");
+//         updateValues.push(querydata.hsn_sac_code);
+
+//         if (querydata.description !== undefined) {
+//           updateFields.push("description = ?");
+//           updateValues.push(querydata.description || null);
+//         }
+
+//         updateFields.push("bank_name = ?");
+//         updateValues.push(querydata.bank_name);
+
+//         updateFields.push("branch_name = ?");
+//         updateValues.push(querydata.branch_name);
+
+//         updateFields.push("account_number = ?");
+//         updateValues.push(querydata.account_number);
+
+//         updateFields.push("ifsc_code = ?");
+//         updateValues.push(querydata.ifsc_code);
+
+//         if (querydata.isocertification !== undefined) {
+//           updateFields.push("iso_certification = ?");
+//           updateValues.push(querydata.iso_certification || null);
+//         }
+
+//         if (querydata.othercertifications !== undefined) {
+//           updateFields.push("other_certifications = ?");
+//           updateValues.push(querydata.other_certifications || null);
+//         }
+
+//         // Only update file paths if new files were uploaded
+//         if (registrationCertPath) {
+//           updateFields.push("registration_certificate_path = ?");
+//           updateValues.push(registrationCertPath);
+//         }
+//         // If no new registration_certificate uploaded, the old path remains unchanged
+
+//         if (panUploadPath) {
+//           updateFields.push("pan_upload_path = ?");
+//           updateValues.push(panUploadPath);
+//         }
+
+//         if (cancelledChequePath) {
+//           updateFields.push("cancelled_cheque_path = ?");
+//           updateValues.push(cancelledChequePath);
+//         }
+
+//         if (logoPath) {
+//           updateFields.push("logo_path = ?");
+//           updateValues.push(logoPath);
+//         }
+
+//         // Add updated_at timestamp
+//         updateFields.push("updated_at = NOW()");
+
+//         // Add vendorid for WHERE clause
+//         updateValues.push(querydata.vendorid);
+
+//         const updateSql = `UPDATE vendors SET ${updateFields.join(
+//           ", "
+//         )} WHERE vendorid = ?`;
+
+//         result = await db.query(updateSql, updateValues);
+//         vendorid = querydata.vendorid;
+
+//         if (result.affectedRows > 0) {
+//           // MQTT notifications for vendor update
+//           await mqttclient.publishMqttMessage(
+//             "Notification",
+//             "Vendor Updated Successfully - " + querydata.vendorname
+//           );
+//           await mqttclient.publishMqttMessage(
+//             "refresh",
+//             "Vendor Updated Successfully"
+//           );
+
+//           return helper.getSuccessResponse(
+//             true,
+//             "success",
+//             "Vendor Updated Successfully",
+//             {
+//               vendorid: vendorid,
+//               registration_certificate_uploaded: !!registrationCertPath,
+//               pan_upload_uploaded: !!panUploadPath,
+//               cancelled_cheque_uploaded: !!cancelledChequePath,
+//               logo_uploaded: !!logoPath,
+//             },
+//             secret
+//           );
+//         } else {
+//           return helper.getErrorResponse(
+//             false,
+//             "error",
+//             "Vendor not found or no changes made.",
+//             "ADD VENDOR",
+//             secret
+//           );
+//         }
+//       } else {
+//         // Insert new vendor
+//         result = await db.query(
+//           `INSERT INTO vendors_web (
+//             vendor_name, address, state, pincode, contact_person_name, contact_person_designation,
+//             contact_person_phone, email, business_type, year_of_establishment, gst_number,
+//             pan_number, annual_turnover, products_services, hsn_sac_code, description,
+//             bank_name, branch_name, account_number, ifsc_code, iso_certification,
+//             other_certifications, registration_certificate_path, pan_upload_path, cancelled_cheque_path, logo_path
+//           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+//           [
+//             querydata.vendor_name,
+//             querydata.address || null,
+//             querydata.state || null,
+//             querydata.pincode || null,
+//             querydata.contact_person_name || null,
+//             querydata.contact_person_designation || null,
+//             querydata.contact_person_phone,
+//             querydata.email,
+//             querydata.business_type,
+//             querydata.year_of_establishment,
+//             querydata.gst_number,
+//             querydata.pan_number,
+//             querydata.annual_turnover,
+//             querydata.products_services,
+//             querydata.hsn_sac_code,
+//             querydata.description || null,
+//             querydata.bank_name,
+//             querydata.branch_name,
+//             querydata.account_number,
+//             querydata.ifsc_code,
+//             querydata.iso_certification || null,
+//             querydata.other_certifications || null,
+//             registrationCertPath,
+//             panUploadPath,
+//             cancelledChequePath,
+//             logoPath,
+//           ]
+//         );
+
+//         vendorid = result.insertId;
+
+//         if (vendorid != null && vendorid !== "") {
+//           // MQTT notifications for new vendor
+//           await mqttclient.publishMqttMessage(
+//             "Notification",
+//             "Vendor Added Successfully - " + querydata.vendorname
+//           );
+//           await mqttclient.publishMqttMessage(
+//             "refresh",
+//             "Vendor Added Successfully"
+//           );
+
+//           return helper.getSuccessResponse(
+//             true,
+//             "success",
+//             "Vendor Added Successfully",
+//             {
+//               vendorid: vendorid,
+//               registration_certificate_uploaded: !!registrationCertPath,
+//               pan_upload_uploaded: !!panUploadPath,
+//               cancelled_cheque_uploaded: !!cancelledChequePath,
+//               logo_uploaded: !!logoPath,
+//             },
+//             secret
+//           );
+//         } else {
+//           return helper.getErrorResponse(
+//             false,
+//             "error",
+//             "Error while adding the vendor.",
+//             "ADD VENDOR",
+//             secret
+//           );
+//         }
+//       }
+//     } catch (er) {
+//       return helper.getErrorResponse(
+//         false,
+//         "error",
+//         "Internal error. Please contact Administration",
+//         er.message,
+//         secret
+//       );
+//     }
+//   } catch (er) {
+//     return helper.getErrorResponse(
+//       false,
+//       "error",
+//       "Internal error. Please contact Administration",
+//       er.message,
+//       secret
+//     );
+//   }
+// }
 
 //##################################################################################################################################################################################################
 //##################################################################################################################################################################################################
 
 async function AddVendorResponse(req, res) {
   let secret = ""; // Initialize secret early to avoid undefined errors
-  
+
   try {
     // Debug logging - files and body are already processed by middleware
     console.log("AddVendor - req.body (processed by middleware):", req.body);
     console.log("AddVendor - req.files (processed by middleware):", req.files);
-    
+
     // Extract file paths from uploaded files (already processed by middleware)
     // Note: Middleware now ensures all files have proper extensions
     let registrationCertPath = null;
@@ -515,35 +1054,39 @@ async function AddVendorResponse(req, res) {
     if (req.files && Array.isArray(req.files)) {
       console.log(`Processing ${req.files.length} uploaded files`);
       for (const file of req.files) {
-        console.log(`Processing file: fieldname=${file.fieldname}, originalname=${file.originalname}, path=${file.path}`);
-        
+        console.log(
+          `Processing file: fieldname=${file.fieldname}, originalname=${file.originalname}, path=${file.path}`
+        );
+
         // Handle file mapping - check originalname when fieldname is 'files', otherwise use fieldname
         let fileIdentifier;
-        if (file.fieldname === 'files' && file.originalname) {
+        if (file.fieldname === "files" && file.originalname) {
           fileIdentifier = file.originalname;
         } else {
           fileIdentifier = file.fieldname;
         }
-        
+
         switch (fileIdentifier) {
-          case 'registration_certificate':
+          case "registration_certificate":
             registrationCertPath = file.path;
             console.log(`Mapped registration_certificate: ${file.path}`);
             break;
-          case 'pan_upload':
+          case "pan_upload":
             panUploadPath = file.path;
             console.log(`Mapped pan_upload: ${file.path}`);
             break;
-          case 'cancelled_cheque':
+          case "cancelled_cheque":
             cancelledChequePath = file.path;
             console.log(`Mapped cancelled_cheque: ${file.path}`);
             break;
-          case 'logo_upload':
+          case "logo_upload":
             logoPath = file.path;
             console.log(`Mapped logo_upload: ${file.path}`);
             break;
           default:
-            console.log(`Unknown file field/name: ${fileIdentifier} (fieldname: ${file.fieldname}, originalname: ${file.originalname})`);
+            console.log(
+              `Unknown file field/name: ${fileIdentifier} (fieldname: ${file.fieldname}, originalname: ${file.originalname})`
+            );
             break;
         }
       }
@@ -573,7 +1116,7 @@ async function AddVendorResponse(req, res) {
     secret = vendor.STOKEN.substring(0, 16);
 
     // Validate session token length
-    if (vendor.STOKEN.length > 50 || vendor.STOKEN.length < 30) {
+    if (vendor.STOKEN.length > 50 || vendor.STOKEN.length < 15) {
       return helper.getErrorResponse(
         false,
         "error",
@@ -584,19 +1127,16 @@ async function AddVendorResponse(req, res) {
     }
 
     // Validate session token
-    const [result] = await db.spcall(
-      "CALL SP_STOKEN_CHECK(?,@result); SELECT @result;",
+    const result = await db.query(
+      `select secret from apikey where secret = ? and status = 1`,
       [vendor.STOKEN]
     );
-    const objectvalue = result[1][0];
-    const userid = objectvalue["@result"];
-
-    if (userid == null) {
+    if (result.length == 0) {
       return helper.getErrorResponse(
         false,
         "error",
-        "Login session token Invalid. Please provide the valid session token",
-        "ADD VENDOR",
+        "Login sessiontoken Invalid. Please provide the valid sessiontoken",
+        "APPROVE THE QUOTATION",
         secret
       );
     }
@@ -641,28 +1181,77 @@ async function AddVendorResponse(req, res) {
     }
 
     // Check if this is an update operation (vendorid provided) or add operation
-    const isUpdate = querydata.vendorid && querydata.vendorid !== "" && querydata.vendorid != null;
-    
+    const isUpdate =
+      querydata.vendorid &&
+      querydata.vendorid !== "" &&
+      querydata.vendorid != null;
+
     // Validate required fields
     const requiredFields = [
-      { field: "vendor_name", message: "Vendor name missing. Please provide the Vendor name" },
+      {
+        field: "vendor_name",
+        message: "Vendor name missing. Please provide the Vendor name",
+      },
       { field: "email", message: "Email missing. Please provide the Email" },
-      { field: "contact_person_phone", message: "Contact person phone missing. Please provide the Contact person phone" },
-      { field: "business_type", message: "Business type missing. Please provide the Business type" },
-      { field: "year_of_establishment", message: "Year of establishment missing. Please provide the Year of establishment" },
-      { field: "gst_number", message: "GST number missing. Please provide the GST number" },
-      { field: "pan_number", message: "PAN number missing. Please provide the PAN number" },
-      { field: "annual_turnover", message: "Annual turnover missing. Please provide the Annual turnover" },
-      { field: "products_services", message: "Products/Services missing. Please provide the Products/Services" },
-      { field: "hsn_sac_code", message: "HSN/SAC code missing. Please provide the HSN/SAC code" },
-      { field: "bank_name", message: "Bank name missing. Please provide the Bank name" },
-      { field: "branch_name", message: "Branch name missing. Please provide the Branch name" },
-      { field: "account_number", message: "Account number missing. Please provide the Account number" },
-      { field: "ifsc_code", message: "IFSC code missing. Please provide the IFSC code" }
+      {
+        field: "contact_person_phone",
+        message:
+          "Contact person phone missing. Please provide the Contact person phone",
+      },
+      {
+        field: "business_type",
+        message: "Business type missing. Please provide the Business type",
+      },
+      {
+        field: "year_of_establishment",
+        message:
+          "Year of establishment missing. Please provide the Year of establishment",
+      },
+      {
+        field: "gst_number",
+        message: "GST number missing. Please provide the GST number",
+      },
+      {
+        field: "pan_number",
+        message: "PAN number missing. Please provide the PAN number",
+      },
+      {
+        field: "annual_turnover",
+        message: "Annual turnover missing. Please provide the Annual turnover",
+      },
+      {
+        field: "products_services",
+        message:
+          "Products/Services missing. Please provide the Products/Services",
+      },
+      {
+        field: "hsn_sac_code",
+        message: "HSN/SAC code missing. Please provide the HSN/SAC code",
+      },
+      {
+        field: "bank_name",
+        message: "Bank name missing. Please provide the Bank name",
+      },
+      {
+        field: "branch_name",
+        message: "Branch name missing. Please provide the Branch name",
+      },
+      {
+        field: "account_number",
+        message: "Account number missing. Please provide the Account number",
+      },
+      {
+        field: "ifsc_code",
+        message: "IFSC code missing. Please provide the IFSC code",
+      },
     ];
 
     for (const { field, message } of requiredFields) {
-      if (!querydata[field] || querydata[field] === "" || querydata[field] == null) {
+      if (
+        !querydata[field] ||
+        querydata[field] === "" ||
+        querydata[field] == null
+      ) {
         return helper.getErrorResponse(
           false,
           "error",
@@ -673,7 +1262,6 @@ async function AddVendorResponse(req, res) {
       }
     }
 
-
     try {
       // File paths are already set from individual uploads above
       let result;
@@ -683,123 +1271,125 @@ async function AddVendorResponse(req, res) {
         // Update existing vendor
         const updateFields = [];
         const updateValues = [];
-        
+
         // Build dynamic update query - only update fields that are provided
-        updateFields.push('vendor_name = ?');
+        updateFields.push("vendor_name = ?");
         updateValues.push(querydata.vendor_name);
-        
+
         if (querydata.address !== undefined) {
-          updateFields.push('address = ?');
+          updateFields.push("address = ?");
           updateValues.push(querydata.address || null);
         }
-        
+
         if (querydata.state !== undefined) {
-          updateFields.push('state = ?');
+          updateFields.push("state = ?");
           updateValues.push(querydata.state || null);
         }
-        
+
         if (querydata.pincode !== undefined) {
-          updateFields.push('pincode = ?');
+          updateFields.push("pincode = ?");
           updateValues.push(querydata.pincode || null);
         }
-        
+
         if (querydata.contact_person_name !== undefined) {
-          updateFields.push('contact_person_name = ?');
+          updateFields.push("contact_person_name = ?");
           updateValues.push(querydata.contact_person_name || null);
         }
-        
+
         if (querydata.contact_person_designation !== undefined) {
-          updateFields.push('contact_person_designation = ?');
+          updateFields.push("contact_person_designation = ?");
           updateValues.push(querydata.contact_person_designation || null);
         }
-        
-        updateFields.push('contact_person_phone = ?');
+
+        updateFields.push("contact_person_phone = ?");
         updateValues.push(querydata.contact_person_phone);
-        
-        updateFields.push('email = ?');
+
+        updateFields.push("email = ?");
         updateValues.push(querydata.email);
-        
-        updateFields.push('business_type = ?');
+
+        updateFields.push("business_type = ?");
         updateValues.push(querydata.business_type);
-        
-        updateFields.push('year_of_establishment = ?');
+
+        updateFields.push("year_of_establishment = ?");
         updateValues.push(querydata.year_of_establishment);
-        
-        updateFields.push('gst_number = ?');
+
+        updateFields.push("gst_number = ?");
         updateValues.push(querydata.gst_number);
-        
-        updateFields.push('pan_number = ?');
+
+        updateFields.push("pan_number = ?");
         updateValues.push(querydata.pan_number);
-        
-        updateFields.push('annual_turnover = ?');
+
+        updateFields.push("annual_turnover = ?");
         updateValues.push(querydata.annual_turnover);
-        
-        updateFields.push('products_services = ?');
+
+        updateFields.push("products_services = ?");
         updateValues.push(querydata.products_services);
-        
-        updateFields.push('hsn_sac_code = ?');
+
+        updateFields.push("hsn_sac_code = ?");
         updateValues.push(querydata.hsn_sac_code);
-        
+
         if (querydata.description !== undefined) {
-          updateFields.push('description = ?');
+          updateFields.push("description = ?");
           updateValues.push(querydata.description || null);
         }
-        
-        updateFields.push('bank_name = ?');
+
+        updateFields.push("bank_name = ?");
         updateValues.push(querydata.bank_name);
-        
-        updateFields.push('branch_name = ?');
+
+        updateFields.push("branch_name = ?");
         updateValues.push(querydata.branch_name);
-        
-        updateFields.push('account_number = ?');
+
+        updateFields.push("account_number = ?");
         updateValues.push(querydata.account_number);
-        
-        updateFields.push('ifsc_code = ?');
+
+        updateFields.push("ifsc_code = ?");
         updateValues.push(querydata.ifsc_code);
-        
+
         if (querydata.isocertification !== undefined) {
-          updateFields.push('iso_certification = ?');
+          updateFields.push("iso_certification = ?");
           updateValues.push(querydata.iso_certification || null);
         }
-        
+
         if (querydata.othercertifications !== undefined) {
-          updateFields.push('other_certifications = ?');
+          updateFields.push("other_certifications = ?");
           updateValues.push(querydata.other_certifications || null);
         }
-        
+
         // Only update file paths if new files were uploaded
         if (registrationCertPath) {
-          updateFields.push('registration_certificate_path = ?');
+          updateFields.push("registration_certificate_path = ?");
           updateValues.push(registrationCertPath);
         }
         // If no new registration_certificate uploaded, the old path remains unchanged
-        
+
         if (panUploadPath) {
-          updateFields.push('pan_upload_path = ?');
+          updateFields.push("pan_upload_path = ?");
           updateValues.push(panUploadPath);
         }
-        
+
         if (cancelledChequePath) {
-          updateFields.push('cancelled_cheque_path = ?');
+          updateFields.push("cancelled_cheque_path = ?");
           updateValues.push(cancelledChequePath);
         }
-        
+
         if (logoPath) {
-          updateFields.push('logo_path = ?');
+          updateFields.push("logo_path = ?");
           updateValues.push(logoPath);
         }
-        
+
         // Add updated_at timestamp
-        updateFields.push('updated_at = NOW()');
-        
+        updateFields.push("updated_at = NOW()");
+
         // Add vendorid for WHERE clause
         updateValues.push(querydata.vendorid);
-        
-        const updateSql = `UPDATE vendor_details SET ${updateFields.join(', ')} WHERE vendorid = ?`;
-        
+
+        const updateSql = `UPDATE vendor_details SET ${updateFields.join(
+          ", "
+        )} WHERE vendorid = ?`;
+
         result = await db.query(updateSql, updateValues);
         vendorid = querydata.vendorid;
-        
+
         if (result.affectedRows > 0) {
           // MQTT notifications for vendor update
           await mqttclient.publishMqttMessage(
@@ -810,7 +1400,7 @@ async function AddVendorResponse(req, res) {
             "refresh",
             "Vendor Updated Successfully"
           );
-          
+
           return helper.getSuccessResponse(
             true,
             "success",
@@ -820,7 +1410,7 @@ async function AddVendorResponse(req, res) {
               registration_certificate_uploaded: !!registrationCertPath,
               pan_upload_uploaded: !!panUploadPath,
               cancelled_cheque_uploaded: !!cancelledChequePath,
-              logo_uploaded: !!logoPath
+              logo_uploaded: !!logoPath,
             },
             secret
           );
@@ -869,7 +1459,7 @@ async function AddVendorResponse(req, res) {
             registrationCertPath,
             panUploadPath,
             cancelledChequePath,
-            logoPath
+            logoPath,
           ]
         );
 
@@ -879,23 +1469,23 @@ async function AddVendorResponse(req, res) {
           // MQTT notifications for new vendor
           await mqttclient.publishMqttMessage(
             "Notification",
-            "Vendor Added Successfully - " + querydata.vendorname
+            "Vendor Registration suncessful - " + querydata.vendorname
           );
           await mqttclient.publishMqttMessage(
             "refresh",
-            "Vendor Added Successfully"
+            "Vendor Registration suncessful"
           );
-          
+
           return helper.getSuccessResponse(
             true,
             "success",
-            "Vendor Added Successfully",
+            "Vendor Registration suncessful",
             {
               vendorid: vendorid,
               registration_certificate_uploaded: !!registrationCertPath,
               pan_upload_uploaded: !!panUploadPath,
               cancelled_cheque_uploaded: !!cancelledChequePath,
-              logo_uploaded: !!logoPath
+              logo_uploaded: !!logoPath,
             },
             secret
           );
@@ -979,7 +1569,6 @@ async function AddVendorResponse(req, res) {
 // }
 //##################################################################################################################################################################################################
 
-
 async function GetVendor(vendor) {
   try {
     // Check if the session token exists
@@ -1061,7 +1650,7 @@ async function GetVendor(vendor) {
         secret
       );
     }
-    
+
     try {
       let sql;
       if (querydata.vendorid == 0 || !querydata.vendorid) {
@@ -1096,7 +1685,9 @@ async function GetVendor(vendor) {
         // Always convert logo to base64 if available
         if (sql[i].logo_path) {
           try {
-            const binaryData = await helper.convertFileToBinary(sql[i].logo_path);
+            const binaryData = await helper.convertFileToBinary(
+              sql[i].logo_path
+            );
             sql[i].logo_base64 = binaryData;
           } catch (error) {
             console.error("Error reading logo file:", sql[i].logo_path, error);
@@ -1109,19 +1700,25 @@ async function GetVendor(vendor) {
         // Convert specific file to base64 if type is specified
         if (querydata.type) {
           const fileMapping = {
-            'registration': 'registration_certificate_path',
-            'pan': 'pan_upload_path',
-            'cheque': 'cancelled_cheque_path',
-            'logo': 'logo_path'
+            registration: "registration_certificate_path",
+            pan: "pan_upload_path",
+            cheque: "cancelled_cheque_path",
+            logo: "logo_path",
           };
 
           const pathField = fileMapping[querydata.type];
           if (pathField && sql[i][pathField]) {
             try {
-              const binaryData = await helper.convertFileToBinary(sql[i][pathField]);
+              const binaryData = await helper.convertFileToBinary(
+                sql[i][pathField]
+              );
               sql[i][`${querydata.type}_base64`] = binaryData;
             } catch (error) {
-              console.error(`Error reading ${querydata.type} file:`, sql[i][pathField], error);
+              console.error(
+                `Error reading ${querydata.type} file:`,
+                sql[i][pathField],
+                error
+              );
               sql[i][`${querydata.type}_base64`] = null;
             }
           }
@@ -1129,10 +1726,16 @@ async function GetVendor(vendor) {
 
         // Format the dates
         if (sql[i].created_at) {
-          sql[i].created_at = new Date(sql[i].created_at).toISOString().slice(0, 19).replace('T', ' ');
+          sql[i].created_at = new Date(sql[i].created_at)
+            .toISOString()
+            .slice(0, 19)
+            .replace("T", " ");
         }
         if (sql[i].updated_at) {
-          sql[i].updated_at = new Date(sql[i].updated_at).toISOString().slice(0, 19).replace('T', ' ');
+          sql[i].updated_at = new Date(sql[i].updated_at)
+            .toISOString()
+            .slice(0, 19)
+            .replace("T", " ");
         }
       }
 
@@ -1247,7 +1850,7 @@ async function GetVendorWithFile(vendor) {
         secret
       );
     }
-    
+
     try {
       // Validate required fields
       if (!querydata.vendorid || querydata.vendorid == 0) {
@@ -1276,21 +1879,21 @@ async function GetVendorWithFile(vendor) {
 
       // Map file type to database column
       switch (filename) {
-        case 'gstreg':
-          pathColumn = 'registration_certificate_path';
-          fileDescription = 'Registration Certificate';
+        case "gstreg":
+          pathColumn = "registration_certificate_path";
+          fileDescription = "Registration Certificate";
           break;
-        case 'pan':
-          pathColumn = 'pan_upload_path';
-          fileDescription = 'PAN Document';
+        case "pan":
+          pathColumn = "pan_upload_path";
+          fileDescription = "PAN Document";
           break;
-        case 'cheque':
-          pathColumn = 'cancelled_cheque_path';
-          fileDescription = 'Cancelled Cheque';
+        case "cheque":
+          pathColumn = "cancelled_cheque_path";
+          fileDescription = "Cancelled Cheque";
           break;
-        case 'logo':
-          pathColumn = 'logo_path';
-          fileDescription = 'Logo';
+        case "logo":
+          pathColumn = "logo_path";
+          fileDescription = "Logo";
           break;
         default:
           return helper.getErrorResponse(
@@ -1319,7 +1922,9 @@ async function GetVendorWithFile(vendor) {
       }
 
       const filePath = sql[0].file_path;
-      console.log(`GetVendorWithFile: Retrieved file path from database: ${filePath}`);
+      console.log(
+        `GetVendorWithFile: Retrieved file path from database: ${filePath}`
+      );
 
       if (!filePath) {
         return helper.getErrorResponse(
@@ -1335,14 +1940,16 @@ async function GetVendorWithFile(vendor) {
       try {
         // First try the exact path as stored in database
         let finalFilePath = filePath;
-        
+
         // If the exact path doesn't exist, try with common extensions
-        const fs = require('fs');
+        const fs = require("fs");
         if (!fs.existsSync(filePath)) {
-          console.log(`File not found at exact path: ${filePath}, trying with extensions...`);
-          const possibleExtensions = ['.pdf', '.jpg', '.jpeg', '.png'];
+          console.log(
+            `File not found at exact path: ${filePath}, trying with extensions...`
+          );
+          const possibleExtensions = [".pdf", ".jpg", ".jpeg", ".png"];
           let found = false;
-          
+
           for (const ext of possibleExtensions) {
             const testPath = filePath + ext;
             if (fs.existsSync(testPath)) {
@@ -1352,15 +1959,17 @@ async function GetVendorWithFile(vendor) {
               break;
             }
           }
-          
+
           if (!found) {
-            console.log(`File not found even with extensions. Original path: ${filePath}`);
+            console.log(
+              `File not found even with extensions. Original path: ${filePath}`
+            );
             throw new Error(`File not found: ${filePath}`);
           }
         }
-        
+
         const binaryData = await helper.convertFileToBinary(finalFilePath);
-        
+
         return helper.getSuccessResponse(
           true,
           "success",
@@ -1545,7 +2154,10 @@ async function AddQuotation(req, res) {
       const filePath = req.file.path;
       const currentDate = new Date();
       const formattedDate = currentDate.toISOString().slice(0, 10); // YYYY-MM-DD
-      const formattedDateTime = currentDate.toISOString().slice(0, 19).replace('T', ' '); // YYYY-MM-DD HH:MM:SS
+      const formattedDateTime = currentDate
+        .toISOString()
+        .slice(0, 19)
+        .replace("T", " "); // YYYY-MM-DD HH:MM:SS
 
       // Insert into vprocesslist with proper relationship linking
       const sql = await db.query(
@@ -1565,16 +2177,16 @@ async function AddQuotation(req, res) {
           formattedDate,
           userid,
           2,
-          'QUOTATION',
+          "QUOTATION",
           querydata.processid,
           querydata.quotation_number,
-          querydata.feedback || null
+          querydata.feedback || null,
         ]
       );
 
       // Get the inserted vprocess_id (auto-increment primary key)
       const vprocess_id = sql.insertId;
-      
+
       if (vprocess_id != null && vprocess_id !== "") {
         // MQTT notifications for quotation upload
         await mqttclient.publishMqttMessage(
@@ -1585,7 +2197,7 @@ async function AddQuotation(req, res) {
           "refresh",
           "Vendor Quotation Added Successfully"
         );
-        
+
         return helper.getSuccessResponse(
           true,
           "success",
@@ -1614,7 +2226,10 @@ async function AddQuotation(req, res) {
     }
   } catch (er) {
     // Extract secret if available from request body
-    const secret = (req && req.body && req.body.STOKEN) ? req.body.STOKEN.substring(0, 16) : "";
+    const secret =
+      req && req.body && req.body.STOKEN
+        ? req.body.STOKEN.substring(0, 16)
+        : "";
     return helper.getErrorResponse(
       false,
       "error",
@@ -1690,7 +2305,7 @@ async function vendorDetailsPreLoader(vendorData) {
     // Generate or retrieve RFQ ID using Gen_vendor_rfqId stored procedure
     // The stored procedure now handles checking for existing valid IDs and generating new ones
     let rfqId;
-    
+
     try {
       const [rfqResult] = await db.spcall(
         `CALL Gen_vendor_rfqId(?, '/', @out); SELECT @out;`,
@@ -1698,7 +2313,7 @@ async function vendorDetailsPreLoader(vendorData) {
       );
       const objectValue = rfqResult[1][0];
       rfqId = objectValue["@out"];
-      
+
       if (!rfqId) {
         return helper.getErrorResponse(
           false,
@@ -1774,7 +2389,6 @@ async function vendorDetailsPreLoader(vendorData) {
 // }
 //##################################################################################################################################################################################################
 //##################################################################################################################################################################################################
-
 
 //##################################################################################################################################################################################################
 //##################################################################################################################################################################################################
@@ -1879,7 +2493,11 @@ async function PostRFQ(req, res) {
     }
 
     // Check if querystring is provided
-    if (!rfqData || !("querystring" in rfqData) || rfqData.querystring === undefined) {
+    if (
+      !rfqData ||
+      !("querystring" in rfqData) ||
+      rfqData.querystring === undefined
+    ) {
       return helper.getErrorResponse(
         false,
         "error",
@@ -1917,7 +2535,12 @@ async function PostRFQ(req, res) {
     }
 
     // Validate required fields
-    if (!querydata || !("vendorid" in querydata) || querydata.vendorid === "" || querydata.vendorid === undefined) {
+    if (
+      !querydata ||
+      !("vendorid" in querydata) ||
+      querydata.vendorid === "" ||
+      querydata.vendorid === undefined
+    ) {
       return helper.getErrorResponse(
         false,
         "Vendor ID missing. Please provide the Vendor ID",
@@ -1927,7 +2550,11 @@ async function PostRFQ(req, res) {
     }
 
     // Validate messagetype if provided
-    if (querydata && ("messagetype" in querydata) && ![1, 2, 3].includes(querydata.messagetype)) {
+    if (
+      querydata &&
+      "messagetype" in querydata &&
+      ![1, 2, 3].includes(querydata.messagetype)
+    ) {
       return helper.getErrorResponse(
         false,
         "Invalid message type. Use 1 for email only, 2 for WhatsApp only, 3 for both",
@@ -1962,7 +2589,7 @@ async function PostRFQ(req, res) {
       const vendor = vendorDetails[0];
 
       // Validate RFQ ID is provided (should come from preloader endpoint)
-      if (!querydata.rfqgenid || querydata.rfqgenid.trim() === '') {
+      if (!querydata.rfqgenid || querydata.rfqgenid.trim() === "") {
         return helper.getErrorResponse(
           false,
           "RFQ ID missing. Please use vendorDetailsPreLoader endpoint to generate RFQ ID first",
@@ -2002,36 +2629,44 @@ async function PostRFQ(req, res) {
         [
           rfqGenId,
           querydata.vendorid,
-          querydata.vendorname || '',
-          querydata.GSTIN || '',
-          querydata.PAN || '',
-          querydata.Contact_person || '',
-          querydata.vendoraddress || '',
-          querydata.title || '',
-          querydata.emailid || '',
-          querydata.phoneno || '',
-          querydata.ccemail || '',
+          querydata.vendorname || "",
+          querydata.GSTIN || "",
+          querydata.PAN || "",
+          querydata.Contact_person || "",
+          querydata.vendoraddress || "",
+          querydata.title || "",
+          querydata.emailid || "",
+          querydata.phoneno || "",
+          querydata.ccemail || "",
           messagetype,
-          querydata.feedback || '',
+          querydata.feedback || "",
           querydata.date ? new Date(querydata.date) : new Date(),
-          querydata.notes ? JSON.stringify(querydata.notes) : JSON.stringify([]),
-          querydata.product ? JSON.stringify(querydata.product) : JSON.stringify([]),
+          querydata.notes
+            ? JSON.stringify(querydata.notes)
+            : JSON.stringify([]),
+          querydata.product
+            ? JSON.stringify(querydata.product)
+            : JSON.stringify([]),
           1, // status
-          0  // deleted_flag
+          0, // deleted_flag
         ]
       );
 
       // Insert notes into vendor_notesmaster table (if notes exist)
-      if (querydata.notes && Array.isArray(querydata.notes) && querydata.notes.length > 0) {
+      if (
+        querydata.notes &&
+        Array.isArray(querydata.notes) &&
+        querydata.notes.length > 0
+      ) {
         for (const noteItem of querydata.notes) {
           try {
             // Extract note content based on structure (handle both string and object notes)
-            let noteContent = '';
-            if (typeof noteItem === 'string') {
+            let noteContent = "";
+            if (typeof noteItem === "string") {
               noteContent = noteItem.trim();
-            } else if (typeof noteItem === 'object' && noteItem.note) {
+            } else if (typeof noteItem === "object" && noteItem.note) {
               noteContent = noteItem.note.trim();
-            } else if (typeof noteItem === 'object' && noteItem.notes) {
+            } else if (typeof noteItem === "object" && noteItem.notes) {
               noteContent = noteItem.notes.trim();
             }
 
@@ -2064,7 +2699,7 @@ async function PostRFQ(req, res) {
               );
             }
           } catch (noteError) {
-            console.error('Error inserting note:', noteError);
+            console.error("Error inserting note:", noteError);
             // Continue processing other notes even if one fails
           }
         }
@@ -2089,7 +2724,7 @@ async function PostRFQ(req, res) {
           formattedDate,
           querydata.vendorid,
           userid,
-          rfqGenId
+          rfqGenId,
         ]
       );
 
@@ -2113,7 +2748,7 @@ async function PostRFQ(req, res) {
           Row_updated_date
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
         [
-          'RFQ',
+          "RFQ",
           filePath,
           formattedDate,
           0, // Approved_status
@@ -2122,9 +2757,9 @@ async function PostRFQ(req, res) {
           userid,
           rfqGenId,
           1, // process_type
-          querydata.vendoraddress || vendor.address || '',
+          querydata.vendoraddress || vendor.address || "",
           querydata.vendorname || vendor.vendor_name,
-          process_id
+          process_id,
         ]
       );
 
@@ -2156,10 +2791,13 @@ async function PostRFQ(req, res) {
       const vendorEmail = /*vendor.email ||*/ "kishorekkumar34@gmail.com"; // Fallback email
       const ccEmail = querydata.cc_email || "";
       const subject = `Request for Quotation - ${rfqGenId}`;
-      const notes = querydata.feedback || querydata.notes || "Please review the attached RFQ document and provide your best quotation.";
-      
+      const notes =
+        querydata.feedback ||
+        querydata.notes ||
+        "Please review the attached RFQ document and provide your best quotation.";
+
       // Process phone numbers (handle single or comma-separated numbers)
-      const phoneNumbers = vendor.contact_person_phone 
+      const phoneNumbers = vendor.contact_person_phone
         ? vendor.contact_person_phone
             .split(",")
             .map((num) => num.trim())
@@ -2206,13 +2844,15 @@ async function PostRFQ(req, res) {
                 }
               })
             );
-            whatsappSent = whatsappResults.some(result => result === true);
+            whatsappSent = whatsappResults.some((result) => result === true);
           } catch (whatsappError) {
             console.log("Warning: WhatsApp sending error:", whatsappError);
             whatsappSent = false;
           }
         } else {
-          console.log("Warning: No phone numbers available for WhatsApp sending");
+          console.log(
+            "Warning: No phone numbers available for WhatsApp sending"
+          );
           whatsappSent = false;
         }
       } else if (messagetype === 3) {
@@ -2221,23 +2861,26 @@ async function PostRFQ(req, res) {
 
         // Email promise
         promises.push(
-          mailer.sendVendorRFQ(
-            vendor.vendor_name,
-            vendorEmail,
-            subject,
-            "VENDORRFQ",
-            filePath,
-            rfqGenId,
-            notes,
-            ccEmail
-          ).then(result => {
-            emailSent = result;
-            return result;
-          }).catch(error => {
-            console.log("Warning: Email sending error:", error);
-            emailSent = false;
-            return false;
-          })
+          mailer
+            .sendVendorRFQ(
+              vendor.vendor_name,
+              vendorEmail,
+              subject,
+              "VENDORRFQ",
+              filePath,
+              rfqGenId,
+              notes,
+              ccEmail
+            )
+            .then((result) => {
+              emailSent = result;
+              return result;
+            })
+            .catch((error) => {
+              console.log("Warning: Email sending error:", error);
+              emailSent = false;
+              return false;
+            })
         );
 
         // WhatsApp promise
@@ -2260,17 +2903,21 @@ async function PostRFQ(req, res) {
                   return false;
                 }
               })
-            ).then(results => {
-              whatsappSent = results.some(result => result === true);
-              return whatsappSent;
-            }).catch(error => {
-              console.log("Warning: WhatsApp sending error:", error);
-              whatsappSent = false;
-              return false;
-            })
+            )
+              .then((results) => {
+                whatsappSent = results.some((result) => result === true);
+                return whatsappSent;
+              })
+              .catch((error) => {
+                console.log("Warning: WhatsApp sending error:", error);
+                whatsappSent = false;
+                return false;
+              })
           );
         } else {
-          console.log("Warning: No phone numbers available for WhatsApp sending");
+          console.log(
+            "Warning: No phone numbers available for WhatsApp sending"
+          );
           whatsappSent = false;
         }
 
@@ -2288,7 +2935,7 @@ async function PostRFQ(req, res) {
           "refresh",
           "RFQ Posted Successfully"
         );
-        
+
         return helper.getSuccessResponse(
           true,
           "success",
@@ -2300,7 +2947,7 @@ async function PostRFQ(req, res) {
             rfqid: rfqGenId,
             emailsent: emailSent,
             whatsappsent: whatsappSent,
-            messagetype: messagetype
+            messagetype: messagetype,
           },
           secret
         );
@@ -2441,7 +3088,11 @@ async function GetProducts(productData) {
     }
 
     // Validate required fields
-    if (!querydata.hasOwnProperty("vendorid") || querydata.vendorid == null || querydata.vendorid === "") {
+    if (
+      !querydata.hasOwnProperty("vendorid") ||
+      querydata.vendorid == null ||
+      querydata.vendorid === ""
+    ) {
       return helper.getErrorResponse(
         false,
         "error",
@@ -2495,7 +3146,6 @@ async function GetProducts(productData) {
 
 //##################################################################################################################################################################################################
 //##################################################################################################################################################################################################
-
 
 //##################################################################################################################################################################################################
 //##################################################################################################################################################################################################
@@ -2570,7 +3220,7 @@ async function getNotes(notesData) {
 
     try {
       let sql;
-      
+
       // Base query to get active notes
       let baseQuery = `
         SELECT *
@@ -2579,7 +3229,6 @@ async function getNotes(notesData) {
       // Execute the query
       sql = await db.query(baseQuery);
       // console.log("SQL Query Executed: ", sql);
-   
 
       return helper.getSuccessResponse(
         true,
@@ -2637,7 +3286,7 @@ async function getNotes(notesData) {
 //         {
 //           "process_id": 1,
 //           "process_name": "RFQ",
-//           "Process_filepath": "/path/to/file.pdf", 
+//           "Process_filepath": "/path/to/file.pdf",
 //           "Process_date": "2025-07-04",
 //           "Approved_status": 0,  // 0=null/not done anything, 1=approved, 2=mail sent but no action, 3=rejected
 //           "status": 1,
@@ -2655,7 +3304,6 @@ async function getNotes(notesData) {
 // }
 //##################################################################################################################################################################################################
 //##################################################################################################################################################################################################
-
 
 //##################################################################################################################################################################################################
 //##################################################################################################################################################################################################
@@ -2801,7 +3449,7 @@ async function GetAllProcessList(vendorData) {
     }
 
     var sql;
-    
+
     // Base query with improved timeline event logic
     const baseQuery = `
       SELECT 
@@ -2863,21 +3511,19 @@ async function GetAllProcessList(vendorData) {
             ORDER BY vpl2.Row_updated_date ASC
           ) t
         ) AS TimelineEvents
-
       FROM vendorprocessmaster vpm 
       JOIN vendors vm ON vpm.Vendor_id = vm.vendorid 
       LEFT JOIN vprocesslist vpl ON vpl.process_id = vpm.vprocess_id 
       LEFT JOIN vprocessshowlist vpsl ON vpsl.processshowlist_id = vpl.process_type 
-
       WHERE vpm.status = 1 
         AND vpm.deleted_flag = 0`;
-
     if (querydata.listtype == 1) {
       // Archived processes (listtype 1 = show archived data)
       if (querydata.vendorid == 0) {
         // All vendors - archived
         sql = await db.query(
-          baseQuery + ` AND vpm.archive_data = 1
+          baseQuery +
+            ` AND vpm.archive_data = 1
           GROUP BY 
             vpm.vprocess_id, 
             vpm.Vendor_id, 
@@ -2888,7 +3534,8 @@ async function GetAllProcessList(vendorData) {
       } else {
         // Specific vendor - archived
         sql = await db.query(
-          baseQuery + ` AND vpm.archive_data = 1 AND vpm.Vendor_id = ?
+          baseQuery +
+            ` AND vpm.archive_data = 1 AND vpm.Vendor_id = ?
           GROUP BY 
             vpm.vprocess_id, 
             vpm.Vendor_id, 
@@ -2903,7 +3550,8 @@ async function GetAllProcessList(vendorData) {
       if (querydata.vendorid == 0) {
         // All vendors - active
         sql = await db.query(
-          baseQuery + ` AND vpm.archive_data = 0
+          baseQuery +
+            ` AND vpm.archive_data = 0
           GROUP BY 
             vpm.vprocess_id, 
             vpm.Vendor_id, 
@@ -2914,7 +3562,8 @@ async function GetAllProcessList(vendorData) {
       } else {
         // Specific vendor - active
         sql = await db.query(
-          baseQuery + ` AND vpm.archive_data = 0 AND vpm.Vendor_id = ?
+          baseQuery +
+            ` AND vpm.archive_data = 0 AND vpm.Vendor_id = ?
           GROUP BY 
             vpm.vprocess_id, 
             vpm.Vendor_id, 
@@ -2925,7 +3574,7 @@ async function GetAllProcessList(vendorData) {
         );
       }
     }
-    
+
     return helper.getSuccessResponse(
       true,
       "success",
@@ -3161,7 +3810,7 @@ async function getBinaryFile(vendorData) {
 
     if (sql.length > 0) {
       const filePath = sql[0].Process_filepath;
-      
+
       // Check if file path exists
       if (!filePath) {
         return helper.getErrorResponse(
@@ -3187,7 +3836,7 @@ async function getBinaryFile(vendorData) {
 
       // Convert file to binary data
       const binarydata = await helper.convertFileToBinary(filePath);
-      
+
       return helper.getSuccessResponse(
         true,
         "success",
@@ -3339,7 +3988,11 @@ async function ArchiveProcess(processData) {
     }
 
     // Validate required fields
-    if (!querydata.hasOwnProperty("processid") || querydata.processid == "" || querydata.processid == null) {
+    if (
+      !querydata.hasOwnProperty("processid") ||
+      querydata.processid == "" ||
+      querydata.processid == null
+    ) {
       return helper.getErrorResponse(
         false,
         "error",
@@ -3350,7 +4003,10 @@ async function ArchiveProcess(processData) {
     }
 
     // Validate type field
-    if (!querydata.hasOwnProperty("type") || (querydata.type !== 0 && querydata.type !== 1)) {
+    if (
+      !querydata.hasOwnProperty("type") ||
+      (querydata.type !== 0 && querydata.type !== 1)
+    ) {
       return helper.getErrorResponse(
         false,
         "error",
@@ -3362,11 +4018,13 @@ async function ArchiveProcess(processData) {
 
     try {
       // Handle both single process ID and array of process IDs
-      let processIds = Array.isArray(querydata.processid) ? querydata.processid : [querydata.processid];
+      let processIds = Array.isArray(querydata.processid)
+        ? querydata.processid
+        : [querydata.processid];
       let results = [];
       let successCount = 0;
       let errorCount = 0;
-      
+
       const operation = querydata.type === 1 ? "archive" : "unarchive";
       const archiveValue = querydata.type; // 1 for archive, 0 for unarchive
 
@@ -3384,7 +4042,7 @@ async function ArchiveProcess(processData) {
             results.push({
               vprocess_id: processId,
               status: "error",
-              message: "Process not found or already deleted"
+              message: "Process not found or already deleted",
             });
             errorCount++;
             continue;
@@ -3396,7 +4054,7 @@ async function ArchiveProcess(processData) {
               vprocess_id: processId,
               vendor_name: checkProcess[0].vendor_name,
               status: "skipped",
-              message: `Process is already ${operation}d`
+              message: `Process is already ${operation}d`,
             });
             continue;
           }
@@ -3415,14 +4073,14 @@ async function ArchiveProcess(processData) {
               vendor_name: checkProcess[0].vendor_name,
               status: "success",
               message: `Process ${operation}d successfully`,
-              archive_status: operation === "archive" ? "archived" : "active"
+              archive_status: operation === "archive" ? "archived" : "active",
             });
             successCount++;
           } else {
             results.push({
               vprocess_id: processId,
               status: "error",
-              message: `Failed to ${operation} the process`
+              message: `Failed to ${operation} the process`,
             });
             errorCount++;
           }
@@ -3430,7 +4088,7 @@ async function ArchiveProcess(processData) {
           results.push({
             vprocess_id: processId,
             status: "error",
-            message: `Error processing: ${processError.message}`
+            message: `Error processing: ${processError.message}`,
           });
           errorCount++;
         }
@@ -3439,11 +4097,17 @@ async function ArchiveProcess(processData) {
       // Send MQTT notifications for bulk operations
       if (successCount > 0) {
         try {
-          const message = `${successCount} Process(es) ${operation.charAt(0).toUpperCase() + operation.slice(1)}d Successfully`;
-          mqttclient.publishMqttMessage("Notification", message).catch(err => console.log('MQTT Notification error:', err));
-          mqttclient.publishMqttMessage("refresh", `Process ${operation} completed`).catch(err => console.log('MQTT Refresh error:', err));
+          const message = `${successCount} Process(es) ${
+            operation.charAt(0).toUpperCase() + operation.slice(1)
+          }d Successfully`;
+          mqttclient
+            .publishMqttMessage("Notification", message)
+            .catch((err) => console.log("MQTT Notification error:", err));
+          mqttclient
+            .publishMqttMessage("refresh", `Process ${operation} completed`)
+            .catch((err) => console.log("MQTT Refresh error:", err));
         } catch (mqttError) {
-          console.log('MQTT publish error:', mqttError);
+          console.log("MQTT publish error:", mqttError);
         }
       }
 
@@ -3466,7 +4130,7 @@ async function ArchiveProcess(processData) {
           total_processed: processIds.length,
           success_count: successCount,
           error_count: errorCount,
-          results: results
+          results: results,
         },
         secret
       );
@@ -3614,7 +4278,11 @@ async function DeleteProcess(processData) {
     }
 
     // Validate required fields
-    if (!querydata.hasOwnProperty("processid") || querydata.processid == "" || querydata.processid == null) {
+    if (
+      !querydata.hasOwnProperty("processid") ||
+      querydata.processid == "" ||
+      querydata.processid == null
+    ) {
       return helper.getErrorResponse(
         false,
         "error",
@@ -3625,7 +4293,10 @@ async function DeleteProcess(processData) {
     }
 
     // Validate type field
-    if (!querydata.hasOwnProperty("type") || (querydata.type !== 0 && querydata.type !== 1)) {
+    if (
+      !querydata.hasOwnProperty("type") ||
+      (querydata.type !== 0 && querydata.type !== 1)
+    ) {
       return helper.getErrorResponse(
         false,
         "error",
@@ -3637,14 +4308,17 @@ async function DeleteProcess(processData) {
 
     try {
       // Handle both single process ID and array of process IDs
-      let processIds = Array.isArray(querydata.processid) ? querydata.processid : [querydata.processid];
+      let processIds = Array.isArray(querydata.processid)
+        ? querydata.processid
+        : [querydata.processid];
       let results = [];
       let successCount = 0;
       let errorCount = 0;
-      
+
       const operation = querydata.type === 1 ? "delete" : "undelete";
       const deleteValue = querydata.type; // 1 for delete, 0 for undelete
-      const checkCondition = querydata.type === 1 ? "deleted_flag = 0" : "deleted_flag = 1";
+      const checkCondition =
+        querydata.type === 1 ? "deleted_flag = 0" : "deleted_flag = 1";
 
       for (let processId of processIds) {
         try {
@@ -3657,13 +4331,14 @@ async function DeleteProcess(processData) {
           );
 
           if (checkProcess.length === 0) {
-            const notFoundMessage = querydata.type === 1 ? 
-              "Process not found or already deleted" : 
-              "Process not found or not deleted";
+            const notFoundMessage =
+              querydata.type === 1
+                ? "Process not found or already deleted"
+                : "Process not found or not deleted";
             results.push({
               vprocess_id: processId,
               status: "error",
-              message: notFoundMessage
+              message: notFoundMessage,
             });
             errorCount++;
             continue;
@@ -3691,14 +4366,14 @@ async function DeleteProcess(processData) {
               vendor_name: checkProcess[0].vendor_name,
               status: "success",
               message: `Process ${operation}d successfully`,
-              delete_status: operation === "delete" ? "deleted" : "active"
+              delete_status: operation === "delete" ? "deleted" : "active",
             });
             successCount++;
           } else {
             results.push({
               vprocess_id: processId,
               status: "error",
-              message: `Failed to ${operation} the process`
+              message: `Failed to ${operation} the process`,
             });
             errorCount++;
           }
@@ -3706,7 +4381,7 @@ async function DeleteProcess(processData) {
           results.push({
             vprocess_id: processId,
             status: "error",
-            message: `Error processing: ${processError.message}`
+            message: `Error processing: ${processError.message}`,
           });
           errorCount++;
         }
@@ -3715,11 +4390,17 @@ async function DeleteProcess(processData) {
       // Send MQTT notifications for bulk operations
       if (successCount > 0) {
         try {
-          const message = `${successCount} Process(es) ${operation.charAt(0).toUpperCase() + operation.slice(1)}d Successfully`;
-          mqttclient.publishMqttMessage("Notification", message).catch(err => console.log('MQTT Notification error:', err));
-          mqttclient.publishMqttMessage("refresh", `Process ${operation} completed`).catch(err => console.log('MQTT Refresh error:', err));
+          const message = `${successCount} Process(es) ${
+            operation.charAt(0).toUpperCase() + operation.slice(1)
+          }d Successfully`;
+          mqttclient
+            .publishMqttMessage("Notification", message)
+            .catch((err) => console.log("MQTT Notification error:", err));
+          mqttclient
+            .publishMqttMessage("refresh", `Process ${operation} completed`)
+            .catch((err) => console.log("MQTT Refresh error:", err));
         } catch (mqttError) {
-          console.log('MQTT publish error:', mqttError);
+          console.log("MQTT publish error:", mqttError);
         }
       }
 
@@ -3742,7 +4423,7 @@ async function DeleteProcess(processData) {
           total_processed: processIds.length,
           success_count: successCount,
           error_count: errorCount,
-          results: results
+          results: results,
         },
         secret
       );
@@ -3893,7 +4574,11 @@ async function rrfqpreloader(vendorData) {
     }
 
     // Validate required fields
-    if (!querydata.hasOwnProperty("processid") || querydata.processid == "" || querydata.processid == null) {
+    if (
+      !querydata.hasOwnProperty("processid") ||
+      querydata.processid == "" ||
+      querydata.processid == null
+    ) {
       return helper.getErrorResponse(
         false,
         "error",
@@ -3941,7 +4626,7 @@ async function rrfqpreloader(vendorData) {
         // Step 2a: RRFQ exists, use its vprocess_gen_id to get RRFQ details from vendor_rrfq_details
         searchRfqGenId = rrfqProcessQuery[0].vprocess_gen_id;
         console.log(`Found existing RRFQ process with ID: ${searchRfqGenId}`);
-        
+
         rfqDetailsQuery = await db.query(
           `SELECT 
             id,
@@ -3973,8 +4658,10 @@ async function rrfqpreloader(vendorData) {
       } else {
         // Step 2b: No RRFQ exists, use original RFQ data from vendor_rfq_details
         searchRfqGenId = vprocessGenId;
-        console.log(`No RRFQ found, using original RFQ data with ID: ${searchRfqGenId}`);
-        
+        console.log(
+          `No RRFQ found, using original RFQ data with ID: ${searchRfqGenId}`
+        );
+
         rfqDetailsQuery = await db.query(
           `SELECT 
             id,
@@ -4009,7 +4696,9 @@ async function rrfqpreloader(vendorData) {
         return helper.getErrorResponse(
           false,
           "error",
-          `Vendor ${rrfqProcessQuery.length > 0 ? 'RRFQ' : 'RFQ'} details not found for the given process`,
+          `Vendor ${
+            rrfqProcessQuery.length > 0 ? "RRFQ" : "RFQ"
+          } details not found for the given process`,
           "RRFQ PRELOADER",
           secret
         );
@@ -4019,15 +4708,15 @@ async function rrfqpreloader(vendorData) {
 
       // Step 3: Check if RRFQ ID already exists, or generate new one
       let newRrfqId;
-      
+
       // Check if a specific RRFQ ID is provided in the request
-      if (querydata.rrfqgenid && querydata.rrfqgenid.trim() !== '') {
+      if (querydata.rrfqgenid && querydata.rrfqgenid.trim() !== "") {
         // Check if the provided RRFQ ID already exists in vprocesslist
         const existingProcess = await db.query(
           `SELECT vprocess_gen_id FROM vprocesslist WHERE vprocess_gen_id = ? AND deleted_flag = 0 LIMIT 1`,
           [querydata.rrfqgenid]
         );
-        
+
         if (existingProcess.length > 0) {
           // Use existing RRFQ ID
           newRrfqId = querydata.rrfqgenid;
@@ -4061,10 +4750,13 @@ async function rrfqpreloader(vendorData) {
 
       // Handle notes parsing
       if (vendorRfqDetails.notes) {
-        if (typeof vendorRfqDetails.notes === 'string') {
+        if (typeof vendorRfqDetails.notes === "string") {
           try {
             // Only try to parse if it looks like JSON (starts with [ or {)
-            if (vendorRfqDetails.notes.trim().startsWith('[') || vendorRfqDetails.notes.trim().startsWith('{')) {
+            if (
+              vendorRfqDetails.notes.trim().startsWith("[") ||
+              vendorRfqDetails.notes.trim().startsWith("{")
+            ) {
               parsedNotes = JSON.parse(vendorRfqDetails.notes);
             } else {
               // It's a plain string, treat as single note
@@ -4086,10 +4778,13 @@ async function rrfqpreloader(vendorData) {
 
       // Handle products parsing
       if (vendorRfqDetails.products) {
-        if (typeof vendorRfqDetails.products === 'string') {
+        if (typeof vendorRfqDetails.products === "string") {
           try {
             // Only try to parse if it looks like JSON (starts with [ or {)
-            if (vendorRfqDetails.products.trim().startsWith('[') || vendorRfqDetails.products.trim().startsWith('{')) {
+            if (
+              vendorRfqDetails.products.trim().startsWith("[") ||
+              vendorRfqDetails.products.trim().startsWith("{")
+            ) {
               parsedProducts = JSON.parse(vendorRfqDetails.products);
             } else {
               // It's a plain string, treat as single product description
@@ -4103,7 +4798,7 @@ async function rrfqpreloader(vendorData) {
         } else if (Array.isArray(vendorRfqDetails.products)) {
           // Already an array
           parsedProducts = vendorRfqDetails.products;
-        } else if (typeof vendorRfqDetails.products === 'object') {
+        } else if (typeof vendorRfqDetails.products === "object") {
           // Single object, convert to array
           parsedProducts = [vendorRfqDetails.products];
         } else {
@@ -4135,8 +4830,8 @@ async function rrfqpreloader(vendorData) {
           products: parsedProducts,
           row_updated_date: vendorRfqDetails.row_updated_date,
           status: vendorRfqDetails.status,
-          deleted_flag: vendorRfqDetails.deleted_flag
-        }
+          deleted_flag: vendorRfqDetails.deleted_flag,
+        },
       };
 
       return helper.getSuccessResponse(
@@ -4146,7 +4841,6 @@ async function rrfqpreloader(vendorData) {
         responseData,
         secret
       );
-
     } catch (er) {
       return helper.getErrorResponse(
         false,
@@ -4322,17 +5016,16 @@ async function addFeedback(feedbackData) {
         { eventid: querydata.eventid, feedback: querydata.feedback },
         secret
       );
-      
+
       // MQTT notifications for feedback update (non-blocking)
       try {
-        mqttclient.publishMqttMessage(
-          "refresh",
-          "Feedback Updated Successfully"
-        ).catch(err => console.log('MQTT Refresh error:', err));
+        mqttclient
+          .publishMqttMessage("refresh", "Feedback Updated Successfully")
+          .catch((err) => console.log("MQTT Refresh error:", err));
       } catch (mqttError) {
-        console.log('MQTT publish error:', mqttError);
+        console.log("MQTT publish error:", mqttError);
       }
-      
+
       return successResponse;
     } else {
       return helper.getErrorResponse(
@@ -4465,7 +5158,11 @@ async function PostRRFQ(req, res) {
     }
 
     // Check if querystring is provided
-    if (!rrfqData || !("querystring" in rrfqData) || rrfqData.querystring === undefined) {
+    if (
+      !rrfqData ||
+      !("querystring" in rrfqData) ||
+      rrfqData.querystring === undefined
+    ) {
       return helper.getErrorResponse(
         false,
         "error",
@@ -4503,7 +5200,12 @@ async function PostRRFQ(req, res) {
     }
 
     // Validate required fields
-    if (!querydata || !("vendorid" in querydata) || querydata.vendorid === "" || querydata.vendorid === undefined) {
+    if (
+      !querydata ||
+      !("vendorid" in querydata) ||
+      querydata.vendorid === "" ||
+      querydata.vendorid === undefined
+    ) {
       return helper.getErrorResponse(
         false,
         "Vendor ID missing. Please provide the Vendor ID",
@@ -4512,7 +5214,12 @@ async function PostRRFQ(req, res) {
       );
     }
 
-    if (!querydata || !("processid" in querydata) || querydata.processid === "" || querydata.processid === undefined) {
+    if (
+      !querydata ||
+      !("processid" in querydata) ||
+      querydata.processid === "" ||
+      querydata.processid === undefined
+    ) {
       return helper.getErrorResponse(
         false,
         "error",
@@ -4523,7 +5230,11 @@ async function PostRRFQ(req, res) {
     }
 
     // Validate messagetype if provided
-    if (querydata && ("messagetype" in querydata) && ![1, 2, 3].includes(querydata.messagetype)) {
+    if (
+      querydata &&
+      "messagetype" in querydata &&
+      ![1, 2, 3].includes(querydata.messagetype)
+    ) {
       return helper.getErrorResponse(
         false,
         "Invalid message type. Use 1 for email only, 2 for WhatsApp only, 3 for both",
@@ -4558,7 +5269,7 @@ async function PostRRFQ(req, res) {
       const vendor = vendorDetails[0];
 
       // Validate RRFQ ID is provided (should come from rrfqpreloader endpoint)
-      if (!querydata.rrfqgenid || querydata.rrfqgenid.trim() === '') {
+      if (!querydata.rrfqgenid || querydata.rrfqgenid.trim() === "") {
         return helper.getErrorResponse(
           false,
           "RRFQ ID missing. Please use rrfqpreloader endpoint to generate RRFQ ID first",
@@ -4598,36 +5309,44 @@ async function PostRRFQ(req, res) {
         [
           rrfqGenId,
           querydata.vendorid,
-          querydata.vendorname || '',
-          querydata.GSTIN || '',
-          querydata.PAN || '',
-          querydata.Contact_person || '',
-          querydata.vendoraddress || '',
-          querydata.title || '',
-          querydata.emailid || '',
-          querydata.phoneno || '',
-          querydata.ccemail || '',
+          querydata.vendorname || "",
+          querydata.GSTIN || "",
+          querydata.PAN || "",
+          querydata.Contact_person || "",
+          querydata.vendoraddress || "",
+          querydata.title || "",
+          querydata.emailid || "",
+          querydata.phoneno || "",
+          querydata.ccemail || "",
           messagetype,
-          querydata.feedback || '',
+          querydata.feedback || "",
           querydata.date ? new Date(querydata.date) : new Date(),
-          querydata.notes ? JSON.stringify(querydata.notes) : JSON.stringify([]),
-          querydata.product ? JSON.stringify(querydata.product) : JSON.stringify([]),
+          querydata.notes
+            ? JSON.stringify(querydata.notes)
+            : JSON.stringify([]),
+          querydata.product
+            ? JSON.stringify(querydata.product)
+            : JSON.stringify([]),
           1, // status
-          0  // deleted_flag
+          0, // deleted_flag
         ]
       );
 
       // Insert notes into vendor_notesmaster table (if notes exist)
-      if (querydata.notes && Array.isArray(querydata.notes) && querydata.notes.length > 0) {
+      if (
+        querydata.notes &&
+        Array.isArray(querydata.notes) &&
+        querydata.notes.length > 0
+      ) {
         for (const noteItem of querydata.notes) {
           try {
             // Extract note content based on structure (handle both string and object notes)
-            let noteContent = '';
-            if (typeof noteItem === 'string') {
+            let noteContent = "";
+            if (typeof noteItem === "string") {
               noteContent = noteItem.trim();
-            } else if (typeof noteItem === 'object' && noteItem.note) {
+            } else if (typeof noteItem === "object" && noteItem.note) {
               noteContent = noteItem.note.trim();
-            } else if (typeof noteItem === 'object' && noteItem.notes) {
+            } else if (typeof noteItem === "object" && noteItem.notes) {
               noteContent = noteItem.notes.trim();
             }
 
@@ -4660,7 +5379,7 @@ async function PostRRFQ(req, res) {
               );
             }
           } catch (noteError) {
-            console.error('Error inserting note:', noteError);
+            console.error("Error inserting note:", noteError);
             // Continue processing other notes even if one fails
           }
         }
@@ -4684,7 +5403,7 @@ async function PostRRFQ(req, res) {
           Row_updated_date
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
         [
-          'RRFQ',
+          "RRFQ",
           filePath,
           formattedDate,
           0, // Approved_status
@@ -4693,9 +5412,9 @@ async function PostRRFQ(req, res) {
           userid,
           rrfqGenId,
           3, // process_type for RRFQ
-          querydata.vendoraddress || vendor.address || '',
+          querydata.vendoraddress || vendor.address || "",
           querydata.vendorname || vendor.vendor_name,
-          querydata.processid // Parent process_id from vendorprocessmaster
+          querydata.processid, // Parent process_id from vendorprocessmaster
         ]
       );
 
@@ -4710,7 +5429,10 @@ async function PostRRFQ(req, res) {
           [rrfqGenId, querydata.processid]
         );
       } catch (updateError) {
-        console.log("Warning: Could not update vendorprocessmaster with RRFQ ID:", updateError);
+        console.log(
+          "Warning: Could not update vendorprocessmaster with RRFQ ID:",
+          updateError
+        );
         // Continue execution even if update fails
       }
 
@@ -4740,10 +5462,13 @@ async function PostRRFQ(req, res) {
       const vendorEmail = /*vendor.email ||*/ "kishorekkumar34@gmail.com"; // Fallback email
       const ccEmail = querydata.cc_email || "";
       const subject = `Revised Request for Quotation - ${rrfqGenId}`;
-      const notes = querydata.feedback || querydata.notes || "Please review the attached revised RFQ document and provide your updated quotation.";
-      
+      const notes =
+        querydata.feedback ||
+        querydata.notes ||
+        "Please review the attached revised RFQ document and provide your updated quotation.";
+
       // Process phone numbers (handle single or comma-separated numbers)
-      const phoneNumbers = vendor.contact_person_phone 
+      const phoneNumbers = vendor.contact_person_phone
         ? vendor.contact_person_phone
             .split(",")
             .map((num) => num.trim())
@@ -4790,13 +5515,15 @@ async function PostRRFQ(req, res) {
                 }
               })
             );
-            whatsappSent = whatsappResults.some(result => result === true);
+            whatsappSent = whatsappResults.some((result) => result === true);
           } catch (whatsappError) {
             console.log("Warning: WhatsApp sending error:", whatsappError);
             whatsappSent = false;
           }
         } else {
-          console.log("Warning: No phone numbers available for WhatsApp sending");
+          console.log(
+            "Warning: No phone numbers available for WhatsApp sending"
+          );
           whatsappSent = false;
         }
       } else if (messagetype === 3) {
@@ -4805,23 +5532,26 @@ async function PostRRFQ(req, res) {
 
         // Email promise
         promises.push(
-          mailer.sendVendorRFQ(
-            vendor.vendor_name,
-            vendorEmail,
-            subject,
-            "VENDORRFQ",
-            filePath,
-            rrfqGenId,
-            notes,
-            ccEmail
-          ).then(result => {
-            emailSent = result;
-            return result;
-          }).catch(error => {
-            console.log("Warning: Email sending error:", error);
-            emailSent = false;
-            return false;
-          })
+          mailer
+            .sendVendorRFQ(
+              vendor.vendor_name,
+              vendorEmail,
+              subject,
+              "VENDORRFQ",
+              filePath,
+              rrfqGenId,
+              notes,
+              ccEmail
+            )
+            .then((result) => {
+              emailSent = result;
+              return result;
+            })
+            .catch((error) => {
+              console.log("Warning: Email sending error:", error);
+              emailSent = false;
+              return false;
+            })
         );
 
         // WhatsApp promise
@@ -4844,17 +5574,21 @@ async function PostRRFQ(req, res) {
                   return false;
                 }
               })
-            ).then(results => {
-              whatsappSent = results.some(result => result === true);
-              return whatsappSent;
-            }).catch(error => {
-              console.log("Warning: WhatsApp sending error:", error);
-              whatsappSent = false;
-              return false;
-            })
+            )
+              .then((results) => {
+                whatsappSent = results.some((result) => result === true);
+                return whatsappSent;
+              })
+              .catch((error) => {
+                console.log("Warning: WhatsApp sending error:", error);
+                whatsappSent = false;
+                return false;
+              })
           );
         } else {
-          console.log("Warning: No phone numbers available for WhatsApp sending");
+          console.log(
+            "Warning: No phone numbers available for WhatsApp sending"
+          );
           whatsappSent = false;
         }
 
@@ -4872,7 +5606,7 @@ async function PostRRFQ(req, res) {
           "refresh",
           "RRFQ Posted Successfully"
         );
-        
+
         return helper.getSuccessResponse(
           true,
           "success",
@@ -4884,7 +5618,7 @@ async function PostRRFQ(req, res) {
             rrfqgenid: rrfqGenId,
             emailsent: emailSent,
             whatsappsent: whatsappSent,
-            messagetype: messagetype
+            messagetype: messagetype,
           },
           secret
         );
@@ -5026,7 +5760,11 @@ async function getVendorQuotationApproval(vendorData) {
     }
 
     // Validate required fields
-    if (!querydata.hasOwnProperty("eventid") || querydata.eventid == "" || querydata.eventid == null) {
+    if (
+      !querydata.hasOwnProperty("eventid") ||
+      querydata.eventid == "" ||
+      querydata.eventid == null
+    ) {
       return helper.getErrorResponse(
         false,
         "error",
@@ -5063,7 +5801,7 @@ async function getVendorQuotationApproval(vendorData) {
       // Check approval status
       // 0: null/not done anything (they will take it)
       // 1: approved
-      // 2: mail sent but no action taken  
+      // 2: mail sent but no action taken
       // 3: rejected
       if (quotation.Approved_status === 1) {
         return helper.getErrorResponse(
@@ -5125,11 +5863,14 @@ async function getVendorQuotationApproval(vendorData) {
       const emailSent = await mailer.sendVendorQuotationApproval(
         "Administrator",
         adminEmail,
-        `Action Required!!! Vendor Quotation Approval Request for ${quotation.vendor_name || 'Vendor'}`,
+        `Action Required!!! Vendor Quotation Approval Request for ${
+          quotation.vendor_name || "Vendor"
+        }`,
         "VENDORQUOTATIONAPPROVAL",
         quotation.Process_filepath,
         quotation.vprocess_gen_id || quotation.vprocess_id,
-        quotation.feedback || "Please review the attached vendor quotation and take appropriate action.",
+        quotation.feedback ||
+          "Please review the attached vendor quotation and take appropriate action.",
         "",
         approveLink,
         rejectLink
@@ -5154,7 +5895,9 @@ async function getVendorQuotationApproval(vendorData) {
         // MQTT notifications
         await mqttclient.publishMqttMessage(
           "Notification",
-          `Vendor quotation approval request sent for ${quotation.vendor_name || 'Vendor'}`
+          `Vendor quotation approval request sent for ${
+            quotation.vendor_name || "Vendor"
+          }`
         );
         await mqttclient.publishMqttMessage(
           "refresh",
@@ -5170,7 +5913,7 @@ async function getVendorQuotationApproval(vendorData) {
             quotation_id: quotation.vprocess_gen_id,
             vendor_name: quotation.vendor_name,
             email_sent: emailSent,
-            whatsapp_sent: false
+            whatsapp_sent: false,
           },
           secret
         );
@@ -5183,7 +5926,6 @@ async function getVendorQuotationApproval(vendorData) {
           secret
         );
       }
-
     } catch (er) {
       return helper.getErrorResponse(
         false,
@@ -5231,9 +5973,10 @@ async function approveVendorQuotation(req, res) {
     var secret = vendorData.STOKEN.substring(0, 16);
 
     // Validate session token
-    const result = await db.query(`SELECT secret FROM apikey WHERE secret = ?`, [
-      vendorData.STOKEN
-    ]);
+    const result = await db.query(
+      `SELECT secret FROM apikey WHERE secret = ?`,
+      [vendorData.STOKEN]
+    );
 
     if (result.length === 0) {
       return res.sendFile(path.join(htmlPath, "invalid_token.html"));
@@ -5248,18 +5991,22 @@ async function approveVendorQuotation(req, res) {
       return res.sendFile(path.join(htmlPath, "internal_error.html"));
     }
 
-    if (!vendorData.hasOwnProperty("feedback") || vendorData.feedback == "" || vendorData.feedback == undefined) {
+    if (
+      !vendorData.hasOwnProperty("feedback") ||
+      vendorData.feedback == "" ||
+      vendorData.feedback == undefined
+    ) {
       return res.sendFile(path.join(htmlPath, "internal_error.html"));
     }
 
     // Update the database with correct Approved_status values and process_type
     // 0: null/not done anything (they will take it)
     // 1: approved
-    // 2: mail sent but no action taken  
+    // 2: mail sent but no action taken
     // 3: rejected
     const approvalStatus = vendorData.s == 1 ? 1 : 3; // 1 for approved, 3 for rejected
     const processType = vendorData.s == 1 ? 3.1 : 3.2; // 3.1 for approved, 3.2 for rejected
-    
+
     await db.query(
       `UPDATE vprocesslist SET Approved_status = ?, feedback = ?, process_type = ?, Row_updated_date = NOW() 
        WHERE vprocess_id = ? AND process_name = 'QUOTATION'`,
@@ -5271,7 +6018,7 @@ async function approveVendorQuotation(req, res) {
       `UPDATE vendor_quotation_approval_requests 
        SET status = ?, approved_date = NOW(), approved_by = ?
        WHERE vprocess_id = ? AND status = 'pending'`,
-      [vendorData.s == 1 ? 'approved' : 'rejected', 1, vendorData.eventid]
+      [vendorData.s == 1 ? "approved" : "rejected", 1, vendorData.eventid]
     );
 
     // Send the quotation if approved
@@ -5287,7 +6034,7 @@ async function approveVendorQuotation(req, res) {
 
       if (quotationDetails.length > 0) {
         const quotation = quotationDetails[0];
-        
+
         // Get required modules
         const mailer = require("../mailer");
         const axios = require("axios");
@@ -5316,14 +6063,11 @@ async function approveVendorQuotation(req, res) {
 
           for (const number of phoneNumbers) {
             try {
-              await axios.post(
-                `${config.whatsappip}/billing/sendpdf`,
-                {
-                  phoneno: number,
-                  feedback: `Your quotation has been approved. Thank you for your submission.`,
-                  pdfpath: quotation.Process_filepath,
-                }
-              );
+              await axios.post(`${config.whatsappip}/billing/sendpdf`, {
+                phoneno: number,
+                feedback: `Your quotation has been approved. Thank you for your submission.`,
+                pdfpath: quotation.Process_filepath,
+              });
             } catch (error) {
               console.error(`WhatsApp Error for ${number}:`, error.message);
             }
@@ -5492,7 +6236,11 @@ async function popreloader(vendorData) {
     }
 
     // Validate required fields
-    if (!querydata.hasOwnProperty("processid") || querydata.processid == "" || querydata.processid == null) {
+    if (
+      !querydata.hasOwnProperty("processid") ||
+      querydata.processid == "" ||
+      querydata.processid == null
+    ) {
       return helper.getErrorResponse(
         false,
         "error",
@@ -5512,7 +6260,7 @@ async function popreloader(vendorData) {
         );
         const objectValue = poResult[1][0];
         poId = objectValue["@po_id"];
-        
+
         if (!poId) {
           return helper.getErrorResponse(
             false,
@@ -5619,9 +6367,12 @@ async function popreloader(vendorData) {
 
       // Handle notes parsing
       if (rfqDetails.notes) {
-        if (typeof rfqDetails.notes === 'string') {
+        if (typeof rfqDetails.notes === "string") {
           try {
-            if (rfqDetails.notes.trim().startsWith('[') || rfqDetails.notes.trim().startsWith('{')) {
+            if (
+              rfqDetails.notes.trim().startsWith("[") ||
+              rfqDetails.notes.trim().startsWith("{")
+            ) {
               parsedNotes = JSON.parse(rfqDetails.notes);
             } else {
               parsedNotes = [rfqDetails.notes];
@@ -5639,9 +6390,12 @@ async function popreloader(vendorData) {
 
       // Handle products parsing
       if (rfqDetails.products) {
-        if (typeof rfqDetails.products === 'string') {
+        if (typeof rfqDetails.products === "string") {
           try {
-            if (rfqDetails.products.trim().startsWith('[') || rfqDetails.products.trim().startsWith('{')) {
+            if (
+              rfqDetails.products.trim().startsWith("[") ||
+              rfqDetails.products.trim().startsWith("{")
+            ) {
               parsedProducts = JSON.parse(rfqDetails.products);
             } else {
               parsedProducts = [{ description: rfqDetails.products }];
@@ -5652,7 +6406,7 @@ async function popreloader(vendorData) {
           }
         } else if (Array.isArray(rfqDetails.products)) {
           parsedProducts = rfqDetails.products;
-        } else if (typeof rfqDetails.products === 'object') {
+        } else if (typeof rfqDetails.products === "object") {
           parsedProducts = [rfqDetails.products];
         } else {
           parsedProducts = [{ description: rfqDetails.products }];
@@ -5660,7 +6414,7 @@ async function popreloader(vendorData) {
       }
 
       // Step 6: Format the response
-      
+
       // Create response with correct field names based on source
       let po_details_base = {
         vendor_id: rfqDetails.vendor_id,
@@ -5682,15 +6436,14 @@ async function popreloader(vendorData) {
         deleted_flag: rfqDetails.deleted_flag,
         process_type: rfqDetails.rfq_type,
         source_table: rfqDetails.source_table,
-        quotations: quotations || []
+        quotations: quotations || [],
       };
-
 
       const responseData = {
         po_id: poId,
         rfq_number: rfqDetails.genid,
         quotation_number: quotations.vprocess_gen_id || null,
-        po_details: po_details_base
+        po_details: po_details_base,
       };
 
       return helper.getSuccessResponse(
@@ -5700,7 +6453,6 @@ async function popreloader(vendorData) {
         responseData,
         secret
       );
-
     } catch (er) {
       return helper.getErrorResponse(
         false,
@@ -5886,17 +6638,17 @@ async function AddInvoice(req, res) {
           filePath,
           formattedDate,
           userid,
-          5,  // process_type for INVOICE
-          'INVOICE',
+          5, // process_type for INVOICE
+          "INVOICE",
           querydata.processid,
-          querydata.invoice_number || null,  // vprocess_gen_id
-          querydata.feedback || null
+          querydata.invoice_number || null, // vprocess_gen_id
+          querydata.feedback || null,
         ]
       );
 
       // Get the inserted vprocess_id (auto-increment primary key)
       const vprocess_id = sql.insertId;
-      
+
       if (vprocess_id != null && vprocess_id !== "") {
         // MQTT notifications for invoice upload
         await mqttclient.publishMqttMessage(
@@ -5907,7 +6659,7 @@ async function AddInvoice(req, res) {
           "refresh",
           "Vendor Invoice Added Successfully"
         );
-        
+
         return helper.getSuccessResponse(
           true,
           "success",
@@ -5936,7 +6688,10 @@ async function AddInvoice(req, res) {
     }
   } catch (er) {
     // Extract secret if available from request body
-    const secret = (req && req.body && req.body.STOKEN) ? req.body.STOKEN.substring(0, 16) : "";
+    const secret =
+      req && req.body && req.body.STOKEN
+        ? req.body.STOKEN.substring(0, 16)
+        : "";
     return helper.getErrorResponse(
       false,
       "error",
@@ -6059,7 +6814,11 @@ async function PostPO(req, res) {
     }
 
     // Check if querystring is provided
-    if (!poData || !("querystring" in poData) || poData.querystring === undefined) {
+    if (
+      !poData ||
+      !("querystring" in poData) ||
+      poData.querystring === undefined
+    ) {
       return helper.getErrorResponse(
         false,
         "error",
@@ -6097,7 +6856,12 @@ async function PostPO(req, res) {
     }
 
     // Validate required fields
-    if (!querydata || !("vendorid" in querydata) || querydata.vendorid === "" || querydata.vendorid === undefined) {
+    if (
+      !querydata ||
+      !("vendorid" in querydata) ||
+      querydata.vendorid === "" ||
+      querydata.vendorid === undefined
+    ) {
       return helper.getErrorResponse(
         false,
         "Vendor ID missing. Please provide the Vendor ID",
@@ -6106,7 +6870,12 @@ async function PostPO(req, res) {
       );
     }
 
-    if (!querydata || !("processid" in querydata) || querydata.processid === "" || querydata.processid === undefined) {
+    if (
+      !querydata ||
+      !("processid" in querydata) ||
+      querydata.processid === "" ||
+      querydata.processid === undefined
+    ) {
       return helper.getErrorResponse(
         false,
         "error",
@@ -6117,7 +6886,11 @@ async function PostPO(req, res) {
     }
 
     // Validate messagetype if provided
-    if (querydata && ("messagetype" in querydata) && ![1, 2, 3].includes(querydata.messagetype)) {
+    if (
+      querydata &&
+      "messagetype" in querydata &&
+      ![1, 2, 3].includes(querydata.messagetype)
+    ) {
       return helper.getErrorResponse(
         false,
         "Invalid message type. Use 1 for email only, 2 for WhatsApp only, 3 for both",
@@ -6152,7 +6925,7 @@ async function PostPO(req, res) {
       const vendor = vendorDetails[0];
 
       // Validate PO ID is provided (should come from popreloader endpoint)
-      if (!querydata.pogenid || querydata.pogenid.trim() === '') {
+      if (!querydata.pogenid || querydata.pogenid.trim() === "") {
         return helper.getErrorResponse(
           false,
           "PO ID missing. Please use popreloader endpoint to generate PO ID first",
@@ -6192,34 +6965,42 @@ async function PostPO(req, res) {
         [
           poGenId,
           querydata.vendorid,
-          querydata.vendorname || '',
-          querydata.GSTIN || '',
-          querydata.PAN || '',
-          querydata.Contact_person || '',
-          querydata.vendoraddress || '',
-          querydata.title || '',
-          querydata.emailid || '',
-          querydata.phoneno || '',
-          querydata.ccemail || '',
+          querydata.vendorname || "",
+          querydata.GSTIN || "",
+          querydata.PAN || "",
+          querydata.Contact_person || "",
+          querydata.vendoraddress || "",
+          querydata.title || "",
+          querydata.emailid || "",
+          querydata.phoneno || "",
+          querydata.ccemail || "",
           messagetype,
-          querydata.feedback || '',
+          querydata.feedback || "",
           querydata.date ? new Date(querydata.date) : new Date(),
-          querydata.notes ? JSON.stringify(querydata.notes) : JSON.stringify([]),
-          querydata.product ? JSON.stringify(querydata.product) : JSON.stringify([]),
+          querydata.notes
+            ? JSON.stringify(querydata.notes)
+            : JSON.stringify([]),
+          querydata.product
+            ? JSON.stringify(querydata.product)
+            : JSON.stringify([]),
           1, // status
-          0  // deleted_flag
+          0, // deleted_flag
         ]
       );
 
       // Insert/Update products in vendorproducts table
       let productsMappedendar = 0;
-      if (querydata.product && Array.isArray(querydata.product) && querydata.product.length > 0) {
+      if (
+        querydata.product &&
+        Array.isArray(querydata.product) &&
+        querydata.product.length > 0
+      ) {
         for (const productItem of querydata.product) {
           try {
             // Extract product details
-            const productName = productItem.productname || '';
+            const productName = productItem.productname || "";
             const gstPercent = productItem.gstpercent || 0;
-            const hsn = productItem.hsn || '';
+            const hsn = productItem.hsn || "";
             const price = productItem.price || 0;
 
             // Skip empty products
@@ -6260,23 +7041,27 @@ async function PostPO(req, res) {
             }
             productsMappedendar++;
           } catch (productError) {
-            console.error('Error mapping product:', productError);
+            console.error("Error mapping product:", productError);
             // Continue processing other products even if one fails
           }
         }
       }
 
       // Insert notes into vendor_notesmaster table (if notes exist)
-      if (querydata.notes && Array.isArray(querydata.notes) && querydata.notes.length > 0) {
+      if (
+        querydata.notes &&
+        Array.isArray(querydata.notes) &&
+        querydata.notes.length > 0
+      ) {
         for (const noteItem of querydata.notes) {
           try {
             // Extract note content based on structure (handle both string and object notes)
-            let noteContent = '';
-            if (typeof noteItem === 'string') {
+            let noteContent = "";
+            if (typeof noteItem === "string") {
               noteContent = noteItem.trim();
-            } else if (typeof noteItem === 'object' && noteItem.note) {
+            } else if (typeof noteItem === "object" && noteItem.note) {
               noteContent = noteItem.note.trim();
-            } else if (typeof noteItem === 'object' && noteItem.notes) {
+            } else if (typeof noteItem === "object" && noteItem.notes) {
               noteContent = noteItem.notes.trim();
             }
 
@@ -6309,7 +7094,7 @@ async function PostPO(req, res) {
               );
             }
           } catch (noteError) {
-            console.error('Error inserting note:', noteError);
+            console.error("Error inserting note:", noteError);
             // Continue processing other notes even if one fails
           }
         }
@@ -6333,7 +7118,7 @@ async function PostPO(req, res) {
           Row_updated_date
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
         [
-          'PO',
+          "PO",
           filePath,
           formattedDate,
           0, // Approved_status
@@ -6342,9 +7127,9 @@ async function PostPO(req, res) {
           userid,
           poGenId,
           4, // process_type for PO
-          querydata.vendoraddress || vendor.address || '',
+          querydata.vendoraddress || vendor.address || "",
           querydata.vendorname || vendor.vendor_name,
-          querydata.processid // Parent process_id from vendorprocessmaster
+          querydata.processid, // Parent process_id from vendorprocessmaster
         ]
       );
 
@@ -6376,10 +7161,13 @@ async function PostPO(req, res) {
       const vendorEmail = /*vendor.email ||*/ "kishorekkumar34@gmail.com"; // Fallback email
       const ccEmail = querydata.cc_email || "";
       const subject = `Purchase Order - ${poGenId}`;
-      const notes = querydata.feedback || querydata.notes || "Please find the attached Purchase Order for your review and confirmation.";
-      
+      const notes =
+        querydata.feedback ||
+        querydata.notes ||
+        "Please find the attached Purchase Order for your review and confirmation.";
+
       // Process phone numbers (handle single or comma-separated numbers)
-      const phoneNumbers = vendor.contact_person_phone 
+      const phoneNumbers = vendor.contact_person_phone
         ? vendor.contact_person_phone
             .split(",")
             .map((num) => num.trim())
@@ -6426,39 +7214,43 @@ async function PostPO(req, res) {
                 }
               })
             );
-            whatsappSent = whatsappResults.some(result => result === true);
+            whatsappSent = whatsappResults.some((result) => result === true);
           } catch (whatsappError) {
             console.log("Warning: WhatsApp sending error:", whatsappError);
             whatsappSent = false;
           }
         } else {
-          console.log("Warning: No phone numbers available for WhatsApp sending");
+          console.log(
+            "Warning: No phone numbers available for WhatsApp sending"
+          );
           whatsappSent = false;
         }
-        
       } else if (messagetype === 3) {
         // Send both email and WhatsApp
         const promises = [];
 
         // Email promise
         promises.push(
-          mailer.sendVendorPO(
-            vendor.vendor_name,
-            vendorEmail,
-            subject,
-            "VENDORPO",
-            filePath,
-            poGenId,
-            notes,
-            ccEmail
-          ).then(result => {
-            emailSent = result;
-            return result;
-          }).catch(error => {
-            console.log("Warning: Email sending error:", error);
-            emailSent = false;
-            return false;
-          })
+          mailer
+            .sendVendorPO(
+              vendor.vendor_name,
+              vendorEmail,
+              subject,
+              "VENDORPO",
+              filePath,
+              poGenId,
+              notes,
+              ccEmail
+            )
+            .then((result) => {
+              emailSent = result;
+              return result;
+            })
+            .catch((error) => {
+              console.log("Warning: Email sending error:", error);
+              emailSent = false;
+              return false;
+            })
         );
 
         // WhatsApp promise
@@ -6481,17 +7273,21 @@ async function PostPO(req, res) {
                   return false;
                 }
               })
-            ).then(results => {
-              whatsappSent = results.some(result => result === true);
-              return whatsappSent;
-            }).catch(error => {
-              console.log("Warning: WhatsApp sending error:", error);
-              whatsappSent = false;
-              return false;
-            })
+            )
+              .then((results) => {
+                whatsappSent = results.some((result) => result === true);
+                return whatsappSent;
+              })
+              .catch((error) => {
+                console.log("Warning: WhatsApp sending error:", error);
+                whatsappSent = false;
+                return false;
+              })
           );
         } else {
-          console.log("Warning: No phone numbers available for WhatsApp sending");
+          console.log(
+            "Warning: No phone numbers available for WhatsApp sending"
+          );
           whatsappSent = false;
         }
 
@@ -6509,7 +7305,7 @@ async function PostPO(req, res) {
           "refresh",
           "PO Posted Successfully"
         );
-        
+
         return helper.getSuccessResponse(
           true,
           "success",
@@ -6522,7 +7318,7 @@ async function PostPO(req, res) {
             emailsent: emailSent,
             whatsappsent: whatsappSent,
             messagetype: messagetype,
-            products_mapped: productsMappedendar
+            products_mapped: productsMappedendar,
           },
           secret
         );
@@ -6716,17 +7512,17 @@ async function AddDC(req, res) {
           filePath,
           formattedDate,
           userid,
-          6,  // process_type for DC
-          'DC',
+          6, // process_type for DC
+          "DC",
           querydata.processid,
           querydata.dc_number || null,
-          querydata.feedback || null
+          querydata.feedback || null,
         ]
       );
 
       // Get the inserted vprocess_id (auto-increment primary key)
       const vprocess_id = sql.insertId;
-      
+
       if (vprocess_id != null && vprocess_id !== "") {
         // MQTT notifications for DC upload
         await mqttclient.publishMqttMessage(
@@ -6737,7 +7533,7 @@ async function AddDC(req, res) {
           "refresh",
           "Vendor DC Added Successfully"
         );
-        
+
         return helper.getSuccessResponse(
           true,
           "success",
@@ -6766,7 +7562,10 @@ async function AddDC(req, res) {
     }
   } catch (er) {
     // Extract secret if available from request body
-    const secret = (req && req.body && req.body.STOKEN) ? req.body.STOKEN.substring(0, 16) : "";
+    const secret =
+      req && req.body && req.body.STOKEN
+        ? req.body.STOKEN.substring(0, 16)
+        : "";
     return helper.getErrorResponse(
       false,
       "error",
@@ -6896,7 +7695,11 @@ async function ShareFormLink(vendorData) {
     }
 
     // Validate required fields
-    if (!querydata.hasOwnProperty("phone_number") || querydata.phone_number === "" || querydata.phone_number === null) {
+    if (
+      !querydata.hasOwnProperty("phone_number") ||
+      querydata.phone_number === "" ||
+      querydata.phone_number === null
+    ) {
       return helper.getErrorResponse(
         false,
         "error",
@@ -6906,7 +7709,11 @@ async function ShareFormLink(vendorData) {
       );
     }
 
-    if (!querydata.hasOwnProperty("email_id") || querydata.email_id === "" || querydata.email_id === null) {
+    if (
+      !querydata.hasOwnProperty("email_id") ||
+      querydata.email_id === "" ||
+      querydata.email_id === null
+    ) {
       return helper.getErrorResponse(
         false,
         "error",
@@ -6917,11 +7724,27 @@ async function ShareFormLink(vendorData) {
     }
 
     // Validate messagetype if provided
-    if (querydata.hasOwnProperty("message_type") && ![1, 2, 3].includes(querydata.message_type)) {
+    if (
+      querydata.hasOwnProperty("message_type") &&
+      ![1, 2, 3].includes(querydata.message_type)
+    ) {
       return helper.getErrorResponse(
         false,
         "error",
         "Invalid message type. Use 1 for email only, 2 for WhatsApp only, 3 for both",
+        "SHARE FORM LINK",
+        secret
+      );
+    }
+    if (
+      querydata.hasOwnProperty("vendorname") ||
+      querydata.vendorname === "" ||
+      querydata.vendorname === null
+    ) {
+      return helper.getErrorResponse(
+        false,
+        "error",
+        "Vendor name missing. Please provide the vendor name",
         "SHARE FORM LINK",
         secret
       );
@@ -6932,8 +7755,8 @@ async function ShareFormLink(vendorData) {
 
     try {
       // Hardcoded form link (you can modify this as needed)
-      const formLink = "https://forms.sporadasecure.com/vendor-registration";
-      
+      const formLink = "";
+
       // Initialize response flags
       let emailSent = false;
       let whatsappSent = false;
@@ -6945,10 +7768,12 @@ async function ShareFormLink(vendorData) {
 
       // Prepare email and WhatsApp data
       const subject = "Vendor Registration Form - Sporada Secure";
-      const notes = querydata.notes || "Please complete the vendor registration form to become our registered vendor.";
-      
+      const notes =
+        querydata.notes ||
+        "Please complete the vendor registration form to become our registered vendor.";
+
       // Process phone numbers (handle single or comma-separated numbers)
-      const phoneNumbers = querydata.phone_number 
+      const phoneNumbers = querydata.phone_number
         ? querydata.phone_number
             .split(",")
             .map((num) => num.trim())
@@ -6992,13 +7817,15 @@ async function ShareFormLink(vendorData) {
                 }
               })
             );
-            whatsappSent = whatsappResults.some(result => result === true);
+            whatsappSent = whatsappResults.some((result) => result === true);
           } catch (whatsappError) {
             console.log("Warning: WhatsApp sending error:", whatsappError);
             whatsappSent = false;
           }
         } else {
-          console.log("Warning: No phone numbers available for WhatsApp sending");
+          console.log(
+            "Warning: No phone numbers available for WhatsApp sending"
+          );
           whatsappSent = false;
         }
       } else if (messagetype === 3) {
@@ -7007,21 +7834,24 @@ async function ShareFormLink(vendorData) {
 
         // Email promise
         promises.push(
-          mailer.sendVendorFormLink(
-            "Vendor",
-            querydata.email_id,
-            subject,
-            "FORMLINK",
-            formLink,
-            notes
-          ).then(result => {
-            emailSent = result;
-            return result;
-          }).catch(error => {
-            console.log("Warning: Email sending error:", error);
-            emailSent = false;
-            return false;
-          })
+          mailer
+            .sendVendorFormLink(
+              "Vendor",
+              querydata.email_id,
+              subject,
+              "FORMLINK",
+              formLink,
+              notes
+            )
+            .then((result) => {
+              emailSent = result;
+              return result;
+            })
+            .catch((error) => {
+              console.log("Warning: Email sending error:", error);
+              emailSent = false;
+              return false;
+            })
         );
 
         // WhatsApp promise
@@ -7043,17 +7873,21 @@ async function ShareFormLink(vendorData) {
                   return false;
                 }
               })
-            ).then(results => {
-              whatsappSent = results.some(result => result === true);
-              return whatsappSent;
-            }).catch(error => {
-              console.log("Warning: WhatsApp sending error:", error);
-              whatsappSent = false;
-              return false;
-            })
+            )
+              .then((results) => {
+                whatsappSent = results.some((result) => result === true);
+                return whatsappSent;
+              })
+              .catch((error) => {
+                console.log("Warning: WhatsApp sending error:", error);
+                whatsappSent = false;
+                return false;
+              })
           );
         } else {
-          console.log("Warning: No phone numbers available for WhatsApp sending");
+          console.log(
+            "Warning: No phone numbers available for WhatsApp sending"
+          );
           whatsappSent = false;
         }
 
@@ -7066,6 +7900,7 @@ async function ShareFormLink(vendorData) {
         `INSERT INTO vendor_form_link_requests (
           phone_number,
           email_id,
+          Vendor_name,
           message_type,
           form_link,
           email_sent,
@@ -7075,16 +7910,17 @@ async function ShareFormLink(vendorData) {
           status,
           notes,
           row_updated_date
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), 1, ?, NOW())`,
+        ) VALUES (?, ?, ?, ?,?, ?, ?, ?, NOW(), 1, ?, NOW())`,
         [
           querydata.phone_number,
           querydata.email_id,
+          querydata.vendorname,
           messagetype,
           formLink,
           emailSent ? 1 : 0,
           whatsappSent ? 1 : 0,
           userid,
-          notes
+          notes,
         ]
       );
 
@@ -7100,7 +7936,7 @@ async function ShareFormLink(vendorData) {
           "refresh",
           "Form link shared successfully"
         );
-        
+
         return helper.getSuccessResponse(
           true,
           "success",
@@ -7114,7 +7950,7 @@ async function ShareFormLink(vendorData) {
             whatsapp_sent: whatsappSent,
             message_type: messagetype,
             sent_by_user_id: userid,
-            notes: notes
+            notes: notes,
           },
           secret
         );
@@ -7127,7 +7963,6 @@ async function ShareFormLink(vendorData) {
           secret
         );
       }
-
     } catch (er) {
       return helper.getErrorResponse(
         false,
@@ -7223,24 +8058,18 @@ async function GetFormLinkRequests(vendorData) {
 
     var secret = vendorData.STOKEN.substring(0, 16);
 
-    // Validate session token
-    const [result] = await db.spcall(
-      "CALL SP_STOKEN_CHECK(?,@result); SELECT @result;",
-      [vendorData.STOKEN]
-    );
-    const objectvalue = result[1][0];
-    const userid = objectvalue["@result"];
-
-    if (userid == null) {
+    const result = await db.query(`select secret from apikey where secret =?`, [
+      vendorData.STOKEN,
+    ]);
+    if (result.length == 0) {
       return helper.getErrorResponse(
         false,
         "error",
-        "Login session token Invalid. Please provide the valid session token",
-        "GET FORM LINK REQUESTS",
+        "Login sessiontoken Invalid. Please provide the valid sessiontoken",
+        "APPROVE THE QUOTATION",
         secret
       );
     }
-
     // Initialize querydata for optional filtering
     var querydata = {};
 
@@ -7248,7 +8077,10 @@ async function GetFormLinkRequests(vendorData) {
     if (vendorData.hasOwnProperty("querystring") && vendorData.querystring) {
       try {
         // Decrypt querystring
-        const decryptedQuery = await helper.decrypt(vendorData.querystring, secret);
+        const decryptedQuery = await helper.decrypt(
+          vendorData.querystring,
+          secret
+        );
         querydata = JSON.parse(decryptedQuery);
       } catch (ex) {
         // If querystring is provided but invalid, return error
@@ -7304,7 +8136,10 @@ async function GetFormLinkRequests(vendorData) {
       }
 
       // Build WHERE clause
-      const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
+      const whereClause =
+        whereConditions.length > 0
+          ? `WHERE ${whereConditions.join(" AND ")}`
+          : "";
 
       // Pagination
       const limit = querydata.limit || 100;
@@ -7360,12 +8195,18 @@ async function GetFormLinkRequests(vendorData) {
       const requests = await db.query(mainQuery, mainParams);
 
       // Format dates for better readability
-      requests.forEach(request => {
+      requests.forEach((request) => {
         if (request.sent_date) {
-          request.sent_date = new Date(request.sent_date).toISOString().slice(0, 19).replace('T', ' ');
+          request.sent_date = new Date(request.sent_date)
+            .toISOString()
+            .slice(0, 19)
+            .replace("T", " ");
         }
         if (request.row_updated_date) {
-          request.row_updated_date = new Date(request.row_updated_date).toISOString().slice(0, 19).replace('T', ' ');
+          request.row_updated_date = new Date(request.row_updated_date)
+            .toISOString()
+            .slice(0, 19)
+            .replace("T", " ");
         }
       });
 
@@ -7378,11 +8219,10 @@ async function GetFormLinkRequests(vendorData) {
           returned_count: requests.length,
           limit: limit,
           offset: offset,
-          requests: requests
+          requests: requests,
         },
         secret
       );
-
     } catch (er) {
       return helper.getErrorResponse(
         false,
@@ -7522,7 +8362,10 @@ async function GetVendorDetails(vendorData) {
     if (vendorData.hasOwnProperty("querystring") && vendorData.querystring) {
       try {
         // Decrypt querystring
-        const decryptedQuery = await helper.decrypt(vendorData.querystring, secret);
+        const decryptedQuery = await helper.decrypt(
+          vendorData.querystring,
+          secret
+        );
         querydata = JSON.parse(decryptedQuery);
       } catch (ex) {
         // If querystring is provided but invalid, return error
@@ -7593,7 +8436,10 @@ async function GetVendorDetails(vendorData) {
       }
 
       // Build WHERE clause
-      const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
+      const whereClause =
+        whereConditions.length > 0
+          ? `WHERE ${whereConditions.join(" AND ")}`
+          : "";
 
       // Pagination
       const limit = querydata.limit || 100;
@@ -7663,20 +8509,26 @@ async function GetVendorDetails(vendorData) {
       const vendors = await db.query(mainQuery, mainParams);
 
       // Format dates and numbers for better readability
-      vendors.forEach(vendor => {
+      vendors.forEach((vendor) => {
         // Format dates
         if (vendor.created_at) {
-          vendor.created_at = new Date(vendor.created_at).toISOString().slice(0, 19).replace('T', ' ');
+          vendor.created_at = new Date(vendor.created_at)
+            .toISOString()
+            .slice(0, 19)
+            .replace("T", " ");
         }
         if (vendor.updated_at) {
-          vendor.updated_at = new Date(vendor.updated_at).toISOString().slice(0, 19).replace('T', ' ');
+          vendor.updated_at = new Date(vendor.updated_at)
+            .toISOString()
+            .slice(0, 19)
+            .replace("T", " ");
         }
-        
+
         // Format annual turnover
         if (vendor.annual_turnover) {
           vendor.annual_turnover = parseFloat(vendor.annual_turnover);
         }
-        
+
         // Format year of establishment
         if (vendor.year_of_establishment) {
           vendor.year_of_establishment = parseInt(vendor.year_of_establishment);
@@ -7692,11 +8544,10 @@ async function GetVendorDetails(vendorData) {
           returned_count: vendors.length,
           limit: limit,
           offset: offset,
-          vendors: vendors
+          vendors: vendors,
         },
         secret
       );
-
     } catch (er) {
       return helper.getErrorResponse(
         false,
@@ -7744,9 +8595,7 @@ module.exports = {
   ShareFormLink,
   GetFormLinkRequests,
   GetVendorDetails,
-
 };
-
 
 //##################################################################################################################################################################################################
 //##################################################################################################################################################################################################

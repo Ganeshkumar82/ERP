@@ -2240,43 +2240,93 @@ async function getProcesslist(sales) {
       if (querydata.customerid == 0) {
         sql = await db.query(
           `SELECT 
-        sp.cprocess_id processid,
-        (SELECT s1.process_name 
-          FROM salesprocesslist s1 
-          WHERE s1.processid = sp.cprocess_id 
-          ORDER BY s1.cprocess_id ASC 
-          LIMIT 1) AS title,
-        cr.customer_name,
-        DATE_FORMAT(sp.Process_date, '%Y%m%d') AS Process_date,
-        DATEDIFF(CURDATE(), sp.Process_date) AS age_in_days,
-        COUNT(sp.cprocess_id) OVER(PARTITION BY sp.customer_id) AS process_count, 
-        (
-          SELECT JSON_ARRAYAGG(t.TimelineEvent)
-          FROM (
-            SELECT JSON_OBJECT(
-                     'Eventid', s2.cprocess_id,
-                     'Eventname', psl2.Processname,
-                     'feedback', s2.feedback,
-                     'Allowed_process', psl2.Allowed_process,
-                     'pdfpath', s2.salesprocess_path,
-                     'apporvedstatus', s2.Approved_status,
-                     'internalstatus',s2.Internal_approval
-                   ) AS TimelineEvent
-            FROM salesprocesslist s2
-            LEFT JOIN processshowlist psl2 
-              ON psl2.processshowlist_id = s2.process_type
-            WHERE s2.processid = sp.cprocess_id
-            ORDER BY s2.cprocess_id ASC
-          ) t
-        ) AS TimelineEvents 
-    FROM salesprocessmaster sp 
-    JOIN enquirycustomermaster cr ON sp.customer_id = cr.customer_id 
-    LEFT JOIN salesprocesslist s ON s.processid = sp.cprocess_id 
-    LEFT JOIN processshowlist psl ON psl.processshowlist_id = s.process_type 
-    WHERE sp.status = 1 
-    AND sp.active_status = 1 AND sp.archive_status = 0 AND sp.deleted_flag = 0
-    GROUP BY sp.cprocess_id, sp.customer_id, sp.Process_date, cr.customer_name
-    ORDER BY sp.Row_updated_date DESC;
+          sp.cprocess_id processid,
+          (SELECT s1.process_name 
+            FROM salesprocesslist s1 
+            WHERE s1.processid = sp.cprocess_id 
+            ORDER BY s1.cprocess_id ASC 
+            LIMIT 1) AS title,
+          cr.customer_name,
+          DATE_FORMAT(sp.Process_date, '%Y%m%d') AS Process_date,
+          DATEDIFF(CURDATE(), sp.Process_date) AS age_in_days,
+          COUNT(sp.cprocess_id) OVER(PARTITION BY sp.customer_id) AS process_count, 
+          (
+            SELECT JSON_ARRAYAGG(t.TimelineEvent)
+            FROM (
+              SELECT JSON_OBJECT(
+                       'Eventid', s2.cprocess_id,
+                       'Eventname', psl2.Processname,
+                       'feedback', s2.feedback,
+                       'Allowed_process',
+                       CASE WHEN s2.process_type = 2 AND s2.Approved_status = 1 THEN 
+                       (select Allowed_process from
+                       processshowlist where fetch_status = 3 and process_name = 2 LIMIT 1)
+                        
+                       WHEN s2.process_type = 2 AND (s2.Approved_status = 3 OR s2.Approved_status =2 OR s2.Approved_status = 0) AND 
+                       EXISTS (SELECT 1 from salesprocesslist s where s.process_type = 6 AND s.processid = s2.processid) THEN
+                       (select Allowed_process from
+                        processshowlist where fetch_status = 1 and process_name = 2 LIMIT 1) 
+
+                       WHEN s2.process_type = 2 AND (s2.Approved_status = 3 OR s2.Approved_status =2 OR s2.Approved_status = 0) AND 
+                       NOT EXISTS (SELECT 1 from salesprocesslist s where s.process_type = 6 AND s.processid = s2.processid) THEN
+                       (select Allowed_process from processshowlist where fetch_status = 2 and process_name = 2 LIMIT 1)
+
+                       WHEN s2.process_type = 1 THEN
+                       (select Allowed_process from processshowlist where fetch_status = 1 and process_name = 1 LIMIT 1)
+
+                       WHEN s2.process_type = 3 AND s2.Approved_status = 1 THEN
+                       (select Allowed_process from processshowlist where fetch_status = 2 and process_name = 3 LIMIT 1)
+
+                       WHEN s2.process_type = 3 AND (s2.Approved_status = 3 OR s2.Approved_status =2 OR s2.Approved_status = 0) AND 
+                       EXISTS (SELECT 1 from salesprocesslist s where s.process_type = 6 AND s.processid = s2.processid) THEN
+                       (select Allowed_process from processshowlist where fetch_status = 3 and process_name = 3 LIMIT 1)
+
+                       WHEN s2.process_type = 3 AND (s2.Approved_status = 3 OR s2.Approved_status =2 OR s2.Approved_status = 0) AND 
+                       NOT EXISTS (SELECT 1 from salesprocesslist s where s.process_type = 6 AND s.processid = s2.processid) THEN
+                       (select Allowed_process from processshowlist where fetch_status = 1 and process_name = 3 LIMIT 1)
+
+                       WHEN s2.process_type = 4 THEN
+                       (select Allowed_process from processshowlist where fetch_status = 1 and process_name = 4 LIMIT 1)
+                       WHEN s2.process_type = 5 THEN
+                       (select Allowed_process from processshowlist where fetch_status = 1 and process_name = 5 LIMIT 1)
+
+                       WHEN s2.process_type = 6 AND EXISTS (SELECT 1 from salesprocesslist s where s.process_type = 2) THEN
+                       (select Allowed_process from processshowlist where fetch_status = 1 and process_name = 6 LIMIT 1)
+
+                       WHEN s2.process_type = 6 AND not EXISTS (SELECT 1 from salesprocesslist s where s.process_type = 2) THEN
+                       (select Allowed_process from processshowlist where fetch_status = 2 and process_name = 6 LIMIT 1)
+
+                       WHEN s2.process_type = 7 THEN
+                       (select Allowed_process from processshowlist where fetch_status = 1 and process_name = 7 LIMIT 1)
+                       WHEN s2.process_type = 8 THEN
+                       (select Allowed_process from processshowlist where fetch_status = 1 and process_name = 8 LIMIT 1)
+                       WHEN s2.process_type = 9 AND EXISTS (SELECT 1 from salesprocesslist s where s.process_type = 2 AND s.processid = s2.processid) THEN
+                       (select Allowed_process from processshowlist where fetch_status = 1 and process_name = 9 LIMIT 1)
+                       WHEN s2.process_type = 9 AND NOT EXISTS (SELECT 1 from salesprocesslist s where s.process_type = 2 AND s.processid = s2.processid) THEN
+                       (select Allowed_process from processshowlist where fetch_status = 2 and process_name = 9 LIMIT 1)
+                       WHEN s2.process_type = 10 THEN
+                       (select Allowed_process from processshowlist where fetch_status = 1 and process_name = 10 LIMIT 1)
+                       ELSE (select Allowed_process from
+                          processshowlist where fetch_status = 1 AND process_name = 1 LIMIT 1) END,
+                       'pdfpath', s2.salesprocess_path,
+                       'apporvedstatus', s2.Approved_status,
+                       'internalstatus',s2.Internal_approval
+                     ) AS TimelineEvent
+              FROM salesprocesslist s2
+              LEFT JOIN processshowlist psl2 
+                ON psl2.processshowlist_id = s2.process_type
+              WHERE s2.processid = sp.cprocess_id
+              ORDER BY s2.cprocess_id ASC
+            ) t
+          ) AS TimelineEvents 
+      FROM salesprocessmaster sp 
+      JOIN enquirycustomermaster cr ON sp.customer_id = cr.customer_id 
+      LEFT JOIN salesprocesslist s ON s.processid = sp.cprocess_id 
+      LEFT JOIN processshowlist psl ON psl.processshowlist_id = s.process_type 
+      WHERE sp.status = 1 
+      AND sp.active_status = 1 AND sp.archive_status = 0 AND sp.deleted_flag = 0
+      GROUP BY sp.cprocess_id, sp.customer_id, sp.Process_date, cr.customer_name
+      ORDER BY sp.Row_updated_date DESC;
     `
         );
       } else {
@@ -2299,7 +2349,43 @@ async function getProcesslist(sales) {
                    'Eventid', s2.cprocess_id,
                    'Eventname', psl2.Processname,
                    'feedback', s2.feedback,
-                   'Allowed_process', psl2.Allowed_process,
+                   'Allowed_process',
+                   CASE WHEN s2.process_type = 2 AND s2.Approved_status = 1 THEN 
+                   (select Allowed_process from
+                   processshowlist where fetch_status = 2 and process_name = 2 LIMIT 1) 
+                   WHEN s2.process_type = 2 AND (s2.Approved_status = 3 OR s2.Approved_status =2) AND EXISTS (SELECT 1 from salesprocesslist s where s.process_type = 6) THEN
+                   (select Allowed_process from
+                    processshowlist where fetch_status = 3 and process_name = 2 LIMIT 1) 
+                   WHEN s2.process_type = 2 AND (s2.Approved_status = 3 OR s2.Approved_status =2) AND NOT EXISTS (SELECT 1 from salesprocesslist s where s.process_type = 6) THEN
+                   (select Allowed_process from processshowlist where fetch_status = 1 and process_name = 2 LIMIT 1)
+                   WHEN s2.process_type = 1 THEN
+                   (select Allowed_process from processshowlist where fetch_status = 1 and process_name = 1 LIMIT 1)
+                   WHEN s2.process_type = 3 AND s2.Approved_status = 1 THEN
+                   (select Allowed_process from processshowlist where fetch_status = 2 and process_name = 3 LIMIT 1)
+                   WHEN s2.process_type = 3 AND (s2.Approved_status = 3 OR s2.Approved_status =2) AND EXISTS (SELECT 1 from salesprocesslist s where s.process_type = 6) THEN
+                   (select Allowed_process from processshowlist where fetch_status = 3 and process_name = 3 LIMIT 1)
+                   WHEN s2.process_type = 3 AND (s2.Approved_status = 3 OR s2.Approved_status =2) AND NOT EXISTS (SELECT 1 from salesprocesslist s where s.process_type = 6) THEN
+                   (select Allowed_process from processshowlist where fetch_status = 1 and process_name = 3 LIMIT 1)
+                   WHEN s2.process_type = 4 THEN
+                   (select Allowed_process from processshowlist where fetch_status = 1 and process_name = 4 LIMIT 1)
+                   WHEN s2.process_type = 5 THEN
+                   (select Allowed_process from processshowlist where fetch_status = 1 and process_name = 5 LIMIT 1)
+                   WHEN s2.process_type = 6 AND EXISTS (SELECT 1 from salesprocesslist s where s.process_type = 2) THEN
+                   (select Allowed_process from processshowlist where fetch_status = 1 and process_name = 6 LIMIT 1)
+                   WHEN s2.process_type = 6 AND not EXISTS (SELECT 1 from salesprocesslist s where s.process_type = 2) THEN
+                   (select Allowed_process from processshowlist where fetch_status = 2 and process_name = 6 LIMIT 1)
+                   WHEN s2.process_type = 7 THEN
+                   (select Allowed_process from processshowlist where fetch_status = 1 and process_name = 7 LIMIT 1)
+                   WHEN s2.process_type = 8 THEN
+                   (select Allowed_process from processshowlist where fetch_status = 1 and process_name = 8 LIMIT 1)
+                   WHEN s2.process_type = 9 AND EXISTS (SELECT 1 from salesprocesslist s where s.process_type = 2) THEN
+                   (select Allowed_process from processshowlist where fetch_status = 1 and process_name = 9 LIMIT 1)
+                   WHEN s2.process_type = 9 AND NOT EXISTS (SELECT 1 from salesprocesslist s where s.process_type = 2) THEN
+                   (select Allowed_process from processshowlist where fetch_status = 2 and process_name = 9 LIMIT 1)
+                   WHEN s2.process_type = 10 THEN
+                   (select Allowed_process from processshowlist where fetch_status = 1 and process_name = 10 LIMIT 1)
+                   ELSE (select Allowed_process from
+                      processshowlist where fetch_status = 1 AND process_name = 1 LIMIT 1) END,
                    'pdfpath', s2.salesprocess_path,
                    'apporvedstatus', s2.Approved_status,
                    'internalstatus',s2.Internal_approval
@@ -3230,6 +3316,30 @@ async function detailsPreLoader(sales) {
           );
           const objectValue = result1[1][0];
           eventnumber = objectValue["@p_invoice_id"];
+        } else if (querydata.eventtype == "proformainvoice") {
+          product = await db.query(
+            `select product_name productname,product_quantity productquantity,product_hsn producthsn, product_price productprice,product_gst productgst,product_sno productsno,
+            product_total producttotal from quotation_productmaster where process_id IN(select cprocess_id from salesprocesslist where processid In(select processid from salesprocesslist 
+            where cprocess_id in(select cprocess_id from salesprocesslist where Approved_status = 1 and Processid in (select processid from salesprocesslist where cprocess_id = ?) order by cprocess_id DESC ) and 
+            process_type IN (2,3)))`,
+            [querydata.eventid]
+          );
+          if (product.length == 0) {
+            return helper.getErrorResponse(
+              false,
+              "error",
+              "You don't have any approved Quotation. Please approve atleast one quotation",
+              "INVOICE",
+              secret
+            );
+          }
+          customercode = "SSIPL";
+          const [result1] = await db.spcall(
+            `CALL Generate_proformainvoiceid(?,?,@p_invoice_id); select @p_invoice_id`,
+            [userid, customercode]
+          );
+          const objectValue = result1[1][0];
+          eventnumber = objectValue["@p_invoice_id"];
         } else if (querydata.eventtype == "quotation") {
           customercode = "SSIPL";
           const [result1] = await db.spcall(
@@ -3352,19 +3462,6 @@ async function detailsPreLoader(sales) {
         //   );
         // }
         if (querydata.eventtype == "invoice") {
-          if (customercode == "null") {
-            customercode = "SSIPL";
-          }
-          const [result1] = await db.spcall(
-            `CALL Generate_invoiceid(?,?,@p_invoice_id); select @p_invoice_id`,
-            [userid, customercode]
-          );
-          const objectValue = result1[1][0];
-          eventnumber = objectValue["@p_invoice_id"];
-          // product = await db.query(
-          //   `select product_name productname,product_quantity productquantity,product_hsn producthsn, product_price productprice,product_gst productgst,product_sno productsno, product_total producttotal from quotation_productmaster where process_id IN(select cprocess_id from salesprocesslist where processid In(select processid from salesprocesslist where cprocess_id in(?) and approved_status = 1 and process_type IN (2,3)))`,
-          //   [querydata.eventid]
-          // );
           product = await db.query(
             `select product_name productname,product_quantity productquantity,product_hsn producthsn, product_price productprice,product_gst productgst,product_sno productsno,
             product_total producttotal from quotation_productmaster where process_id IN(select cprocess_id from salesprocesslist where processid In(select processid from salesprocesslist 
@@ -3381,6 +3478,43 @@ async function detailsPreLoader(sales) {
               secret
             );
           }
+          if (customercode == "null") {
+            customercode = "SSIPL";
+          }
+          const [result1] = await db.spcall(
+            `CALL Generate_invoiceid(?,?,@p_invoice_id); select @p_invoice_id`,
+            [userid, customercode]
+          );
+          const objectValue = result1[1][0];
+          eventnumber = objectValue["@p_invoice_id"];
+          // product = await db.query(
+          //   `select product_name productname,product_quantity productquantity,product_hsn producthsn, product_price productprice,product_gst productgst,product_sno productsno, product_total producttotal from quotation_productmaster where process_id IN(select cprocess_id from salesprocesslist where processid In(select processid from salesprocesslist where cprocess_id in(?) and approved_status = 1 and process_type IN (2,3)))`,
+          //   [querydata.eventid]
+          // );
+        } else if (querydata.eventtype == "proformainvoice") {
+          product = await db.query(
+            `select product_name productname,product_quantity productquantity,product_hsn producthsn, product_price productprice,product_gst productgst,product_sno productsno,
+            product_total producttotal from quotation_productmaster where process_id IN(select cprocess_id from salesprocesslist where processid In(select processid from salesprocesslist 
+            where cprocess_id in(select cprocess_id from salesprocesslist where Approved_status = 1 and Processid in (select processid from salesprocesslist where cprocess_id = ?) order by cprocess_id DESC ) and 
+            process_type IN (2,3)))`,
+            [querydata.eventid]
+          );
+          if (product.length == 0) {
+            return helper.getErrorResponse(
+              false,
+              "error",
+              "You don't have any approved Quotation. Please approve atleast one quotation",
+              "INVOICE",
+              secret
+            );
+          }
+          customercode = "SSIPL";
+          const [result1] = await db.spcall(
+            `CALL Generate_proformainvoiceid(?,?,@p_invoice_id); select @p_invoice_id`,
+            [userid, customercode]
+          );
+          const objectValue = result1[1][0];
+          eventnumber = objectValue["@p_invoice_id"];
         } else if (querydata.eventtype == "quotation") {
           customercode = "SSIPL";
           const [result1] = await db.spcall(
