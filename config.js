@@ -8,7 +8,6 @@ const config = {
     database: process.env.DB_NAME1,
     connectionLimit: 5000,
     multipleStatements: true,
-    charset: "utf8mb4",
   },
   db1: {
     host: process.env.DB_HOST,
@@ -18,7 +17,6 @@ const config = {
     database: process.env.DB_NAME,
     connectionLimit: 5000,
     multipleStatements: true,
-    charset: "utf8mb4",
   },
   db2: {
     host: process.env.DB_HOST2,
@@ -31,9 +29,9 @@ const config = {
   },
   whatsappip: process.env.WHATSAPP_IP,
   filestorage: `\\\\192.168.0.156\\Backup_ganesh\\invoices`,
-  printpath: `\\\\192.168.0.156\\Venkat\\Print\\New Invoices - print-june`,
-  apiserver: `https://billing.ssipl.org`,
-  apiserver1: `https://billing.ssipl.org`,
+  printpath: `\\\\192.168.0.156\\Venkat\\Print\\New Invoices - print`,
+  apiserver: `http://192.168.0.200:8083`,
+  apiserver1: `http://192.168.0.200:8083`,
   serverurl: process.env.SERVER_URL,
   apikey: process.env.API_KEY,
 };

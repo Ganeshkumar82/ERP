@@ -10,13 +10,20 @@ let isConnected = false;
 let interval = null; // Store interval to prevent duplicate jobs
 
 function connectWebSocket() {
+<<<<<<< HEAD
   socket = new WebSocket("ws://192.168.0.200:9091");
+=======
+  socket = new WebSocket("ws://192.168.0.109:9091");
+>>>>>>> kishore
 
   socket.on("open", () => {
     console.log("Connected to WebSocket server");
     // sendInvoice();
     isConnected = true;
+<<<<<<< HEAD
     ``;
+=======
+>>>>>>> kishore
   });
 
   socket.on("message", async (data) => {
@@ -58,7 +65,11 @@ async function sendInvoice() {
       FROM subscriptionbillmaster sbm
       LEFT JOIN subscriptionbillgenerated sbg
           ON sbm.subscription_billid = sbg.subscription_billid
+<<<<<<< HEAD
       WHERE sbm.Invoice_status = 0 
+=======
+      WHERE sbm.Invoice_status = 0
+>>>>>>> kishore
         AND sbm.status = 1
         AND sbg.subscription_billid IS NULL
         AND sbm.bill_date = (
@@ -171,6 +182,10 @@ async function sendInvoice() {
             AND sbm2.Site_list = sbm.Site_list
             AND DATE_FORMAT(sbm2.bill_date, '%Y-%m') < DATE_FORMAT(sbm.bill_date, '%Y-%m')
         ) AS totalPreviousPendingAmount
+<<<<<<< HEAD
+=======
+
+>>>>>>> kishore
   FROM NumberedInvoices sbm;`);
     // for (let i = 0; i < sql.length; i++) {
     const formattedSql = sql.map((row) => ({
@@ -196,7 +211,11 @@ async function sendInvoice() {
 }
 
 // Cron job to start sending messages every minute after 03:14 AM
+<<<<<<< HEAD
 cron.schedule("34 11 * * *", () => {
+=======
+cron.schedule("34 13 * * *", () => {
+>>>>>>> kishore
   console.log("Cron job started at 07:16 PM");
   sendInvoice();
   // if (interval) {
@@ -209,21 +228,33 @@ cron.schedule("34 11 * * *", () => {
 });
 connectWebSocket();
 
+<<<<<<< HEAD
 cron.schedule("59 10 * * *", () => {
+=======
+cron.schedule("28 12 * * *", () => {
+>>>>>>> kishore
   console.log("Cron for fetching job started at 18:45 PM");
   syncIndividualBills();
 });
 
+<<<<<<< HEAD
 cron.schedule("44 10 * * *", () => {
   console.log("Cron for fetching job started at 18:45 PM");
   syncConsolidatedBills();
 });
 
+=======
+cron.schedule("05 12 * * *", () => {
+  console.log("Cron for fetching job started at 18:45 PM");
+  syncConsolidatedBills();
+});
+>>>>>>> kishore
 async function syncIndividualBills() {
   try {
     const apikey = config.apikey;
 
     // Call stored procedure to get the secret
+<<<<<<< HEAD
     // const [sql] = await db.spcall2(
     //   `CALL SP_SECRET_CHECK(?,@g_apisecret); SELECT @g_apisecret;`,
     //   [apikey]
@@ -235,6 +266,19 @@ async function syncIndividualBills() {
     //   console.error("Invalid secret or API key!");
     //   return;
     // }
+=======
+    const [sql] = await db.spcall2(
+      `CALL SP_SECRET_CHECK(?,@g_apisecret); SELECT @g_apisecret;`,
+      [apikey]
+    );
+    const objectvalue = sql[1][0];
+    const secret = objectvalue["@g_apisecret"];
+
+    if (!secret) {
+      console.error("Invalid secret or API key!");
+      return;
+    }
+>>>>>>> kishore
 
     // Fetch data from source DB
     const rows = await db.query1(`
@@ -346,9 +390,16 @@ CONCAT(
     sct.paid_amount,
     sct.Show_pending,
     sct.TDS_Detection
+<<<<<<< HEAD
 FROM subscriptioncustomertrans sct
 JOIN customermaster cm ON cm.customer_id = sct.customer_id
 JOIN subscriptionmaster sm ON sm.subscription_id = sct.Subscription_id
+=======
+
+FROM subscriptioncustomertrans sct
+JOIN customermaster cm ON cm.customer_id = sct.customer_id
+JOIN subscriptionmaster sm ON sm.subscription_id = sct.Subscription_ID
+>>>>>>> kishore
 JOIN branchmaster bm ON bm.branch_id = sct.branch_id
 WHERE sct.bill_type = 'Individual' AND sct.Billing_Status = 1 AND bm.Site_type = 0
 GROUP BY sct.Relationship_id, sct.branch_id
@@ -572,7 +623,12 @@ HAVING (
   (MAX(sct.billing_plan) = 'Prepaid' AND DAY(CURDATE()) = 1)
   OR
   (MAX(sct.billing_plan) = 'Postpaid' AND CURDATE() = LAST_DAY(CURDATE()))
+<<<<<<< HEAD
     );`);
+=======
+    );
+    `);
+>>>>>>> kishore
 
     // Loop and insert into target DB
     for (const row of rows) {

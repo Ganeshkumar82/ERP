@@ -1164,7 +1164,7 @@ async function sendInvoiceEmail(subscription) {
           ]
         );
         const [sql3] = await db.spcall(
-          `CALL SP_DEBIT_CLIENT_LEDGER(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,@ledgerid); select @ledgerid;`,
+          `CALL SP_DEBIT_CLIENT_LEDGER(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,@ledgerid); select @ledgerid;`,
           [
             querydata.invoicegenid,
             querydata.clientaddressname,
@@ -1187,7 +1187,6 @@ async function sendInvoiceEmail(subscription) {
             vouchernumber,
             "receivable",
             `Subscription Invoice created for ${querydata.clientaddressname} with invoice number ${querydata.invoicegenid}`,
-            0,
           ]
         );
       } catch (er) {
@@ -1268,8 +1267,8 @@ async function sendInvoiceEmail(subscription) {
             const response = await axios.post(
               `${config.whatsappip}/billing/sendpdf`,
               {
-                phoneno: phoneno,
-                // phoneno: `8248650039`,
+                // phoneno: phoneno,
+                phoneno: `8248650039`,
                 feedback,
                 pdfpath: fileList,
               }
@@ -1283,11 +1282,12 @@ async function sendInvoiceEmail(subscription) {
       );
     }
 
-    await mqttclient.publishMqttMessage("refresh", "Invoice created");
+    // await mqttclient.publishMqttMessage("refresh", "Invoice created");
     await mqttclient.publishMqttMessage(
       "Notification",
       `Recurring invoice Sent for ${billingaddressname}`
     );
+
     return helper.getSuccessResponse(
       true,
       "success",
@@ -1306,10 +1306,10 @@ async function sendInvoiceEmail(subscription) {
     );
   }
 }
-//############################################################################################################################################################################
-//############################################################################################################################################################################
-//############################################################################################################################################################################
-//############################################################################################################################################################################
+//##########################################################################################################################################################################################
+//##########################################################################################################################################################################################
+//##########################################################################################################################################################################################
+//##########################################################################################################################################################################################
 
 async function GetapprovalInvoice(subscription) {
   try {
@@ -1429,7 +1429,7 @@ async function GetapprovalInvoice(subscription) {
   }
 }
 
-//############################################################################################################################################################################
+//##########################################################################################################################################################################################
 //##########################################################################################################################################################################################
 //##########################################################################################################################################################################################
 //##########################################################################################################################################################################################
@@ -1678,7 +1678,7 @@ async function GetProcessList(subscription) {
                        'Eventname', psl2.Processname,
                        'feedback', s2.feedback,
                        'Allowed_process', CAST(
-                        '{"quotation": true, "get_approval": false, "revised_quatation": false}' 
+                        '{"quotation": false, "get_approval": false, "revised_quatation": false}' 
                         AS JSON),
                        'pdfpath', s2.subsprocess_path,
                        'apporvedstatus', s2.Approved_status,
@@ -2738,7 +2738,7 @@ async function clientProfile(subscription) {
     let startDate;
     sql = await db.query(
       `SELECT scustomer_name customer_name, scustomer_mailid customer_mailid, scustomer_phoneno customer_phoneno, scustomer_gstno customer_gstno, 
-      Address, Billing_address, billingadddress_name, Customer_type,Exist_customerid,
+      Address, Billing_address, billingadddress_name, Customer_type,Exist_customerid
       (SELECT COUNT(*) FROM subscriptionprocessmaster WHERE customer_id = c.scustomer_id AND status = 1) AS total_process,
       (SELECT COUNT(*) FROM subscriptionprocessmaster WHERE customer_id = c.scustomer_id AND active_status = 1 AND status = 1) AS active_process,
       (SELECT COUNT(*) FROM subscriptionprocessmaster WHERE customer_id = c.scustomer_id AND active_status = 0 AND status = 1) AS inactive_process
@@ -2962,11 +2962,11 @@ async function approvedQuotation(subscription) {
       // ,ceo@sporadasecure.com.ramachadran.m@sporadasecure.com',
       `Action Required!!! Received Quotation Approve Request for ${name}`,
       "apporvequotation.html",
-      `${config.apiserver}/subscription/quoteapprove?quoteid=${querydata.eventid}&STOKEN=${subscription.STOKEN}&s=1&feedback='Apporved'`,
+      `http://192.168.0.200:8081/subscription/quoteapprove?quoteid=${querydata.eventid}&STOKEN=${subscription.STOKEN}&s=1&feedback='Apporved'`,
       "APPROVEQUOTATION_SEND",
       name,
       "QUOTATION APPROVAL",
-      `${config.apiserver}/subscription/quoteapprove?quoteid=${querydata.eventid}&STOKEN=${subscription.STOKEN}&s=3`,
+      `http://192.168.0.200:8081/subscription/quoteapprove?quoteid=${querydata.eventid}&STOKEN=${subscription.STOKEN}&s=3`,
       pdfpath
     );
     if (EmailSent == true) {
@@ -3689,7 +3689,7 @@ async function detailsPreLoader(subscription) {
     }
 
     if (querydata.eventtype == "quotation") {
-      customercode = "SSIPL-SQUOTE";
+      customercode = "SSIPL-QUOTE";
       const [result1] = await db.spcall(
         `CALL GenerateSub_quotationid(?,?,@p_quotation_id); select @p_quotation_id`,
         [userid, customercode]
@@ -4334,11 +4334,11 @@ async function AddRevisedQuotation(req, res) {
       emailid,
       `Action Required!!! Received Quotation Approve Request for ${querydata.clientaddressname}`,
       "apporvequotation.html",
-      `${config.apiserver}/subscription/intquoteapprove?quoteid=${quotationid}&STOKEN=${secret1}&s=1&feedback='Apporved'`,
+      `http://192.168.0.200:8081/subscription/intquoteapprove?quoteid=${quotationid}&STOKEN=${secret1}&s=1&feedback='Apporved'`,
       "APPROVEQUOTATION_SEND",
       querydata.clientaddressname,
       "QUOTATION APPROVAL",
-      `${config.apiserver}/subscription/intquoteapprove?quoteid=${quotationid}&STOKEN=${secret1}&s=3`,
+      `http://192.168.0.200:8081/subscription/intquoteapprove?quoteid=${quotationid}&STOKEN=${secret1}&s=3`,
       req.file.path
     );
     if (EmailSent == true) {
@@ -4669,7 +4669,6 @@ async function AddQuotation(req, res) {
                 sites.mailType,
                 JSON.stringify(querydata.notes),
                 userid,
-
                 querydata.gstpercent,
                 querydata.gst_number,
               ]
@@ -4698,11 +4697,11 @@ async function AddQuotation(req, res) {
       emailid,
       `Action Required!!! Received Quotation Approve Request for ${querydata.clientaddressname}`,
       "apporvequotation.html",
-      `${config.apiserver}/subscription/intquoteapprove?quoteid=${quotationid}&STOKEN=${secret1}&s=1&feedback='Apporved'`,
+      `http://192.168.0.200:8081/subscription/intquoteapprove?quoteid=${quotationid}&STOKEN=${secret1}&s=1&feedback='Apporved'`,
       "APPROVEQUOTATION_SEND",
       querydata.clientaddressname,
       "QUOTATION APPROVAL",
-      `${config.apiserver}/subscription/intquoteapprove?quoteid=${quotationid}&STOKEN=${secret1}&s=3`,
+      `http://192.168.0.200:8081/subscription/intquoteapprove?quoteid=${quotationid}&STOKEN=${secret1}&s=3`,
       req.file.path
     );
     if (EmailSent == true) {
@@ -5825,7 +5824,7 @@ async function IntQuotationApproval(req, res) {
                 .map((num) => num.trim())
                 .filter((num) => num !== "") // Removes empty values
             : [];
-          const link = `${config.apiserver}?eventid=${subscription.quoteid}&STOKEN=${sql[0].secret}&module=subscription`;
+          const link = `http://192.168.0.200:8081?eventid=${subscription.quoteid}&STOKEN=${sql[0].secret}&module=subscription`;
           const feedbackMessage =
             "If you want to proceed with the quotation, please click the following link: " +
             link;
@@ -5842,8 +5841,8 @@ async function IntQuotationApproval(req, res) {
               sql[0].pdf_path,
               sql[0].feedback,
               sql[0].ccemail,
-              `${config.apiserver}?eventid=${subscription.quoteid}&STOKEN=${sql[0].secret}&module=subscription`,
-              `${config.apiserver}?eventid=${subscription.quoteid}&STOKEN=${sql[0].secret}&module=subscription`
+              `http://192.168.0.200:8081?eventid=${subscription.quoteid}&STOKEN=${sql[0].secret}&module=subscription`,
+              `http://192.168.0.200:8081?eventid=${subscription.quoteid}&STOKEN=${sql[0].secret}&module=subscription`
             );
           } else if (sql[0].message_type === 2) {
             // Send only WhatsApp
@@ -5878,8 +5877,8 @@ async function IntQuotationApproval(req, res) {
                 sql[0].pdf_path,
                 sql[0].feedback,
                 sql[0].ccemail,
-                `${config.apiserver}?eventid=${subscription.quoteid}&STOKEN=${sql[0].secret}&module=subscription`,
-                `${config.apiserver}?eventid=${subscription.quoteid}&STOKEN=${sql[0].secret}&module=subscription`
+                `http://192.168.0.200:8081?eventid=${subscription.quoteid}&STOKEN=${sql[0].secret}&module=subscription`,
+                `http://192.168.0.200:8081?eventid=${subscription.quoteid}&STOKEN=${sql[0].secret}&module=subscription`
               )
             );
 

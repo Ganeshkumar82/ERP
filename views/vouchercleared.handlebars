@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <style>
+  body, .body-wrap {
+    width: 100% !important;
+    height: 100%;
+    background-color: #f4f4f4;
+    margin: 0;
+    padding: 0;
+    font-family: Arial, sans-serif;
+  }
+  .container {
+    width: 100%;
+    max-width: 800px;
+    margin: 0 auto;
+    background: #ffffff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.1);
+  }
+  .header {
+    background-color: #71bc37;
+    color: #ffffff;
+    padding: 20px;
+    text-align: center;
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+  }
+  .header h1 {
+    font-size: 24px;
+    margin: 0;
+  }
+  .content {
+    padding: 20px;
+    font-size: 16px;
+    color: #252525;
+  }
+  .content p {
+    margin-bottom: 15px;
+    line-height: 1.6;
+  }
+  .details-table { 
+    width: 100%; 
+    border-collapse: collapse; 
+    margin-top: 20px; 
+  }
+  .details-table td { 
+    padding: 8px; 
+    border-bottom: 1px solid #eee; 
+  }
+  .footer {
+    text-align: center;
+    font-size: 12px;
+    color: #272727;
+    padding: 20px;
+    background-color: #8f3a3a;
+  }
+  .footer a {
+    color: #71bc37;
+    text-decoration: none;
+  }
+  .footer img {
+    margin: 20px auto;
+    width: 150px;
+    height: auto;
+  }
+
+  /* RESPONSIVE STUFF */
+  @media only screen and (max-width: 600px) {
+    .container {
+      padding: 15px !important;
+      box-shadow: none !important;
+      border-radius: 0 !important;
+    }
+    .header, .content, .footer {
+      padding-left: 10px !important;
+      padding-right: 10px !important;
+    }
+    .header h1 {
+      font-size: 20px !important;
+    }
+    .content {
+      font-size: 14px !important;
+      padding: 10px 0 !important;
+    }
+    .details-table td {
+      padding: 6px 4px !important;
+      font-size: 14px !important;
+      display: block;
+      width: 100% !important;
+      box-sizing: border-box;
+      border-bottom: none !important;
+      border-top: 1px solid #eee !important;
+    }
+    .details-table tr {
+      display: block !important;
+      margin-bottom: 10px;
+    }
+    .footer {
+      padding: 15px 10px !important;
+      font-size: 11px !important;
+    }
+    .footer img {
+      width: 120px !important;
+      margin: 15px auto !important;
+    }
+    /* Make sure images don’t overflow */
+    img {
+      max-width: 100% !important;
+      height: auto !important;
+      display: block;
+    }
+  }
+</style>
+
+</head>
+<body>
+  <table class="body-wrap">
+    <tr>
+      <td>
+        <div class="container">
+          <!-- Header -->
+          <div class="header">
+            <h1>Payment Receipt</h1>
+          </div>
+
+          <!-- Content -->
+          <div class="content">
+            <h2>Dear {{name}},</h2>
+            <p>Your invoice has been cleared successfully. Please find the details below:</p>
+
+            <table class="details-table">
+              <tr>
+                <td><strong>Invoice Number:</strong></td>
+                <td>{{invoice_number}}</td>
+              </tr>
+              <tr>
+                <td><strong>Cleared Date:</strong></td>
+                <td>{{cleared_date}}</td>
+              </tr>
+              <tr>
+                <td><strong>Total Amount:</strong></td>
+                <td>{{total_amount}}</td>
+              </tr>
+              {{#if tds_amount}}
+              <tr>
+                <td><strong>TDS Amount:</strong></td>
+                <td>{{tds_amount}}</td>
+              </tr>
+              {{/if}}
+              {{#if gst_amount}}
+              <tr>
+                <td><strong>GST Amount:</strong></td>
+                <td>{{gst_amount}}</td>
+              </tr>
+              {{/if}}
+
+              {{#if cgst_amount}}
+              <tr>
+                <td><strong>CGST Amount:</strong></td>
+                <td>{{cgst_amount}}</td>
+              </tr>
+              {{/if}}
+
+              {{#if sgst_amount}}
+              <tr>
+                <td><strong>SGST Amount:</strong></td>
+                <td>{{sgst_amount}}</td>
+              </tr>
+              {{/if}}
+
+              {{#if igst_amount}}
+              <tr>
+                <td><strong>IGST Amount:</strong></td>
+                <td>{{igst_amount}}</td>
+              </tr>
+              {{/if}}
+            </table>
+          </div>
+
+          <!-- Footer -->
+          <table
+  width="100%"
+  cellpadding="0"
+  cellspacing="0"
+  style="background-color: #fff; border-top: 1px solid #ccc; padding: 20px 0;"
+>
+  <tr>
+    <td
+      align="left"
+      valign="middle"
+      style="padding: 20px; vertical-align: middle;"
+    >
+      <a href="https://www.sporadasecure.com" style="display: block;">
+        <img
+          src="https://sporadasecure.com/sporadalogosqr.gif"
+          alt="Sporada Secure Logo"
+          style="width: 180px; height: auto; display: block;"
+        />
+      </a>
+    </td>
+    <td
+      align="left"
+      valign="middle"
+      style="font-size: 13px; color: #000; font-family: Arial, sans-serif; text-align: left; padding: 20px;"
+    >
+      <p style="margin: 0; font-weight: bold;">Billing Department</p>
+      <p style="margin: 4px 0;">
+        <strong>Sporada Secure India Private Limited</strong><br />
+        687/7, Trichy road, Ramanathapuram, Coimbatore - 641045<br />
+        Tamilnadu, India
+      </p>
+      <p style="margin: 4px 0; white-space: nowrap;">
+        e:
+        <a href="mailto:support@sporadasecure.com"
+          >support@sporadasecure.com</a
+        ><br />
+        w:
+        <a href="https://www.sporadasecure.com" target="_blank"
+          >www.sporadasecure.com</a
+        ><br />
+        m:
+        <span style="white-space: nowrap;">+91-739-975-0001</span> | p:
+        <span style="white-space: nowrap;">+91-422-231-2363</span>
+      </p>
+
+      <p style="margin-top: 10px;">
+        <a href="https://www.facebook.com/sporadabpo"
+          ><img
+            src="https://codetwocdn.azureedge.net/images/mail-signatures/generator-dm/bease-fox/fb.png"
+            alt="Facebook"
+            style="vertical-align: middle; margin-right: 8px;"
+        /></a>
+        <a href="https://x.com/SporadaLtd"
+          ><img
+            src="https://codetwocdn.azureedge.net/images/mail-signatures/generator-dm/bease-fox/tt.png"
+            alt="Twitter"
+            style="vertical-align: middle; margin-right: 8px;"
+        /></a>
+        <a
+          href="https://www.youtube.com/channel/UC0FmshIoi-ur1N4jjVjBTHQ"
+          ><img
+            src="https://codetwocdn.azureedge.net/images/mail-signatures/generator-dm/bease-fox/yt.png"
+            alt="YouTube"
+            style="vertical-align: middle; margin-right: 8px;"
+        /></a>
+        <a href="https://in.linkedin.com/company/sporada-secure"
+          ><img
+            src="https://codetwocdn.azureedge.net/images/mail-signatures/generator-dm/bease-fox/ln.png"
+            alt="LinkedIn"
+            style="vertical-align: middle; margin-right: 8px;"
+        /></a>
+        <a href="https://www.instagram.com/mycompany404/"
+          ><img
+            src="https://codetwocdn.azureedge.net/images/mail-signatures/generator-dm/bease-fox/it.png"
+            alt="Instagram"
+            style="vertical-align: middle;"
+        /></a>
+      </p>
+    </td>
+  </tr>
+</table>
+</body>
+</html>

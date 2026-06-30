@@ -1456,7 +1456,7 @@ async function addInvoice(req, res) {
           ]
         );
         const [sql3] = await db.spcall(
-          `CALL SP_DEBIT_CLIENT_LEDGER(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,@ledgerid); select @ledgerid`,
+          `CALL SP_DEBIT_CLIENT_LEDGER(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,@ledgerid); select @ledgerid`,
           [
             querydata.invoicegenid,
             querydata.clientaddressname,
@@ -1479,7 +1479,6 @@ async function addInvoice(req, res) {
             vouchernumber,
             "receivable",
             `Sales Invoice created for ${querydata.clientaddressname}`,
-            0,
           ]
         );
       }
@@ -1603,390 +1602,6 @@ async function addInvoice(req, res) {
       false,
       "error",
       `Could not add the invoice. ${er.message}`,
-      er.message,
-      secret
-    );
-  }
-}
-//###############################################################################################################################################################################################
-//###############################################################################################################################################################################################
-//####################################################################### REQUEST BODY  #########################################################################################################
-// Image or pdf data for uploading the invoice
-//####################################################################### RESPONSE BODY  ########################################################################################################
-// {"code":true,"message":"Image Upload Successfully","Value":13}
-//###############################################################################################################################################################################################
-//###############################################################################################################################################################################################
-
-async function addProformaInvoice(req, res) {
-  let secret, querydata, sales;
-  try {
-    // Upload File Handling
-    try {
-      await uploadFile.uploadFileProformaInvoice(req, res);
-      sales = req.body;
-
-      // Validate STOKEN
-      if (!sales.STOKEN) {
-        return helper.getErrorResponse(
-          false,
-          "error",
-          "Login session token missing. Please provide the login session token.",
-          "Upload Invoice"
-        );
-      }
-      secret = sales.STOKEN.substring(0, 16);
-
-      if (sales.STOKEN.length > 50 || sales.STOKEN.length < 30) {
-        return helper.getErrorResponse(
-          false,
-          "error",
-          "Login session token size invalid. Please provide a valid session token.",
-          "Upload Invoice",
-          secret
-        );
-      }
-
-      if (!req.file) {
-        return helper.getErrorResponse(
-          false,
-          "error",
-          "Please upload a file!",
-          "ADD INVOICE",
-          secret
-        );
-      }
-    } catch (err) {
-      return helper.getErrorResponse(
-        false,
-        "error",
-        `Could not upload the file. ${err.message}`,
-        err.message,
-        secret
-      );
-    }
-
-    // Validate session token
-    const [result] = await db.spcall(
-      "CALL SP_STOKEN_CHECK(?,@result); SELECT @result;",
-      [sales.STOKEN]
-    );
-    const userid = result[1][0]["@result"];
-
-    if (!userid) {
-      return helper.getErrorResponse(
-        false,
-        "error",
-        "Invalid session token. Please provide a valid session token.",
-        "Upload Invoice"
-      );
-    }
-
-    // Validate QueryString
-    if (!sales.querystring) {
-      return helper.getErrorResponse(
-        false,
-        "error",
-        "Querystring missing. Please provide the querystring.",
-        "Upload Invoice",
-        secret
-      );
-    }
-
-    let querydata;
-    try {
-      querydata = await helper.decrypt(sales.querystring, secret);
-      querydata = JSON.parse(querydata);
-    } catch (ex) {
-      return helper.getErrorResponse(
-        false,
-        "error",
-        "Invalid querystring. Please provide a valid JSON querystring.",
-        "Upload Invoice",
-        secret
-      );
-    }
-
-    // Validate Required Fields
-    const requiredFields = [
-      { field: "title", message: "Title missing." },
-      { field: "processid", message: "Process ID missing." },
-      { field: "phoneno", message: "Contact number missing." },
-      { field: "emailid", message: "Email ID missing." },
-      { field: "ccemail", message: "CC Email ID missing." },
-      { field: "clientaddress", message: "Client address missing." },
-      { field: "gst_number", message: "Client GST number missing." },
-      {
-        field: "billingaddressname",
-        message: "Billing address name missing.",
-      },
-      { field: "billingaddress", message: "Billing address missing." },
-      { field: "clientaddressname", message: "Client address name missing." },
-      { field: "product", message: "Product details missing." },
-      { field: "notes", message: "Product notes missing." },
-      { field: "invoicegenid", message: "Generated Invoice ID missing." },
-      { field: "date", message: "Invoice date missing." },
-      { field: "invoice_amount", message: "Invoice amount missing." },
-      { field: "messagetype", message: "Message type missing." },
-      { field: "feedback", message: "Feedback type missing." },
-      { field: "billdetails", message: "Bill Details missing." },
-    ];
-
-    for (const { field, message } of requiredFields) {
-      if (!querydata.hasOwnProperty(field)) {
-        return helper.getErrorResponse(
-          false,
-          "error",
-          message,
-          "ADD INVOICE",
-          secret
-        );
-      }
-    }
-    var EmailSent;
-    var WhatsappSent;
-    // Insert Invoice
-    const [sql1] = await db.spcall(
-      `CALL SP_ADD_INVOICE(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,@prolistid); SELECT @prolistid;`,
-      [
-        querydata.clientaddressname,
-        querydata.gst_number,
-        userid,
-        querydata.processid,
-        querydata.invoicegenid,
-        10,
-        req.file.path,
-        querydata.clientaddress,
-        querydata.billingaddress,
-        querydata.billingaddressname,
-        querydata.title,
-        querydata.emailid,
-        querydata.ccemail,
-        querydata.phoneno,
-        querydata.invoice_amount,
-        JSON.stringify(querydata.billdetails),
-      ]
-    );
-
-    const invoiceid = sql1[1][0]["@prolistid"];
-    if (!invoiceid) {
-      return helper.getErrorResponse(
-        false,
-        "error",
-        "Error while adding the invoice.",
-        "ADD INVOICE",
-        secret
-      );
-    }
-
-    let Quoteid;
-
-    // Insert Products
-    for (const product of querydata.product) {
-      if (
-        !product.productname ||
-        !product.productquantity ||
-        !product.productgst ||
-        !product.productprice ||
-        !product.producthsn ||
-        !product.productsno ||
-        !product.producttotal
-      ) {
-        return helper.getErrorResponse(
-          false,
-          "error",
-          "Incomplete product details. Provide productname, productquantity, producthsn, productgst, and productprice.",
-          "ADD INVOICE",
-          secret
-        );
-      } else {
-        const [sql2] = await db.spcall(
-          `CALL SP_INVOICE_ADD(?,?,?,?,?,?,?,?,?,?,?,@invid); SELECT @invid;`,
-          [
-            product.productname,
-            product.productquantity,
-            product.productgst,
-            product.productprice,
-            product.producthsn,
-            querydata.invoicegenid,
-            JSON.stringify(querydata.notes),
-            req.file.path,
-            invoiceid,
-            product.productsno,
-            product.producttotal,
-          ]
-        );
-
-        Quoteid = sql2[1][0]["@invid"];
-      }
-    }
-    // Update Invoice Status
-    await db.query(
-      `UPDATE generateproformainvoiceid SET status = 0 WHERE pinvoice_id in(?)`,
-      [querydata.invoicegenid]
-    );
-    try {
-      let billDetails;
-      if (typeof querydata.billdetails === "string") {
-        billDetails = JSON.parse(querydata.billdetails);
-      } else {
-        billDetails = querydata.billdetails;
-      }
-      const { gst, subtotal, total, tdsamount } = billDetails;
-      const { CGST, IGST, SGST } = gst;
-      const sq1 = await db.query(
-        `select customer_id from salesprocessmaster where cprocess_id = ?`,
-        [querydata.processid]
-      );
-      if (sq1.length > 0) {
-        const customerid = sq1[0].customer_id;
-        const [sql2] = await db.spcall(
-          `CALL InsertClientVoucher(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,@voucher_id,@voucher_number); select @voucher_id,@voucher_number`,
-          [
-            querydata.invoicegenid,
-            "receipt voucher",
-            querydata.clientaddressname,
-            querydata.emailid,
-            querydata.phoneno,
-            querydata.clientaddressname,
-            querydata.clientaddress,
-            JSON.stringify(querydata.billdetails),
-            querydata.gst_number,
-            total,
-            subtotal,
-            IGST,
-            CGST,
-            SGST,
-            "sales",
-            `SA-${customerid}`,
-            `Sales Invoice created for ${querydata.clientaddressname}`,
-            null,
-          ]
-        );
-        const objectvalue = sql2[1][0];
-        const voucherid = objectvalue["@voucher_id"];
-        const vouchernumber = objectvalue["@voucher_number"];
-        var paymentdetails = [];
-      }
-    } catch (er) {
-      console.log(`Invoice number not exits ${er.message}`);
-    }
-    const promises = [];
-    const phoneNumbers = querydata.phoneno
-      ? querydata.phoneno
-          .split(",")
-          .map((num) => num.trim())
-          .filter((num) => num !== "") // Removes empty values
-      : [];
-    // Send Email or WhatsApp Message
-    if (querydata.messagetype === 1) {
-      // Send only email
-      EmailSent = await mailer.sendInvoice(
-        querydata.clientaddressname,
-        querydata.emailid,
-        "Your invoice from Sporada Secure India Private Limited",
-        "invoicepdf.html",
-        ``,
-        "INVOICE_PDF_SEND",
-        req.file.path,
-        querydata.invoicegenid,
-        querydata.date,
-        querydata.invoice_amount,
-        querydata.ccemail,
-        querydata.feedback
-      );
-    } else if (querydata.messagetype === 2) {
-      // Send only WhatsApp
-      WhatsappSent = await Promise.all(
-        phoneNumbers.map(async (number) => {
-          try {
-            const response = await axios.post(
-              `${config.whatsappip}/billing/sendpdf`,
-              {
-                phoneno: number,
-                feedback: querydata.feedback,
-                pdfpath: req.file.path,
-              }
-            );
-            return response.data.code;
-          } catch (error) {
-            console.error(`WhatsApp Error for ${number}:`, error.message);
-            return false;
-          }
-        })
-      );
-    } else if (querydata.messagetype === 3) {
-      // Send both email & WhatsApp in parallel
-      promises.push(
-        mailer.sendInvoice(
-          querydata.clientaddressname,
-          querydata.emailid,
-          "Your invoice from Sporada Secure India Private Limited",
-          "invoicepdf.html",
-          ``,
-          "INVOICE_PDF_SEND",
-          req.file.path,
-          querydata.invoicegenid,
-          querydata.date,
-          querydata.invoice_amount,
-          querydata.ccemail,
-          querydata.feedback
-        )
-      );
-
-      promises.push(
-        Promise.all(
-          phoneNumbers.map(async (number) => {
-            try {
-              const response = await axios.post(
-                `${config.whatsappip}/billing/sendpdf`,
-                {
-                  phoneno: number,
-                  feedback: querydata.feedback,
-                  pdfpath: req.file.path,
-                }
-              );
-              return response.data.code;
-            } catch (error) {
-              console.error(`WhatsApp Error for ${number}:`, error.message);
-              return false;
-            }
-          })
-        ).then((results) => (WhatsappSent = results))
-      );
-
-      // Run both requests in parallel and wait for completion
-      [EmailSent] = await Promise.all(promises);
-    }
-    // Insert MOR Upload Entry
-    // await db.query(
-    //   `INSERT INTO morupload (MOR_path, Created_by, Email_sent) VALUES (?, ?, ?)`,
-    //   [req.file.path, userid, WhatsappSent]
-    // );
-    await mqttclient.publishMqttMessage(
-      "Notification",
-      "Proforma invoice sent Successfully for " + querydata.clientaddressname
-    );
-    await mqttclient.publishMqttMessage(
-      "refresh",
-      "Proforma invoice sent Successfully for " + querydata.clientaddressname
-    );
-    return helper.getSuccessResponse(
-      true,
-      "success",
-      "Proforma invoice added successfully",
-      {
-        invoiceid: Quoteid,
-        EmailSent: EmailSent,
-        WhatsappSent: WhatsappSent,
-        filepath: req.file.path,
-      },
-      secret
-    );
-  } catch (er) {
-    return helper.getErrorResponse(
-      false,
-      "error",
-      `Could not add the proforma invoice. ${er.message}`,
       er.message,
       secret
     );
@@ -2200,7 +1815,7 @@ async function addCustomInvoice(req, res) {
     } else if (querydata.messagetype === 3) {
       // Send both email & WhatsApp in parallel
       promises.push(
-        mailer.sendInvoice(
+        mailer.sendQuotation(
           querydata.clientaddressname,
           querydata.emailid,
           "Your invoice from Sporada Secure India Private Limited",
@@ -2210,8 +1825,7 @@ async function addCustomInvoice(req, res) {
           req.file.path,
           querydata.invoicegenid,
           querydata.date,
-          querydata.invoice_amount,
-          querydata.ccemail
+          querydata.invoice_amount
         )
       );
 
@@ -2676,10 +2290,10 @@ async function getProcesslist(sales) {
                        WHEN s2.process_type = 5 THEN
                        (select Allowed_process from processshowlist where fetch_status = 1 and process_name = 5 LIMIT 1)
 
-                       WHEN s2.process_type = 6 AND EXISTS (SELECT 1 from salesprocesslist s where s.process_type = 2 AND s.processid = s2.processid) THEN
+                       WHEN s2.process_type = 6 AND EXISTS (SELECT 1 from salesprocesslist s where s.process_type = 2) THEN
                        (select Allowed_process from processshowlist where fetch_status = 1 and process_name = 6 LIMIT 1)
 
-                       WHEN s2.process_type = 6 AND not EXISTS (SELECT 1 from salesprocesslist s where s.process_type = 2 AND s.processid = s2.processid) THEN
+                       WHEN s2.process_type = 6 AND not EXISTS (SELECT 1 from salesprocesslist s where s.process_type = 2) THEN
                        (select Allowed_process from processshowlist where fetch_status = 2 and process_name = 6 LIMIT 1)
 
                        WHEN s2.process_type = 7 THEN
@@ -2738,49 +2352,35 @@ async function getProcesslist(sales) {
                    'Allowed_process',
                    CASE WHEN s2.process_type = 2 AND s2.Approved_status = 1 THEN 
                    (select Allowed_process from
-                   processshowlist where fetch_status = 3 and process_name = 2 LIMIT 1)
-                    
-                   WHEN s2.process_type = 2 AND (s2.Approved_status = 3 OR s2.Approved_status =2 OR s2.Approved_status = 0) AND 
-                   EXISTS (SELECT 1 from salesprocesslist s where s.process_type = 6 AND s.processid = s2.processid) THEN
+                   processshowlist where fetch_status = 2 and process_name = 2 LIMIT 1) 
+                   WHEN s2.process_type = 2 AND (s2.Approved_status = 3 OR s2.Approved_status =2) AND EXISTS (SELECT 1 from salesprocesslist s where s.process_type = 6) THEN
                    (select Allowed_process from
-                    processshowlist where fetch_status = 1 and process_name = 2 LIMIT 1) 
-
-                   WHEN s2.process_type = 2 AND (s2.Approved_status = 3 OR s2.Approved_status =2 OR s2.Approved_status = 0) AND 
-                   NOT EXISTS (SELECT 1 from salesprocesslist s where s.process_type = 6 AND s.processid = s2.processid) THEN
-                   (select Allowed_process from processshowlist where fetch_status = 2 and process_name = 2 LIMIT 1)
-
+                    processshowlist where fetch_status = 3 and process_name = 2 LIMIT 1) 
+                   WHEN s2.process_type = 2 AND (s2.Approved_status = 3 OR s2.Approved_status =2) AND NOT EXISTS (SELECT 1 from salesprocesslist s where s.process_type = 6) THEN
+                   (select Allowed_process from processshowlist where fetch_status = 1 and process_name = 2 LIMIT 1)
                    WHEN s2.process_type = 1 THEN
                    (select Allowed_process from processshowlist where fetch_status = 1 and process_name = 1 LIMIT 1)
-
                    WHEN s2.process_type = 3 AND s2.Approved_status = 1 THEN
                    (select Allowed_process from processshowlist where fetch_status = 2 and process_name = 3 LIMIT 1)
-
-                   WHEN s2.process_type = 3 AND (s2.Approved_status = 3 OR s2.Approved_status =2 OR s2.Approved_status = 0) AND 
-                   EXISTS (SELECT 1 from salesprocesslist s where s.process_type = 6 AND s.processid = s2.processid) THEN
+                   WHEN s2.process_type = 3 AND (s2.Approved_status = 3 OR s2.Approved_status =2) AND EXISTS (SELECT 1 from salesprocesslist s where s.process_type = 6) THEN
                    (select Allowed_process from processshowlist where fetch_status = 3 and process_name = 3 LIMIT 1)
-
-                   WHEN s2.process_type = 3 AND (s2.Approved_status = 3 OR s2.Approved_status =2 OR s2.Approved_status = 0) AND 
-                   NOT EXISTS (SELECT 1 from salesprocesslist s where s.process_type = 6 AND s.processid = s2.processid) THEN
+                   WHEN s2.process_type = 3 AND (s2.Approved_status = 3 OR s2.Approved_status =2) AND NOT EXISTS (SELECT 1 from salesprocesslist s where s.process_type = 6) THEN
                    (select Allowed_process from processshowlist where fetch_status = 1 and process_name = 3 LIMIT 1)
-
                    WHEN s2.process_type = 4 THEN
                    (select Allowed_process from processshowlist where fetch_status = 1 and process_name = 4 LIMIT 1)
                    WHEN s2.process_type = 5 THEN
                    (select Allowed_process from processshowlist where fetch_status = 1 and process_name = 5 LIMIT 1)
-
-                   WHEN s2.process_type = 6 AND EXISTS (SELECT 1 from salesprocesslist s where s.process_type = 2 AND s.processid = s2.processid) THEN
-                   (select Allowed_process from processshowlist where fetch_status = 2 and process_name = 6 LIMIT 1)
-
-                   WHEN s2.process_type = 6 AND not EXISTS (SELECT 1 from salesprocesslist s where s.process_type = 2 AND s.processid = s2.processid) THEN
+                   WHEN s2.process_type = 6 AND EXISTS (SELECT 1 from salesprocesslist s where s.process_type = 2) THEN
                    (select Allowed_process from processshowlist where fetch_status = 1 and process_name = 6 LIMIT 1)
-
+                   WHEN s2.process_type = 6 AND not EXISTS (SELECT 1 from salesprocesslist s where s.process_type = 2) THEN
+                   (select Allowed_process from processshowlist where fetch_status = 2 and process_name = 6 LIMIT 1)
                    WHEN s2.process_type = 7 THEN
                    (select Allowed_process from processshowlist where fetch_status = 1 and process_name = 7 LIMIT 1)
                    WHEN s2.process_type = 8 THEN
                    (select Allowed_process from processshowlist where fetch_status = 1 and process_name = 8 LIMIT 1)
-                   WHEN s2.process_type = 9 AND EXISTS (SELECT 1 from salesprocesslist s where s.process_type = 2 AND s.processid = s2.processid) THEN
+                   WHEN s2.process_type = 9 AND EXISTS (SELECT 1 from salesprocesslist s where s.process_type = 2) THEN
                    (select Allowed_process from processshowlist where fetch_status = 1 and process_name = 9 LIMIT 1)
-                   WHEN s2.process_type = 9 AND NOT EXISTS (SELECT 1 from salesprocesslist s where s.process_type = 2 AND s.processid = s2.processid) THEN
+                   WHEN s2.process_type = 9 AND NOT EXISTS (SELECT 1 from salesprocesslist s where s.process_type = 2) THEN
                    (select Allowed_process from processshowlist where fetch_status = 2 and process_name = 9 LIMIT 1)
                    WHEN s2.process_type = 10 THEN
                    (select Allowed_process from processshowlist where fetch_status = 1 and process_name = 10 LIMIT 1)
@@ -2811,7 +2411,6 @@ async function getProcesslist(sales) {
       }
     }
     if (sql[0]) {
-      // console.log(JSON.stringify(sql));
       return helper.getSuccessResponse(
         true,
         "success",
@@ -3694,17 +3293,11 @@ async function detailsPreLoader(sales) {
 
       if (customertype == 1) {
         if (querydata.eventtype == "invoice") {
-          // product = await db.query(
-          //   `select product_name productname,product_quantity productquantity,product_hsn producthsn, product_price productprice,product_gst productgst,product_sno productsno,
-          //   product_total producttotal from quotation_productmaster where process_id IN(select cprocess_id from salesprocesslist where processid In(select processid from salesprocesslist
-          //   where cprocess_id in(select cprocess_id from salesprocesslist where Approved_status = 1 and Processid in (select processid from salesprocesslist where cprocess_id = ?) order by
-          //   cprocess_id DESC ) and
-          //   process_type IN (2,3)))`,
-          //   [querydata.eventid]
-          // );
           product = await db.query(
             `select product_name productname,product_quantity productquantity,product_hsn producthsn, product_price productprice,product_gst productgst,product_sno productsno,
-            product_total producttotal from quotation_productmaster where process_id IN(select cprocess_id from salesprocesslist where cprocess_id = ? and process_type IN (2,3) and approved_status = 1) and status =1  order by productsno`,
+            product_total producttotal from quotation_productmaster where process_id IN(select cprocess_id from salesprocesslist where processid In(select processid from salesprocesslist 
+            where cprocess_id in(select cprocess_id from salesprocesslist where Approved_status = 1 and Processid in (select processid from salesprocesslist where cprocess_id = ?) order by cprocess_id DESC ) and 
+            process_type IN (2,3)))`,
             [querydata.eventid]
           );
           if (product.length == 0) {
@@ -3726,7 +3319,9 @@ async function detailsPreLoader(sales) {
         } else if (querydata.eventtype == "proformainvoice") {
           product = await db.query(
             `select product_name productname,product_quantity productquantity,product_hsn producthsn, product_price productprice,product_gst productgst,product_sno productsno,
-            product_total producttotal from quotation_productmaster where process_id IN(select cprocess_id from salesprocesslist where cprocess_id = ? and process_type IN (2,3) and approved_status = 1) and status =1 order by productsno`,
+            product_total producttotal from quotation_productmaster where process_id IN(select cprocess_id from salesprocesslist where processid In(select processid from salesprocesslist 
+            where cprocess_id in(select cprocess_id from salesprocesslist where Approved_status = 1 and Processid in (select processid from salesprocesslist where cprocess_id = ?) order by cprocess_id DESC ) and 
+            process_type IN (2,3)))`,
             [querydata.eventid]
           );
           if (product.length == 0) {
@@ -3806,22 +3401,6 @@ async function detailsPreLoader(sales) {
           );
           const objectValue = result1[1][0];
           eventnumber = objectValue["@p_rfq_id"];
-        } else if (querydata.eventtype == "revisedrequestforquotation") {
-          const sql = await db.query(
-            `select cprocess_gene_id from salesprocesslist where processid IN ( SELECT processid FROM salesprocesslist WHERE cprocess_id = ?) 
-            AND process_type IN(2,3) ORDER BY Row_updated_date DESC LIMIT 1`,
-            [querydata.eventid]
-          );
-          var ccode = `SSIPL-RRFQ/`;
-          if (sql.length > 0) {
-            ccode = sql[0].cprocess_gene_id;
-          }
-          const [result1] = await db.spcall(
-            `CALL Generate_rrfq(?,?,@p_rfq_id); select @p_rfq_id`,
-            [userid, ccode]
-          );
-          const objectValue = result1[1][0];
-          eventnumber = objectValue["@p_rfq_id"];
         } else if (querydata.eventtype == "debitnote") {
           const [result] = await db.query(
             `CALL Generate_debitnote(?,@p_debitnote_id); select @p_debitnote_id`,
@@ -3885,7 +3464,9 @@ async function detailsPreLoader(sales) {
         if (querydata.eventtype == "invoice") {
           product = await db.query(
             `select product_name productname,product_quantity productquantity,product_hsn producthsn, product_price productprice,product_gst productgst,product_sno productsno,
-            product_total producttotal from quotation_productmaster where process_id IN(select cprocess_id from salesprocesslist where cprocess_id = ? and process_type IN (2,3) and approved_status = 1) and status =1 order by productsno`,
+            product_total producttotal from quotation_productmaster where process_id IN(select cprocess_id from salesprocesslist where processid In(select processid from salesprocesslist 
+            where cprocess_id in (select cprocess_id from salesprocesslist where Approved_status = 1 and Processid in (select processid from salesprocesslist where cprocess_id = ?) order by cprocess_id DESC) and 
+            process_type IN (2,3)))`,
             [querydata.eventid]
           );
           if (product.length == 0) {
@@ -3913,7 +3494,9 @@ async function detailsPreLoader(sales) {
         } else if (querydata.eventtype == "proformainvoice") {
           product = await db.query(
             `select product_name productname,product_quantity productquantity,product_hsn producthsn, product_price productprice,product_gst productgst,product_sno productsno,
-            product_total producttotal from quotation_productmaster where process_id IN(select cprocess_id from salesprocesslist where cprocess_id = ? and process_type IN (2,3) and approved_status = 1) and status =1 order by productsno`,
+            product_total producttotal from quotation_productmaster where process_id IN(select cprocess_id from salesprocesslist where processid In(select processid from salesprocesslist 
+            where cprocess_id in(select cprocess_id from salesprocesslist where Approved_status = 1 and Processid in (select processid from salesprocesslist where cprocess_id = ?) order by cprocess_id DESC ) and 
+            process_type IN (2,3)))`,
             [querydata.eventid]
           );
           if (product.length == 0) {
@@ -3994,22 +3577,6 @@ async function detailsPreLoader(sales) {
           );
           const objectValue = result1[1][0];
           eventnumber = objectValue["@p_rfq_id"];
-        } else if (querydata.eventtype == "revisedrequestforquotation") {
-          const sql = await db.query(
-            `select cprocess_gene_id from salesprocesslist where processid IN ( SELECT processid FROM salesprocesslist WHERE cprocess_id = ?) 
-            AND process_type IN(2,3) ORDER BY Row_updated_date DESC LIMIT 1`,
-            [querydata.eventid]
-          );
-          var ccode = `SSIPL-RFQ/`;
-          if (sql.length > 0) {
-            ccode = sql[0].cprocess_gene_id;
-          }
-          const [result1] = await db.spcall(
-            `CALL Generate_rrfq(?,?,@p_rfq_id); select @p_rfq_id`,
-            [userid, ccode]
-          );
-          const objectValue = result1[1][0];
-          eventnumber = objectValue["@p_rfq_id"];
         } else if (querydata.eventtype == "debitnote") {
           const [result] = await db.query(
             `CALL Generate_debitnote(?,@p_debitnote_id); select @p_debitnote_id`,
@@ -4072,9 +3639,6 @@ async function detailsPreLoader(sales) {
           client_addressname: client_addressname,
           product: product,
           invoice_number: invoice_number,
-          fromaddress_name: "SPORADA SECURE INDIA PVT LTD",
-          from_address:
-            "87/7, 3RD FLOOR, SAKTHIVEL TOWERS, TRICHY ROAD, RAMANATHAPURAM, COIMBATORE - 641045",
         },
         secret
       );
@@ -11151,7 +10715,7 @@ async function IntQuotationApproval(req, res) {
       WHERE q.status = 1 AND q.process_id = ? AND a.status = 1;`,
       [sales.quoteid]
     );
-    const link = `${apiserver1}?eventid=${sales.quoteid}&STOKEN=${sql[0].secret}&module=sales`;
+    const link = `${apiserver1}?eventid=${sales.quoteid}&STOKEN=${sql[0].secret1}&module=sales`;
     const feedbackMessage =
       "If you want to proceed with the quotation, please click the following link: " +
       link;
@@ -11889,7 +11453,6 @@ module.exports = {
   UpdateenqCustomer,
   uploadMor,
   addInvoice,
-  addProformaInvoice,
   addCustomInvoice,
   uploadCustomerReq,
   uploadQuotatation,

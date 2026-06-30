@@ -1519,17 +1519,17 @@ async function OrgList(admin) {
         );
       }
       sql = await db.query1(
-        `SELECT Organization_id,Organization_name,orgcode from organizations where status = 1 and deleted_flag =0 and site_type = 0 `
+        `SELECT Organization_id,Organization_name,orgcode from organizations where status = 1 and deleted_flag =0 `
       );
       sql = await db.query1(
-        `SELECT Organization_id,Organization_name,orgcode from organizations where status = 1 and deleted_flag =0 and site_type = 0 `
+        `SELECT Organization_id,Organization_name,orgcode from organizations where status = 1 and deleted_flag =0 `
       );
     } else {
       sql = await db.query1(
-        `SELECT Organization_id,Organization_name,orgcode from organizations where status = 1 and deleted_flag =0 and site_type = 0 `
+        `SELECT Organization_id,Organization_name,orgcode from organizations where status = 1 and deleted_flag =0 `
       );
       sql = await db.query1(
-        `SELECT Organization_id,Organization_name,orgcode from organizations where status = 1 and deleted_flag =0 and site_type = 0`
+        `SELECT Organization_id,Organization_name,orgcode from organizations where status = 1 and deleted_flag =0 `
       );
     }
     if (sql[0]) {
@@ -1766,22 +1766,20 @@ async function GetCompany(admin) {
         );
       }
       if (
-        querydata.hasOwnProperty("organizationid") != false &&
-        querydata.organizationid != 0 &&
-        querydata.organizationid != null
+        querydata.hasOwnProperty("organizationid") == false &&
+        querydata.organizationid != 0
       ) {
         sql = await db.query1(
-          `select customer_id companyid,customer_name companyname,Email_id emailid,customer_name client_addressname,address client_address,customer_name billing_addressname,billing_address, contact_no contactnumber,gst_number from customermaster where status =1 and deleted_flag =0 and Organization_id = ? and site_type = 0`,
-          [querydata.organizationid]
-        );
-      } else {
-        sql = await db.query1(
-          `select customer_id companyid,customer_name companyname,Email_id emailid,customer_name client_addressname,address client_address,customer_name billing_addressname,billing_address, contact_no contactnumber,gst_number from customermaster where status =1 and deleted_flag =0 and site_type = 0`
+          `select customer_id companyid,customer_name companyname,Email_id emailid,customer_name client_addressname,address client_address,customer_name billing_addressname,billing_address, contact_no contactnumber,gst_number from customermaster where status =1 and deleted_flag =0`
         );
       }
+      sql = await db.query1(
+        `select customer_id companyid,customer_name companyname,Email_id emailid,customer_name client_addressname,address client_address,customer_name billing_addressname,billing_address, contact_no contactnumber,gst_number from customermaster where status =1 and deleted_flag =0 and Organization_id = ?`,
+        [querydata.organizationid]
+      );
     } else {
       sql = await db.query1(
-        `select customer_id companyid,customer_name companyname,Email_id emailid,customer_name client_addressname,address client_address,customer_name billing_addressname,billing_address, contact_no contactnumber,gst_number from customermaster where status =1 and deleted_flag =0 and site_type = 0`
+        `select customer_id companyid,customer_name companyname,Email_id emailid,customer_name client_addressname,address client_address,customer_name billing_addressname,billing_address, contact_no contactnumber,gst_number from customermaster where status =1 and deleted_flag =0`
       );
     }
 
@@ -1798,7 +1796,7 @@ async function GetCompany(admin) {
         true,
         "success",
         "Customer Fetched Successfully",
-        sql,
+        { Live: sql, Demo: sql1 },
         secret
       );
     }
@@ -4342,126 +4340,6 @@ async function DeleteSubscription(admin) {
     );
   }
 }
-//###############################################################################################################################################################################################
-//###############################################################################################################################################################################################
-//###############################################################################################################################################################################################
-//###############################################################################################################################################################################################
-async function Site(payload) {
-  let secret = null;
-  let querydata;
-
-  try {
-    /* ===============================
-       Session Token Validation
-    =============================== */
-
-    if (!payload.STOKEN) {
-      return helper.getErrorResponse(
-        false,
-        "error",
-        "Login Sessiontoken Missing",
-        "",
-        ""
-      );
-    }
-
-    if (payload.STOKEN.length < 16) {
-      return helper.getErrorResponse(
-        false,
-        "error",
-        "Invalid Sessiontoken size",
-        "",
-        ""
-      );
-    }
-
-    secret = payload.STOKEN.substring(0, 16);
-
-    /* ===============================
-       Querystring Validation
-    =============================== */
-
-    if (!payload.querystring || payload.querystring === "") {
-      return helper.getErrorResponse(
-        false,
-        "error",
-        "Querystring Missing",
-        "",
-        secret
-      );
-    }
-
-    try {
-      querydata = await helper.decrypt(payload.querystring, secret);
-      querydata = JSON.parse(querydata);
-    } catch (er) {
-      return helper.getErrorResponse(
-        false,
-        "error",
-        "Invalid Querystring",
-        "",
-        secret
-      );
-    }
-
-    /* ===============================
-       Input Extraction
-    =============================== */
-
-    const customerid = querydata.customerid ?? null;
-
-    /* ===============================
-       Database Call (MySQL)
-    =============================== */
-
-    let query = `
-      SELECT DISTINCT branch_id, branch_name 
-      FROM branchmaster 
-      WHERE status = 1 AND deleted_flag = 0
-    `;
-
-    let params = [];
-
-    if (customerid && customerid != 0) {
-      query += ` AND customer_id = ?`;
-      params.push(customerid);
-    }
-
-    const rows = await db.query1(query, params);
-
-    /* ===============================
-       Response Handling
-    =============================== */
-
-    if (!rows || rows.length === 0) {
-      return helper.getSuccessResponse(
-        true,
-        "success",
-        "No data found",
-        [],
-        secret
-      );
-    }
-
-    return helper.getSuccessResponse(
-      true,
-      "success",
-      "Site list fetched successfully",
-      rows,
-      secret
-    );
-  } catch (er) {
-    console.error("Sitelist Error:", er);
-
-    return helper.getErrorResponse(
-      false,
-      "error",
-      "Internal server error",
-      er.message,
-      secret
-    );
-  }
-}
 
 module.exports = {
   GetCustomerDetails,
@@ -4487,5 +4365,4 @@ module.exports = {
   SendPdf,
   UpdateSubscription,
   DeleteSubscription,
-  Site,
 };

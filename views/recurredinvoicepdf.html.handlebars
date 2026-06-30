@@ -1,0 +1,306 @@
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Your Invoice from Sporada Secure</title>
+  <style type="text/css">
+    body,
+    .body-wrap {
+      width: 100% !important;
+      height: 100%;
+      background-color:
+        #f4f4f4;
+      margin: 0;
+      padding: 0;
+      font-family: Arial, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      text-rendering: optimizeLegibility;
+    }
+
+    table {
+      border-collapse: collapse;
+    }
+
+    table td {
+      border-collapse: collapse;
+    }
+
+    img {
+      max-width: 100%;
+      height:
+        auto;
+      border: 0;
+      line-height: 100%;
+      outline: none;
+      text-decoration: none;
+    }
+
+    a {
+      color: #71bc37;
+      text-decoration: none;
+    }
+
+    .container {
+      display: block !important;
+      max-width: 600px !important;
+      margin: 0 auto !important;
+      clear:
+        both !important;
+    }
+
+    .body-wrap {
+      padding: 20px;
+    }
+
+    .header {
+      background-color: #71bc37;
+      color: #ffffff;
+      padding: 20px;
+      text-align:
+        center;
+      border-top-left-radius: 8px;
+      border-top-right-radius: 8px;
+    }
+
+    .header h1 {
+      font-size: 24px;
+      margin: 0;
+      line-height: 1.4;
+    }
+
+    .content {
+      background: #ffffff;
+      padding: 20px;
+      font-size: 16px;
+      color: #333333;
+    }
+
+    .content p {
+      margin-bottom: 15px;
+      line-height: 1.6;
+    }
+
+    .invoice-details {
+      background: #f9f9f9;
+      padding: 15px;
+      border-radius: 6px;
+      margin: 20px 0;
+    }
+
+    .invoice-details p {
+      margin: 5px 0;
+      font-size: 14px;
+    }
+
+    .footer {
+      clear:
+        both;
+      width: 100%;
+      text-align: left;
+      font-size: 12px;
+      color: #000;
+      padding: 20px 0;
+      background-color: #fff;
+      border-top: 1px solid #ccc;
+    }
+
+    .footer a {
+      color: #71bc37;
+      text-decoration: none;
+    }
+
+    .footer img.social-icon {
+      vertical-align: middle;
+      width: 24px;
+      height: 24px;
+      margin-right: 8px;
+    }
+
+    @media only screen and (max-width: 600px) {
+      .body-wrap {
+        padding: 10px;
+      }
+
+      .container {
+        width: 100% !important;
+        padding: 15px !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+      }
+
+      .header {
+        padding: 15px !important;
+        border-top-left-radius:
+          0 !important;
+        border-top-right-radius: 0 !important;
+      }
+
+      .header h1 {
+        font-size: 20px !important;
+      }
+
+      .content {
+        padding: 15px !important;
+        font-size: 14px !important;
+      }
+
+      .content p {
+        margin-bottom: 10px !important;
+        line-height: 1.5 !important;
+      }
+
+      .invoice-details {
+        padding: 10px !important;
+        margin: 15px 0 !important;
+      }
+
+      .invoice-details p {
+        font-size:
+          13px !important;
+        margin: 3px 0 !important;
+      }
+
+      .footer {
+        padding: 15px 0 !important;
+        text-align: center !important;
+      }
+
+      .footer table {
+        width: 100% !important;
+      }
+
+      .footer td {
+        display: block !important;
+        width: 100% !important;
+        text-align: center !important;
+        padding-bottom: 10px !important;
+      }
+
+      .footer td:last-child {
+        padding-bottom: 0 !important;
+      }
+      .site-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: table; 
+}
+.site-list li {
+  display: table-row;
+  counter-increment: site;
+  padding: 4px 0; 
+}
+.site-list li::before {
+  content: counter(site) ". ";
+  display: table-cell;
+  text-align: right;     
+  padding-right: 0.5em;  
+  width: 1.5em;          
+}
+.site-list li > * {
+  display: table-cell;
+}
+    }
+  </style>
+</head>
+
+<body>
+  <table class="body-wrap" width="100%" cellpadding="0" cellspacing="0">
+    <tr>
+      <td></td>
+      <td class="container" align="center" valign="top">
+        <div class="header">
+          <h1>Your Invoice from Sporada Secure</h1>
+        </div>
+
+        <div class="content">
+          <p style="text-align: left; margin: 0 0 15px 0;">
+            Dear
+            <strong>{{name}}</strong>,
+          </p>
+          {{#if notes}}
+          <p style="color: red; text-align: left;"><strong>NOTE:
+              {{notes}}</strong></p>
+          {{/if}}
+          <p style="text-align: left;">
+            This is an invoice for your service from
+            <strong>{{billperiod}}</strong>. Please submit payment by the due
+            date of
+            <strong><span style="white-space: nowrap;">{{duedate}}</span>.</strong>
+          </p>
+          {{#if sitenames}}
+          <div class="invoice-details">
+          <h4 style="margin: 10px 0;">Sites Covered:</h4>
+          <ol class="site-list">
+          {{#each sitenames}}
+          <li>{{this}}</li>
+          {{/each}}
+          </ol>
+          </div>
+          {{/if}}
+
+
+
+          <p style="text-align: left;">Thanks for using Sporada Secure's -
+            Secure - 360°.</p>
+
+          <p style="text-align: left;">
+            If you have any questions about this invoice, simply reply to this
+            email or reach out to our support team at
+            <strong><span style="white-space: nowrap;">+91-739-975-0001</span></strong>
+            for help.
+          </p>
+        </div>
+
+        <table width="100%" cellpadding="0" cellspacing="0"
+          style="background-color: #fff; border-top: 1px solid #ccc; padding: 20px 0;">
+          <tr>
+            <td align="left" valign="middle" style="padding: 20px; vertical-align: middle;">
+              <a href="https://www.sporadasecure.com" style="display: block;">
+                <img src="https://sporadasecure.com/sporadalogosqr.gif" alt="Sporada Secure Logo"
+                  style="width: 180px; height: auto; display: block;" />
+              </a>
+            </td>
+            <td align="left" valign="middle"
+              style="font-size: 13px; color: #000; font-family: Arial, sans-serif; text-align: left; padding: 20px;">
+              <p style="margin: 0; font-weight: bold;">Billing Department</p>
+              <p style="margin: 4px 0;">
+                <strong>Sporada Secure India Private Limited</strong><br />
+                687/7, Trichy road, Ramanathapuram, Coimbatore - 641045<br />
+                Tamilnadu, India
+              </p>
+              <p style="margin: 4px 0; white-space: nowrap;">
+                e:
+                <a href="mailto:support@sporadasecure.com">support@sporadasecure.com</a><br />
+                w:
+                <a href="https://www.sporadasecure.com" target="_blank">www.sporadasecure.com</a><br />
+                m:
+                <span style="white-space: nowrap;">+91-739-975-0001</span> | p:
+                <span style="white-space: nowrap;">+91-422-231-2363</span>
+              </p>
+
+              <p style="margin-top: 10px;">
+                <a href="https://www.facebook.com/sporadabpo"><img
+                    src="https://codetwocdn.azureedge.net/images/mail-signatures/generator-dm/bease-fox/fb.png"
+                    alt="Facebook" style="vertical-align: middle; margin-right: 8px;" /></a>
+                <a href="https://x.com/SporadaLtd"><img
+                    src="https://codetwocdn.azureedge.net/images/mail-signatures/generator-dm/bease-fox/tt.png"
+                    alt="Twitter" style="vertical-align: middle; margin-right: 8px;" /></a>
+                <a href="https://www.youtube.com/channel/UC0FmshIoi-ur1N4jjVjBTHQ"><img
+                    src="https://codetwocdn.azureedge.net/images/mail-signatures/generator-dm/bease-fox/yt.png"
+                    alt="YouTube" style="vertical-align: middle; margin-right: 8px;" /></a>
+                <a href="https://in.linkedin.com/company/sporada-secure"><img
+                    src="https://codetwocdn.azureedge.net/images/mail-signatures/generator-dm/bease-fox/ln.png"
+                    alt="LinkedIn" style="vertical-align: middle; margin-right: 8px;" /></a>
+                <a href="https://www.instagram.com/mycompany404/"><img
+                    src="https://codetwocdn.azureedge.net/images/mail-signatures/generator-dm/bease-fox/it.png"
+                    alt="Instagram" style="vertical-align: middle;" /></a>
+              </p>
+            </td>
+          </tr>
+        </table>
+</body>
+
+</html>

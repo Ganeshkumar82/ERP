@@ -84,51 +84,6 @@ let uploadFile1 = multer({
 }).single("file");
 
 let uploadFileInvoice = util.promisify(uploadFile1);
-//#############################################################################################################################################################################################
-//#############################################################################################################################################################################################
-//#############################################################################################################################################################################################
-//#############################################################################################################################################################################################
-
-// Dynamically set the storage path
-let storagePro = multer.diskStorage({
-  destination: async (req, file, cb) => {
-    try {
-      const now = new Date();
-      const year = now.getFullYear();
-      const month = now.toLocaleString("default", { month: "long" }); // e.g., December
-      const day = now.getDate();
-      let folder = config.filestorage; // Default folder
-
-      folder = `${folder}/${year}/${month}/${day}/ProformaInvoices`;
-
-      // Ensure the folder exists
-      await fs.ensureDir(folder);
-
-      cb(null, folder);
-    } catch (err) {
-      cb(err);
-    }
-  },
-  filename: (req, file, cb) => {
-    const timestamp = Date.now();
-    const date = new Date(timestamp);
-    const YYYYMMDD =
-      date.getFullYear().toString() +
-      (date.getMonth() + 1).toString().padStart(2, "0") +
-      date.getDate().toString().padStart(2, "0");
-    cb(null, `${file.originalname}`); // Use timestamp to avoid duplicate filenames
-  },
-});
-
-// Set max file size to 2MB
-const maxSizePro = 2 * 1024 * 1024;
-
-let uploadFilePro = multer({
-  storage: storagePro,
-  limits: { fileSize: maxSizePro },
-}).single("file");
-
-let uploadFileProformaInvoice = util.promisify(uploadFilePro);
 
 //#############################################################################################################################################################################################
 //#############################################################################################################################################################################################
@@ -167,7 +122,7 @@ let storage2 = multer.diskStorage({
 });
 
 // Set max file size to 2MB
-const maxSize2 = 8 * 1024 * 1024;
+const maxSize2 = 2 * 1024 * 1024;
 
 let uploadFile2 = multer({
   storage: storage2,
@@ -247,7 +202,7 @@ let storage4 = multer.diskStorage({
   filename: (req, file, cb) => {
     const timestamp = Date.now();
     const date = new Date(timestamp);
-    cb(null, `${file.originalname}`); // Use timestamp to avoid duplicate filenames
+    cb(null, `${timestamp}_${file.originalname}`); // Use timestamp to avoid duplicate filenames
   },
 });
 
@@ -289,7 +244,7 @@ let storage5 = multer.diskStorage({
   filename: (req, file, cb) => {
     const timestamp = Date.now();
     const date = new Date(timestamp);
-    cb(null, `${file.originalname}`); // Use timestamp to avoid duplicate filenames
+    cb(null, `${timestamp}_${file.originalname}`); // Use timestamp to avoid duplicate filenames
   },
 });
 
@@ -397,7 +352,7 @@ let storage7 = multer.diskStorage({
   filename: (req, file, cb) => {
     const timestamp = Date.now();
     const date = new Date(timestamp);
-    cb(null, `${file.originalname}`); // Use timestamp to avoid duplicate filenames
+    cb(null, `${timestamp}_${file.originalname}`); // Use timestamp to avoid duplicate filenames
   },
 });
 
@@ -1047,15 +1002,11 @@ let storageVendorKYC = multer.diskStorage({
   },
 });
 
-const maxSizeVendorKYC = 50 * 1024 * 1024; // 5MB
+const maxSizeVendorKYC = 5 * 1024 * 1024; // 5MB
 
 let uploadFileVendorKYC = multer({
   storage: storageVendorKYC,
-  limits: {
-    fileSize: maxSizeVendorKYC,
-    fieldSize: 50 * 1024 * 1024,
-    fields: 100,
-  },
+  limits: { fileSize: maxSizeVendorKYC },
 }).any(); // Accept any field names to avoid "Unexpected field" errors
 
 let uploadVendorKYCDocuments = util.promisify(uploadFileVendorKYC);
@@ -1176,46 +1127,6 @@ const uploadVendorInvoice = util.promisify(
   uploadVendorInvoiceMulter.single("file")
 );
 
-//#############################################################################################################################################################################################
-// Storage configuration for vendor Invoice uploads
-
-// Dynamically set the storage path
-let storagecustompo = multer.diskStorage({
-  destination: async (req, file, cb) => {
-    try {
-      const now = new Date();
-      const year = now.getFullYear();
-      const month = now.toLocaleString("default", { month: "long" }); // e.g., December
-      const day = now.getDate();
-      let folder = config.filestorage; // Default folder
-
-      folder = `${folder}/${year}/${month}/${day}/VendorCustomPO`;
-
-      // Ensure the folder exists
-      await fs.ensureDir(folder);
-
-      cb(null, folder);
-    } catch (err) {
-      cb(err);
-    }
-  },
-  filename: (req, file, cb) => {
-    const timestamp = Date.now();
-    const date = new Date(timestamp);
-
-    cb(null, `${timestamp}_${file.originalname}`); // Use timestamp to avoid duplicate filenames
-  },
-});
-
-// Set max file size to 2MB
-const maxSizepo = 2 * 1024 * 1024;
-
-let uploadFilePO = multer({
-  storage: storagecustompo,
-  limits: { fileSize: maxSizepo },
-}).single("file");
-
-let uploadCustomPO = util.promisify(uploadFilePO);
 module.exports = {
   uploadFileMOR,
   uploadFileInvoice,
@@ -1241,7 +1152,5 @@ module.exports = {
   uploadPostRRFQ,
   uploadPostPO,
   uploadVendorDC,
-  uploadVendorInvoice,
-  uploadFileProformaInvoice,
-  uploadCustomPO,
+  uploadVendorInvoice, // Add this line
 };

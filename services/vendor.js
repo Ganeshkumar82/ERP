@@ -5,8 +5,11 @@ const mqttclient = require("../mqttclient");
 const path = require("path");
 const config = require("../config");
 const apiserver = config.apiserver;
+<<<<<<< HEAD
 const mailer = require("../mailer");
 const axios = require("axios");
+=======
+>>>>>>> kishore
 
 //##################################################################################################################################################################################################
 //##################################################################################################################################################################################################
@@ -1523,6 +1526,7 @@ async function AddVendorResponse(req, res) {
 
 //##################################################################################################################################################################################################
 //##################################################################################################################################################################################################
+<<<<<<< HEAD
 
 async function AddUpdateVendorResponse(req, res) {
   let secret = ""; // Initialize secret early to avoid undefined errors
@@ -2009,6 +2013,8 @@ async function AddUpdateVendorResponse(req, res) {
 }
 //##################################################################################################################################################################################################
 //##################################################################################################################################################################################################
+=======
+>>>>>>> kishore
 //########################################### REQUEST BODY FOR GET VENDOR #####################################################################################
 // {
 //   "vendorid": 1
@@ -2916,6 +2922,10 @@ async function vendorDetailsPreLoader(vendorData) {
 // }
 //##################################################################################################################################################################################################
 //##################################################################################################################################################################################################
+<<<<<<< HEAD
+=======
+
+>>>>>>> kishore
 async function PostRFQ(req, res) {
   try {
     // Upload the PDF file first using dedicated RFQ upload function
@@ -3269,10 +3279,21 @@ async function PostRFQ(req, res) {
         // Continue execution even if update fails
       }
 
+<<<<<<< HEAD
       // Prepare email and WhatsApp data
       const vendorEmail =
         querydata.emailid || "ganeshkumar.m@sporadasecure.com"; // Fallback email
       const ccEmail = querydata.ccemail || "";
+=======
+      // Get required modules
+      const mailer = require("../mailer");
+      const axios = require("axios");
+      const config = require("../config");
+
+      // Prepare email and WhatsApp data
+      const vendorEmail = /*vendor.email ||*/ "kishorekkumar34@gmail.com"; // Fallback email
+      const ccEmail = querydata.cc_email || "";
+>>>>>>> kishore
       const subject = `Request for Quotation - ${rfqGenId}`;
       const notes =
         querydata.feedback ||
@@ -3280,8 +3301,13 @@ async function PostRFQ(req, res) {
         "Please review the attached RFQ document and provide your best quotation.";
 
       // Process phone numbers (handle single or comma-separated numbers)
+<<<<<<< HEAD
       const phoneNumbers = querydata.phoneno
         ? querydata.phoneno
+=======
+      const phoneNumbers = vendor.contact_person_phone
+        ? vendor.contact_person_phone
+>>>>>>> kishore
             .split(",")
             .map((num) => num.trim())
             .filter((num) => num !== "") // Remove empty values
@@ -3459,6 +3485,7 @@ async function PostRFQ(req, res) {
     );
   }
 }
+<<<<<<< HEAD
 // async function PostRFQ(req, res) {
 //   let secret, querydata, vendor;
 //   try {
@@ -4010,6 +4037,8 @@ async function PostRFQ(req, res) {
 //     );
 //   }
 // }
+=======
+>>>>>>> kishore
 //##################################################################################################################################################################################################
 //##################################################################################################################################################################################################
 //########################################### REQUEST BODY FOR GET PRODUCTS #####################################################################################
@@ -4505,7 +4534,11 @@ async function GetAllProcessList(vendorData) {
           FROM (
             SELECT JSON_OBJECT(
               'Eventid', vpl2.vprocess_id,
+<<<<<<< HEAD
               'Eventname', vpl2.process_name,
+=======
+              'Eventname', vpsl2.processname,
+>>>>>>> kishore
               'feedback', vpl2.feedback,
               'Allowed_process',
                 CASE
@@ -4541,6 +4574,10 @@ async function GetAllProcessList(vendorData) {
             LEFT JOIN vprocessshowlist vpsl2 
               ON vpsl2.processshowlist_id = vpl2.process_type
             WHERE vpl2.process_id = vpm.vprocess_id
+<<<<<<< HEAD
+=======
+              AND vpsl2.processname NOT IN ('APPROVE', 'REJECT')
+>>>>>>> kishore
             ORDER BY vpl2.Row_updated_date ASC
           ) t
         ) AS TimelineEvents
@@ -6486,8 +6523,18 @@ async function PostRRFQ(req, res) {
         // Continue execution even if update fails
       }
 
+<<<<<<< HEAD
       // Prepare email and WhatsApp data
       const vendorEmail = vendor.email || "ganeshkumar.m@sporadasecure.com"; // Fallback email
+=======
+      // Get required modules
+      const mailer = require("../mailer");
+      const axios = require("axios");
+      const config = require("../config");
+
+      // Prepare email and WhatsApp data
+      const vendorEmail = /*vendor.email ||*/ "kishorekkumar34@gmail.com"; // Fallback email
+>>>>>>> kishore
       const ccEmail = querydata.cc_email || "";
       const subject = `Revised Request for Quotation - ${rrfqGenId}`;
       const notes =
@@ -6869,6 +6916,7 @@ async function getVendorQuotationApproval(vendorData) {
          WHERE u.user_design = 'Administrator' AND u.status = 1 AND a.status = 1`
       );
 
+<<<<<<< HEAD
       let adminEmail = "";
       let apikey = "15b97956-b296-11";
 
@@ -6880,10 +6928,30 @@ async function getVendorQuotationApproval(vendorData) {
       }
 
       // let adminEmail = "kishorekkumar34@gmail.com";
+=======
+      // let adminEmail = "";
+      let apikey = "15b97956-b296-11";
+
+      // if (adminDetails.length > 0) {
+      //   adminEmail = adminDetails.map((item) => item.Email_id).join(",");
+      //   apikey = adminDetails[0].secret;
+      // } else {
+      //   adminEmail = "admin@sporadasecure.com";
+      // }
+
+      let adminEmail = "kishorekkumar34@gmail.com";
+
+      // Prepare approval and rejection links
+      const config = require("../config");
+>>>>>>> kishore
       const approveLink = `${config.apiserver}/vendor/approvequotation?eventid=${quotation.vprocess_id}&STOKEN=${apikey}&s=1&feedback=Approved`;
       const rejectLink = `${config.apiserver}/vendor/approvequotation?eventid=${quotation.vprocess_id}&STOKEN=${apikey}&s=0&feedback=Rejected`;
 
       // Send approval email
+<<<<<<< HEAD
+=======
+      const mailer = require("../mailer");
+>>>>>>> kishore
       const emailSent = await mailer.sendVendorQuotationApproval(
         "Administrator",
         adminEmail,
@@ -7059,6 +7127,14 @@ async function approveVendorQuotation(req, res) {
       if (quotationDetails.length > 0) {
         const quotation = quotationDetails[0];
 
+<<<<<<< HEAD
+=======
+        // Get required modules
+        const mailer = require("../mailer");
+        const axios = require("axios");
+        const config = require("../config");
+
+>>>>>>> kishore
         // Send email to vendor
         if (quotation.vendor_email) {
           await mailer.sendVendorRFQ(
@@ -7324,7 +7400,11 @@ async function popreloader(vendorData) {
       let rfqDetailsQuery = await db.query(
         `SELECT 
           id,
+<<<<<<< HEAD
           rfqgenid,
+=======
+          genid,
+>>>>>>> kishore
           vendor_id,
           vendor_name,
           gstin,
@@ -7337,14 +7417,26 @@ async function popreloader(vendorData) {
           cc_email,
           message_type,
           feedback,
+<<<<<<< HEAD
           rfq_date,
+=======
+          date_created as rfq_date,
+>>>>>>> kishore
           notes,
           products,
           row_updated_date,
           status,
+<<<<<<< HEAD
           deleted_flag
          FROM vendor_rfq_details 
          WHERE TRIM(LOWER(rfqgenid)) = TRIM(LOWER(?)) AND deleted_flag = 0
+=======
+          deleted_flag,
+          rfq_type,
+          rfq_type as source_table
+         FROM vendor_all_rfq_details 
+         WHERE TRIM(LOWER(genid)) = TRIM(LOWER(?)) AND deleted_flag = 0
+>>>>>>> kishore
          ORDER BY row_updated_date DESC
          LIMIT 1`,
         [vprocessGenId]
@@ -7451,12 +7543,21 @@ async function popreloader(vendorData) {
         row_updated_date: rfqDetails.row_updated_date,
         status: rfqDetails.status,
         deleted_flag: rfqDetails.deleted_flag,
+<<<<<<< HEAD
+=======
+        process_type: rfqDetails.rfq_type,
+        source_table: rfqDetails.source_table,
+>>>>>>> kishore
         quotations: quotations || [],
       };
 
       const responseData = {
         po_id: poId,
+<<<<<<< HEAD
         rfq_number: rfqDetails.rfqgenid,
+=======
+        rfq_number: rfqDetails.genid,
+>>>>>>> kishore
         quotation_number: quotations.vprocess_gen_id || null,
         po_details: po_details_base,
       };
@@ -8167,9 +8268,20 @@ async function PostPO(req, res) {
         // Continue execution even if update fails
       }
 
+<<<<<<< HEAD
       // Prepare email and WhatsApp data
       const vendorEmail = querydata.emailid;
       const ccEmail = querydata.ccemail || "";
+=======
+      // Get required modules
+      const mailer = require("../mailer");
+      const axios = require("axios");
+      const config = require("../config");
+
+      // Prepare email and WhatsApp data
+      const vendorEmail = /*vendor.email ||*/ "kishorekkumar34@gmail.com"; // Fallback email
+      const ccEmail = querydata.cc_email || "";
+>>>>>>> kishore
       const subject = `Purchase Order - ${poGenId}`;
       const notes =
         querydata.feedback ||
@@ -8177,8 +8289,13 @@ async function PostPO(req, res) {
         "Please find the attached Purchase Order for your review and confirmation.";
 
       // Process phone numbers (handle single or comma-separated numbers)
+<<<<<<< HEAD
       const phoneNumbers = querydata.phoneno
         ? querydata.phoneno
+=======
+      const phoneNumbers = vendor.contact_person_phone
+        ? vendor.contact_person_phone
+>>>>>>> kishore
             .split(",")
             .map((num) => num.trim())
             .filter((num) => num !== "") // Remove empty values
@@ -8595,6 +8712,7 @@ async function AddDC(req, res) {
 // }
 // Required querystring data:
 // {
+<<<<<<< HEAD
 //   "emailid": 'ganeshkumar.m@sporadasecure.com',
 //   "phoneno": '8248650039',
 //   "feedback": 'Testing',
@@ -8602,6 +8720,11 @@ async function AddDC(req, res) {
 //   "ccemail": 'nidya.p@sporadasecure.com',
 //   "vendorname": "Testing vendor",
 //    "senddate" : '2025-07-23'
+=======
+//   "phone_number": "9344268155",
+//   "email_id": "vendor@example.com",
+//   "message_type": 1  // 1 = email only, 2 = WhatsApp only, 3 = both (default: 1)
+>>>>>>> kishore
 // }
 // Optional querystring data:
 // {
@@ -8699,7 +8822,10 @@ async function ShareFormLink(vendorData) {
     try {
       querydata = JSON.parse(querydata);
     } catch (ex) {
+<<<<<<< HEAD
       console.log(ex);
+=======
+>>>>>>> kishore
       return helper.getErrorResponse(
         false,
         "error",
@@ -8710,7 +8836,15 @@ async function ShareFormLink(vendorData) {
     }
 
     // Validate required fields
+<<<<<<< HEAD
     if (!querydata.hasOwnProperty("phoneno")) {
+=======
+    if (
+      !querydata.hasOwnProperty("phone_number") ||
+      querydata.phone_number === "" ||
+      querydata.phone_number === null
+    ) {
+>>>>>>> kishore
       return helper.getErrorResponse(
         false,
         "error",
@@ -8720,7 +8854,15 @@ async function ShareFormLink(vendorData) {
       );
     }
 
+<<<<<<< HEAD
     if (!querydata.hasOwnProperty("emailid")) {
+=======
+    if (
+      !querydata.hasOwnProperty("email_id") ||
+      querydata.email_id === "" ||
+      querydata.email_id === null
+    ) {
+>>>>>>> kishore
       return helper.getErrorResponse(
         false,
         "error",
@@ -8732,8 +8874,13 @@ async function ShareFormLink(vendorData) {
 
     // Validate messagetype if provided
     if (
+<<<<<<< HEAD
       !querydata.hasOwnProperty("messagetype") &&
       ![1, 2, 3].includes(querydata.messagetype)
+=======
+      querydata.hasOwnProperty("message_type") &&
+      ![1, 2, 3].includes(querydata.message_type)
+>>>>>>> kishore
     ) {
       return helper.getErrorResponse(
         false,
@@ -8744,7 +8891,11 @@ async function ShareFormLink(vendorData) {
       );
     }
     if (
+<<<<<<< HEAD
       !querydata.hasOwnProperty("vendorname") ||
+=======
+      querydata.hasOwnProperty("vendorname") ||
+>>>>>>> kishore
       querydata.vendorname === "" ||
       querydata.vendorname === null
     ) {
@@ -8756,6 +8907,7 @@ async function ShareFormLink(vendorData) {
         secret
       );
     }
+<<<<<<< HEAD
     // if (
     //   !querydata.hasOwnProperty("feedback") ||
     //   querydata.feedback === "" ||
@@ -8975,6 +9127,187 @@ async function ShareFormLink(vendorData) {
           // Wait for all promises to complete
           await Promise.all(promises);
         }
+=======
+
+    // Set default messagetype to 1 (email only) if not provided
+    const messagetype = querydata.message_type || 1;
+
+    try {
+      // Hardcoded form link (you can modify this as needed)
+      const formLink = "";
+
+      // Initialize response flags
+      let emailSent = false;
+      let whatsappSent = false;
+
+      // Get required modules
+      const mailer = require("../mailer");
+      const axios = require("axios");
+      const config = require("../config");
+
+      // Prepare email and WhatsApp data
+      const subject = "Vendor Registration Form - Sporada Secure";
+      const notes =
+        querydata.notes ||
+        "Please complete the vendor registration form to become our registered vendor.";
+
+      // Process phone numbers (handle single or comma-separated numbers)
+      const phoneNumbers = querydata.phone_number
+        ? querydata.phone_number
+            .split(",")
+            .map((num) => num.trim())
+            .filter((num) => num !== "") // Remove empty values
+        : [];
+
+      // Send based on messagetype
+      if (messagetype === 1) {
+        // Send only email
+        try {
+          emailSent = await mailer.sendVendorFormLink(
+            "Vendor", // recipient name
+            querydata.email_id,
+            subject,
+            "FORMLINK", // module tag for email settings
+            formLink,
+            notes
+          );
+        } catch (emailError) {
+          console.log("Warning: Email sending error:", emailError);
+          emailSent = false;
+        }
+      } else if (messagetype === 2) {
+        // Send only WhatsApp
+        if (phoneNumbers.length > 0) {
+          try {
+            const whatsappResults = await Promise.all(
+              phoneNumbers.map(async (number) => {
+                try {
+                  const response = await axios.post(
+                    `${config.whatsappip}/billing/sendmessage`,
+                    {
+                      phoneno: number,
+                      message: `Dear Vendor,\n\nWe invite you to register with Sporada Secure. Please complete the vendor registration form:\n\n${formLink}\n\n${notes}\n\nBest regards,\nSporada Secure Procurement Team`,
+                    }
+                  );
+                  return response.data.code || false;
+                } catch (error) {
+                  console.error(`WhatsApp Error for ${number}:`, error.message);
+                  return false;
+                }
+              })
+            );
+            whatsappSent = whatsappResults.some((result) => result === true);
+          } catch (whatsappError) {
+            console.log("Warning: WhatsApp sending error:", whatsappError);
+            whatsappSent = false;
+          }
+        } else {
+          console.log(
+            "Warning: No phone numbers available for WhatsApp sending"
+          );
+          whatsappSent = false;
+        }
+      } else if (messagetype === 3) {
+        // Send both email and WhatsApp
+        const promises = [];
+
+        // Email promise
+        promises.push(
+          mailer
+            .sendVendorFormLink(
+              "Vendor",
+              querydata.email_id,
+              subject,
+              "FORMLINK",
+              formLink,
+              notes
+            )
+            .then((result) => {
+              emailSent = result;
+              return result;
+            })
+            .catch((error) => {
+              console.log("Warning: Email sending error:", error);
+              emailSent = false;
+              return false;
+            })
+        );
+
+        // WhatsApp promise
+        if (phoneNumbers.length > 0) {
+          promises.push(
+            Promise.all(
+              phoneNumbers.map(async (number) => {
+                try {
+                  const response = await axios.post(
+                    `${config.whatsappip}/billing/sendmessage`,
+                    {
+                      phoneno: number,
+                      message: `Dear Vendor,\n\nWe invite you to register with Sporada Secure. Please complete the vendor registration form:\n\n${formLink}\n\n${notes}\n\nBest regards,\nSporada Secure Procurement Team`,
+                    }
+                  );
+                  return response.data.code || false;
+                } catch (error) {
+                  console.error(`WhatsApp Error for ${number}:`, error.message);
+                  return false;
+                }
+              })
+            )
+              .then((results) => {
+                whatsappSent = results.some((result) => result === true);
+                return whatsappSent;
+              })
+              .catch((error) => {
+                console.log("Warning: WhatsApp sending error:", error);
+                whatsappSent = false;
+                return false;
+              })
+          );
+        } else {
+          console.log(
+            "Warning: No phone numbers available for WhatsApp sending"
+          );
+          whatsappSent = false;
+        }
+
+        // Wait for all promises to complete
+        await Promise.all(promises);
+      }
+
+      // Insert the record into the database after successful sending
+      const insertResult = await db.query(
+        `INSERT INTO vendor_form_link_requests (
+          phone_number,
+          email_id,
+          Vendor_name,
+          message_type,
+          form_link,
+          email_sent,
+          whatsapp_sent,
+          sent_by_user_id,
+          sent_date,
+          status,
+          notes,
+          row_updated_date
+        ) VALUES (?, ?, ?, ?,?, ?, ?, ?, NOW(), 1, ?, NOW())`,
+        [
+          querydata.phone_number,
+          querydata.email_id,
+          querydata.vendorname,
+          messagetype,
+          formLink,
+          emailSent ? 1 : 0,
+          whatsappSent ? 1 : 0,
+          userid,
+          notes,
+        ]
+      );
+
+      const requestId = insertResult.insertId;
+
+      if (requestId != null) {
+        // MQTT notifications for form link sharing
+>>>>>>> kishore
         await mqttclient.publishMqttMessage(
           "Notification",
           `Form link shared successfully to ${querydata.email_id}`
@@ -8988,6 +9321,7 @@ async function ShareFormLink(vendorData) {
           true,
           "success",
           "Form link shared successfully",
+<<<<<<< HEAD
           vendorid,
           secret
         );
@@ -9006,6 +9340,36 @@ async function ShareFormLink(vendorData) {
         "error",
         "Error while saving form link request.",
         "SHARE FORM LINK",
+=======
+          {
+            id: requestId,
+            phone_number: querydata.phone_number,
+            email_id: querydata.email_id,
+            form_link: formLink,
+            email_sent: emailSent,
+            whatsapp_sent: whatsappSent,
+            message_type: messagetype,
+            sent_by_user_id: userid,
+            notes: notes,
+          },
+          secret
+        );
+      } else {
+        return helper.getErrorResponse(
+          false,
+          "error",
+          "Error while saving form link request.",
+          "SHARE FORM LINK",
+          secret
+        );
+      }
+    } catch (er) {
+      return helper.getErrorResponse(
+        false,
+        "error",
+        "Internal error. Please contact Administration",
+        er.message,
+>>>>>>> kishore
         secret
       );
     }
@@ -9015,7 +9379,11 @@ async function ShareFormLink(vendorData) {
       "error",
       "Internal error. Please contact Administration",
       er.message,
+<<<<<<< HEAD
       secret
+=======
+      ""
+>>>>>>> kishore
     );
   }
 }
@@ -9095,6 +9463,7 @@ async function GetFormLinkRequests(vendorData) {
 
     var secret = vendorData.STOKEN.substring(0, 16);
 
+<<<<<<< HEAD
     const [result] = await db.spcall(
       "CALL SP_STOKEN_CHECK(?,@result); SELECT @result;",
       [vendorData.STOKEN]
@@ -9108,6 +9477,17 @@ async function GetFormLinkRequests(vendorData) {
         "error",
         "Login session token Invalid. Please provide the valid session token",
         "GET VENDOR DETAILS",
+=======
+    const result = await db.query(`select secret from apikey where secret =?`, [
+      vendorData.STOKEN,
+    ]);
+    if (result.length == 0) {
+      return helper.getErrorResponse(
+        false,
+        "error",
+        "Login sessiontoken Invalid. Please provide the valid sessiontoken",
+        "APPROVE THE QUOTATION",
+>>>>>>> kishore
         secret
       );
     }
@@ -9141,9 +9521,15 @@ async function GetFormLinkRequests(vendorData) {
       let queryParams = [];
 
       // Optional filters
+<<<<<<< HEAD
       if (querydata.vendorregid) {
         whereConditions.push("flr.id = ?");
         queryParams.push(querydata.vendorregid);
+=======
+      if (querydata.id) {
+        whereConditions.push("flr.id = ?");
+        queryParams.push(querydata.id);
+>>>>>>> kishore
       }
 
       if (querydata.email_id) {
@@ -9176,9 +9562,12 @@ async function GetFormLinkRequests(vendorData) {
         queryParams.push(querydata.sent_by_user_id);
       }
 
+<<<<<<< HEAD
       whereConditions.push(
         "NOT EXISTS (SELECT 1 FROM vendors v WHERE v.vendorreg_id = flr.vendorreg_id)"
       );
+=======
+>>>>>>> kishore
       // Build WHERE clause
       const whereClause =
         whereConditions.length > 0
@@ -9203,7 +9592,11 @@ async function GetFormLinkRequests(vendorData) {
       // Main query to get form link requests with user details
       const mainQuery = `
         SELECT 
+<<<<<<< HEAD
           flr.id vendorreg_id,
+=======
+          flr.id,
+>>>>>>> kishore
           flr.phone_number,
           flr.email_id,
           flr.message_type,
@@ -9429,9 +9822,15 @@ async function GetVendorDetails(vendorData) {
       let queryParams = [];
 
       // Optional filters
+<<<<<<< HEAD
       if (querydata.vendorregid) {
         whereConditions.push("vd.vendorreg_id = ?");
         queryParams.push(querydata.vendorregid);
+=======
+      if (querydata.vendorid) {
+        whereConditions.push("vd.vendorid = ?");
+        queryParams.push(querydata.vendorid);
+>>>>>>> kishore
       }
 
       if (querydata.vendor_name) {
@@ -9612,6 +10011,7 @@ async function GetVendorDetails(vendorData) {
   }
 }
 
+<<<<<<< HEAD
 //##################################################################################################################################################################################################
 //##################################################################################################################################################################################################
 //########################################### REQUEST BODY FOR GET VENDOR DETAILS #####################################################################################
@@ -10608,6 +11008,8 @@ async function addCustomPO(req, res) {
     );
   }
 }
+=======
+>>>>>>> kishore
 module.exports = {
   AddVendor,
   GetVendorWithFile,
@@ -10632,6 +11034,7 @@ module.exports = {
   PostPO,
   AddDC,
   AddVendorResponse,
+<<<<<<< HEAD
   AddUpdateVendorResponse,
   ShareFormLink,
   GetFormLinkRequests,
@@ -10639,6 +11042,11 @@ module.exports = {
   UpdateVendorDetails,
   GetVendorField,
   addCustomPO,
+=======
+  ShareFormLink,
+  GetFormLinkRequests,
+  GetVendorDetails,
+>>>>>>> kishore
 };
 
 //##################################################################################################################################################################################################

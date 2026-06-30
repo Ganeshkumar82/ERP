@@ -51,6 +51,17 @@ async function getSuccessResponse(code, status, message, data, secret) {
 }
 
 async function getErrorResponse(code, status, message, data, secret) {
+<<<<<<< HEAD
+=======
+  // if (typeof data !== "object") {
+  //   try {
+  //     data = JSON.parse(data); // Attempt to parse  data if it's a string
+  //   } catch (err) {
+  //     // If it's not valid JSON, wrap it in an object or set a default
+  //     data = { data };
+  //   }
+  // }
+>>>>>>> kishore
   try {
     if (secret != null && secret != "") {
       var encryptedResponse = JSON.stringify({ code, status, message, data });

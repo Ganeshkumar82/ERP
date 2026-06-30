@@ -156,21 +156,4 @@ router.post("/getreceiptfile", async function (req, res, next) {
   }
 });
 
-router.post("/addopeningbalance", async function (req, res, next) {
-  try {
-    res.json(await billing.addOpeningBalance(req.body));
-  } catch (er) {
-    console.log(`Error while adding the opening balance: ${er}`);
-    next(er);
-  }
-});
-
-router.post("/getopeningbalance", async function (req, res, next) {
-  try {
-    res.json(await billing.getOpeningBalance(req.body));
-  } catch (er) {
-    console.log(`Error while fetching the opening balance: ${er}`);
-    next(er);
-  }
-});
 module.exports = router;

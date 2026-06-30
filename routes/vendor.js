@@ -236,6 +236,7 @@ router.post("/getrequests", async function (req, res, next) {
   }
 });
 
+<<<<<<< HEAD
 router.post(
   "/addvendorresponse",
   uploadVendorKYCDocuments,
@@ -248,6 +249,16 @@ router.post(
     }
   }
 );
+=======
+router.post("/addvendorresponse", async function (req, res, next) {
+  try {
+    res.json(await vendor.AddVendorResponse(req.body));
+  } catch (er) {
+    console.log(`Error adding vendor response -> ${er}`);
+    next(er);
+  }
+});
+>>>>>>> kishore
 
 router.post("/getresponses", async function (req, res, next) {
   try {
@@ -258,6 +269,7 @@ router.post("/getresponses", async function (req, res, next) {
   }
 });
 
+<<<<<<< HEAD
 router.post(
   "/updateVendorfield",
   uploadVendorKYCDocuments,
@@ -289,4 +301,6 @@ router.post("/addcustompo", async function (req, res, next) {
   }
 });
 
+=======
+>>>>>>> kishore
 module.exports = router;

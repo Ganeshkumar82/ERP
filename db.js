@@ -5,6 +5,7 @@ const pool = mysql.createPool(config.db);
 const pool1 = mysql.createPool(config.db1);
 const pool2 = mysql.createPool(config.db2);
 
+<<<<<<< HEAD
 async function setCollation(connection) {
   await connection.query(`
     SET NAMES utf8mb4
@@ -20,6 +21,11 @@ async function query(sql, params) {
   const connection = await pool.getConnection();
   try {
     await setCollation(connection);
+=======
+async function query(sql, params) {
+  const connection = await pool.getConnection();
+  try {
+>>>>>>> kishore
     const [result] = await connection.execute(sql, params);
     return result;
   } catch (er) {
@@ -33,7 +39,10 @@ async function query(sql, params) {
 async function spcall(sql, params) {
   const connection = await pool.getConnection();
   try {
+<<<<<<< HEAD
     await setCollation(connection);
+=======
+>>>>>>> kishore
     const result = await connection.query(sql, params);
     return result;
   } catch (er) {
@@ -47,7 +56,10 @@ async function spcall(sql, params) {
 async function query1(sql, params) {
   const connection = await pool1.getConnection();
   try {
+<<<<<<< HEAD
     await setCollation(connection);
+=======
+>>>>>>> kishore
     const [result] = await connection.execute(sql, params);
     return result;
   } catch (er) {
@@ -61,7 +73,10 @@ async function query1(sql, params) {
 async function spcall1(sql, params) {
   const connection = await pool1.getConnection();
   try {
+<<<<<<< HEAD
     await setCollation(connection);
+=======
+>>>>>>> kishore
     const result = await connection.query(sql, params);
     return result;
   } catch (er) {

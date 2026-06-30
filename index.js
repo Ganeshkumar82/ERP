@@ -11,7 +11,11 @@ const productRouter = require("./routes/product");
 const verificaitonRouter = require("./routes/verification");
 const billingRouter = require("./routes/billing");
 const { startWebSocketClient } = require("./Websocket");
+<<<<<<< HEAD
 const port = 8081;
+=======
+const port = 8083;
+>>>>>>> kishore
 
 startWebSocketClient();
 
@@ -20,11 +24,16 @@ app.use(cors());
 app.use(express.urlencoded({ limit: "100mb", extended: true }));
 app.use(express.text());
 
+<<<<<<< HEAD
 app.use("/", express.static(path.join((__dirname, "./mailpage"))));
 app.use(
   "/vendoronboard",
   express.static(path.join((__dirname, "./vendorpage")))
 );
+=======
+app.use(express.static(path.join((__dirname, "./mailpage"))));
+
+>>>>>>> kishore
 app.use((req, res, next) => {
   const timestamp = new Date().toISOString();
   console.log(`${timestamp} - Received request for: ${req.method} ${req.url}`);
@@ -32,6 +41,7 @@ app.use((req, res, next) => {
 });
 
 // Fallback for client-side routing: serve index.html for all unknown routes
+<<<<<<< HEAD
 app.get("/verify/*", (req, res) => {
   console.log("Serving vendor page...");
   res.sendFile(path.join(__dirname, "./mailpage", "index.html"));
@@ -42,6 +52,14 @@ app.get("/vendoronboard/*", (req, res) => {
   res.sendFile(path.join(__dirname, "./vendorpage", "index.html"));
 });
 
+=======
+app.get("/verify", (req, res) => {
+  res.sendFile(path.join(__dirname, "./mailpage", "index.html"));
+});
+// app.get("/", (req, res) => {
+//   res.send("welcome");
+// });
+>>>>>>> kishore
 app.use("/admin", adminRouter);
 app.use("/vendor", vendorRouter);
 app.use("/sales", salesRouter);
@@ -49,9 +67,12 @@ app.use("/subscription", SubscriptionRouter);
 app.use("/product", productRouter);
 app.use("/verification", verificaitonRouter);
 app.use("/billing", billingRouter);
+<<<<<<< HEAD
 app.get("*", (req, res) => {
   res.status(404).send("Page not found");
 });
+=======
+>>>>>>> kishore
 /* Error handler middleware */
 app.use((err, req, res, next) => {
   const statusCode = err.statusCode || 500;

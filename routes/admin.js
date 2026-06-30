@@ -219,6 +219,7 @@ router.post("/updatebranch", async function (req, res, next) {
   }
 });
 
+<<<<<<< HEAD
 router.post("/site", async function (req, res, next) {
   try {
     res.json(await admin.Site(req.body));
@@ -228,4 +229,6 @@ router.post("/site", async function (req, res, next) {
   }
 });
 
+=======
+>>>>>>> kishore
 module.exports = router;

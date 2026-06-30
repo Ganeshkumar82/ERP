@@ -20,15 +20,6 @@ router.post("/addinvoice", async function (req, res, next) {
   }
 });
 
-router.post("/addproformainvoice", async function (req, res, next) {
-  try {
-    res.json(await sales.addProformaInvoice(req, res, next));
-  } catch (er) {
-    console.log(`Error while adding the proforma invoice: ${er}`);
-    next(er);
-  }
-});
-
 router.post("/addcustominvoice", async function (req, res, next) {
   try {
     res.json(await sales.addCustomInvoice(req, res, next));

@@ -1383,6 +1383,10 @@ async function ClearVouchers(req, res) {
         );
       }
     } catch (er) {
+      const sql6 = await db.query(
+        `delete from gstledger where voucher_number = ?`,
+        [querydata.vouchernumber]
+      );
       const sql7 = await db.query(
         `DELETE FROM tdsledger WHERE voucher_number = ?`,
         [querydata.vouchernumber]
@@ -1460,7 +1464,7 @@ async function ClearVouchers(req, res) {
 
       const args = [
         querydata.clientaddressname || "Customer",
-        querydata.emailid,
+        "nidya.p@sporadasecure.com,ganeshkumar.m@sporadasecure.com",
         `Voucher Cleared: ${querydata.invoicenumber}`,
         querydata.invoicenumber,
         querydata.date,
@@ -2004,7 +2008,7 @@ async function ClearConsolidateVouchers(req, res, next) {
 
     const args = [
       firstClientName || "Customer", // recipientName
-      emailid, // recipientEmail
+      "kishorekkumar34@gmail.com", // emailid, // recipientEmail
       `Consolidated Voucher Cleared: ${invoiceNumbers.join(", ")}`, // subject
       invoiceNumbers, // invoiceNumbers
       querydata1.date, // clearedDate
@@ -2091,7 +2095,7 @@ async function accountLedger(billing) {
     // Check if querystring is provided
     if (!billing.hasOwnProperty("querystring")) {
       sql = `SELECT cl.clientledger_id,cl.voucher_id,cl.voucher_number,cl.client_name,cl.tdsamount,cl.gst_number,cl.invoicenumber,cl.ledger_type,DATE(cl.Row_updated_date) date,cl.debitamount, cl.creditamount,cl.billdetails,cl.description, cl.partially_cleared,cl.Payment_details,CASE WHEN cvm.Due_date IS NULL OR DATEDIFF(CURDATE(), cvm.Due_date) <= 0 THEN 0 ELSE DATEDIFF(CURDATE(), cvm.Due_date) END AS Overdue_days
-      , cvm.Overdue_days as Overdue_history,cvm.invoice_type,cl.opening_balance FROM clientledger cl JOIN clientvouchermaster cvm ON cvm.voucher_id = cl.voucher_id where cl.status =1 order by cl.Row_updated_date`;
+      , cvm.Overdue_days as Overdue_history,cvm.invoice_type FROM clientledger cl JOIN clientvouchermaster cvm ON cvm.voucher_id = cl.voucher_id where cl.status =1`;
     }
     try {
       querydata = await helper.decrypt(billing.querystring, secret);
@@ -2119,7 +2123,7 @@ async function accountLedger(billing) {
     }
 
     sql = `SELECT cl.clientledger_id,cl.voucher_id,cl.voucher_number,cl.client_name,cl.tdsamount,cl.gst_number,cl.invoicenumber,cl.ledger_type,DATE(cl.Row_updated_date) date,cl.debitamount, cl.creditamount,cl.billdetails,cl.description, cl.partially_cleared,cl.Payment_details,CASE WHEN cvm.Due_date IS NULL OR DATEDIFF(CURDATE(), cvm.Due_date) <= 0 THEN 0 ELSE DATEDIFF(CURDATE(), cvm.Due_date) END AS Overdue_days
-    , cvm.Overdue_days as Overdue_history,cvm.invoice_type,cl.opening_balance FROM clientledger cl JOIN clientvouchermaster cvm ON cvm.voucher_id = cl.voucher_id where cl.status =1`;
+    , cvm.Overdue_days as Overdue_history,cvm.invoice_type FROM clientledger cl JOIN clientvouchermaster cvm ON cvm.voucher_id = cl.voucher_id where cl.status =1`;
 
     if (
       querydata.ledgertype != null &&
@@ -2195,9 +2199,8 @@ async function accountLedger(billing) {
       sql += ` and DATE(cl.Row_updated_date) BETWEEN ? and ?`;
       sqlParams.push(formattedStartDate, formattedEndDate);
     }
-    sql += ` order by cl.Row_updated_date`;
+
     // console.log(sql);
-    var sql1, customer_name;
     const query = await db.query(sql, sqlParams);
     if (query) {
       let netAmount = 0;
@@ -2216,28 +2219,11 @@ async function accountLedger(billing) {
         };
       });
 
-      if (
-        querydata.customerid != null &&
-        querydata.customerid != 0 &&
-        querydata.customerid != undefined
-      ) {
-        let rawId = querydata.customerid;
-        let extractedId = rawId.split("-")[1]; // "11"
-        sql1 = await db.query1(
-          `select customer_name from customermaster where customer_id = (?)`,
-          [extractedId]
-        );
-        if (sql1.length > 0) {
-          customer_name = sql1[0].customer_name;
-        }
-      }
-
       return helper.getSuccessResponse(
         true,
         "success",
         "Client Ledger fetched Successfully",
         {
-          customer_name: customer_name,
           ledgerlist: updatedRows,
           creditAmount: creditAmount,
           debitAmount: debitAmount,
@@ -3718,10 +3704,6 @@ async function updatePaymentDetails(req, res, next) {
     );
   }
 }
-//#################################################################################################################################################################################
-//#################################################################################################################################################################################
-//#################################################################################################################################################################################
-//#################################################################################################################################################################################
 
 async function getReceiptFile(subscription) {
   try {
@@ -3858,415 +3840,6 @@ async function getReceiptFile(subscription) {
     );
   }
 }
-
-//#################################################################################################################################################################################
-//#################################################################################################################################################################################
-//#################################################################################################################################################################################
-//#################################################################################################################################################################################
-
-async function addOpeningBalance(subscription) {
-  try {
-    // Check if the session token exists
-    if (!subscription.hasOwnProperty("STOKEN")) {
-      return helper.getErrorResponse(
-        false,
-        "error",
-        "Login sessiontoken missing. Please provide the Login sessiontoken",
-        "GET RECEIPT DATA FOR PDF",
-        ""
-      );
-    }
-    var secret = subscription.STOKEN.substring(0, 16);
-    var querydata;
-    // Validate session token length
-    if (subscription.STOKEN.length > 50 || subscription.STOKEN.length < 30) {
-      return helper.getErrorResponse(
-        false,
-        "error",
-        "Login sessiontoken size invalid. Please provide the valid Sessiontoken",
-        "GET RECEIPT DATA FOR PDF",
-        secret
-      );
-    }
-
-    // Validate session token
-    const [result] = await db.spcall(
-      `CALL SP_STOKEN_CHECK(?,@result); SELECT @result;`,
-      [subscription.STOKEN]
-    );
-    const objectvalue = result[1][0];
-    const userid = objectvalue["@result"];
-
-    if (userid == null) {
-      return helper.getErrorResponse(
-        false,
-        "error",
-        "Login sessiontoken Invalid. Please provide the valid sessiontoken",
-        "GET RECEIPT DATA FOR PDF",
-        secret
-      );
-    }
-
-    // Check if querystring is provided
-    if (!subscription.hasOwnProperty("querystring")) {
-      return helper.getErrorResponse(
-        false,
-        "error",
-        "Querystring missing. Please provide the querystring",
-        "GET RECEIPT DATA FOR PDF",
-        secret
-      );
-    }
-
-    // Decrypt querystring
-    try {
-      querydata = await helper.decrypt(subscription.querystring, secret);
-    } catch (ex) {
-      return helper.getErrorResponse(
-        false,
-        "error",
-        "Querystring Invalid error. Please provide the valid querystring.",
-        "GET RECEIPT DATA FOR PDF",
-        secret
-      );
-    }
-
-    // Parse the decrypted querystring
-    try {
-      querydata = JSON.parse(querydata);
-    } catch (ex) {
-      return helper.getErrorResponse(
-        false,
-        "error",
-        "Querystring JSON error. Please provide valid JSON",
-        "GET RECEIPT DATA FOR PDF",
-        secret
-      );
-    }
-
-    const requiredFields = [
-      { field: "customerid", message: "Customer id missing." },
-      { field: "year", message: "Year missing." },
-      { field: "balance_amount", message: "Balance amount missing." },
-    ];
-
-    for (const { field, message } of requiredFields) {
-      if (!querydata.hasOwnProperty(field)) {
-        return helper.getErrorResponse(
-          false,
-          "error",
-          message,
-          "Add the opening balance",
-          secret
-        );
-      }
-    }
-    var customer_name;
-    try {
-      const [result1] = await db.spcall(
-        `CALL sp_InsertOrUpdate_OpeningBalance(?, ?, ?,@p_id); select @p_id`,
-        [querydata.customerid, querydata.year, querydata.balance_amount]
-      );
-      const objectvalue = result1[1][0];
-      const openingbalance_id = objectvalue["@p_id"];
-      try {
-        const customerid = querydata.customerid;
-        if (customerid != null && customerid != 0 && customerid != undefined) {
-          sql1 = await db.query1(
-            `select customer_name from customermaster where customer_id = (?)`,
-            [customerid]
-          );
-          if (sql1.length > 0) {
-            customer_name = sql1[0].customer_name;
-          }
-        }
-        const [sql2] = await db.spcall(
-          `CALL InsertClientVoucher(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,@voucher_id,@voucher_number); select @voucher_id,@voucher_number`,
-          [
-            openingbalance_id,
-            "opening balance voucher",
-            null,
-            null,
-            null,
-            customer_name,
-            null,
-            null,
-            null,
-            querydata.balance_amount,
-            0,
-            0,
-            0,
-            0,
-            "subscription",
-            `SB-${customerid}`,
-            `Opening balance for ${customerid}`,
-            null,
-          ]
-        );
-        const objectvalue = sql2[1][0];
-        const voucherid = objectvalue["@voucher_id"];
-        const vouchernumber = objectvalue["@voucher_number"];
-        const [sql3] = await db.spcall(
-          `CALL SP_DEBIT_CLIENT_LEDGER(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,@ledgerid); select @ledgerid`,
-          [
-            openingbalance_id,
-            customer_name,
-            null,
-            JSON.stringify({
-              amount: 0,
-              transactiondetails: null,
-              date: null,
-              feedback: null,
-            }),
-            null,
-            querydata.balance_amount,
-            0,
-            0,
-            0,
-            0,
-            0,
-            "subscription",
-            voucherid,
-            vouchernumber,
-            "receivable",
-            `opening balance`,
-            1,
-          ]
-        );
-      } catch (er) {
-        console.log(`Invoice number not exits ${er.message}`);
-        console.log(`Invoice number not exits ${er}`);
-      }
-      return helper.getSuccessResponse(
-        true,
-        "success",
-        "Opening balance updated successfully",
-        querydata.customerid,
-        secret
-      );
-    } catch (er) {
-      return helper.getErrorResponse(
-        false,
-        "error",
-        "Error while inserting the opening balance",
-        er.message,
-        secret
-      );
-    }
-  } catch (er) {
-    return helper.getErrorResponse(
-      false,
-      "error",
-      "Internal Error. Please contact Administration",
-      er.message,
-      secret
-    );
-  }
-}
-
-//#################################################################################################################################################################################
-//#################################################################################################################################################################################
-//#################################################################################################################################################################################
-//#################################################################################################################################################################################
-
-async function getOpeningBalance(subscription) {
-  let secret = null;
-
-  try {
-    /* ===============================
-       Session Token Validation
-    =============================== */
-    if (!subscription.STOKEN) {
-      return helper.getErrorResponse(
-        false,
-        "error",
-        "Login sessiontoken missing",
-        "GET OPENING BALANCE",
-        ""
-      );
-    }
-
-    secret = subscription.STOKEN.substring(0, 16);
-
-    if (subscription.STOKEN.length > 50 || subscription.STOKEN.length < 30) {
-      return helper.getErrorResponse(
-        false,
-        "error",
-        "Invalid sessiontoken size",
-        "GET OPENING BALANCE",
-        secret
-      );
-    }
-
-    const [result] = await db.spcall(
-      `CALL SP_STOKEN_CHECK(?,@result); SELECT @result;`,
-      [subscription.STOKEN]
-    );
-
-    const userid = result[1][0]["@result"];
-
-    if (!userid) {
-      return helper.getErrorResponse(
-        false,
-        "error",
-        "Invalid sessiontoken",
-        "GET OPENING BALANCE",
-        secret
-      );
-    }
-
-    /* ===============================
-       Querystring Handling
-    =============================== */
-    if (!subscription.querystring) {
-      return helper.getErrorResponse(
-        false,
-        "error",
-        "Querystring missing",
-        "GET OPENING BALANCE",
-        secret
-      );
-    }
-
-    let querydata;
-
-    try {
-      querydata = await helper.decrypt(subscription.querystring, secret);
-      querydata = JSON.parse(querydata);
-    } catch (err) {
-      return helper.getErrorResponse(
-        false,
-        "error",
-        "Invalid querystring",
-        "GET OPENING BALANCE",
-        secret
-      );
-    }
-
-    if (!querydata.year) {
-      return helper.getErrorResponse(
-        false,
-        "error",
-        "Year is required",
-        "GET OPENING BALANCE",
-        secret
-      );
-    }
-
-    /* ===============================
-       Fetch Branch IDs
-    =============================== */
-    let branchIds = [];
-
-    if (querydata.branchid) {
-      branchIds = [querydata.branchid];
-    } else if (querydata.customerid) {
-      const branches = await db.query1(
-        `SELECT branch_id FROM branchmaster WHERE customer_id = ?`,
-        [querydata.customerid]
-      );
-
-      branchIds = branches.map((b) => b.branch_id);
-    } else if (querydata.organizationid) {
-      const customers = await db.query1(
-        `SELECT customer_id FROM customermaster WHERE organization_id = ?`,
-        [querydata.organizationid]
-      );
-
-      const customerIds = customers.map((c) => c.customer_id);
-
-      if (customerIds.length > 0) {
-        const placeholders = customerIds.map(() => "?").join(",");
-
-        const branches = await db.query1(
-          `SELECT branch_id FROM branchmaster WHERE customer_id IN (${placeholders})`,
-          customerIds
-        );
-
-        branchIds = branches.map((b) => b.branch_id);
-      }
-    } else {
-      // 🔥 No filter → ALL branches
-      const branches = await db.query1(`SELECT branch_id FROM branchmaster`);
-
-      branchIds = branches.map((b) => b.branch_id);
-    }
-
-    /* ===============================
-       Clean Data
-    =============================== */
-    branchIds = branchIds.filter((id) => id != null);
-
-    /* ===============================
-       Fetch Opening Balance
-    =============================== */
-
-    let balances = [];
-
-    // ✅ If NO branches → fetch full year data
-    if (branchIds.length === 0) {
-      const rows = await db.query(
-        `SELECT branch_id, balance_amount 
-         FROM openingbalance
-         WHERE year = ?`,
-        [querydata.year]
-      );
-      balances = rows;
-    } else {
-      const placeholders = branchIds.map(() => "?").join(",");
-
-      const rows = await db.query(
-        `SELECT branch_id, balance_amount 
-         FROM openingbalance
-         WHERE branch_id IN (${placeholders}) AND year = ?`,
-        [...branchIds, querydata.year]
-      );
-
-      balances = rows;
-    }
-
-    /* ===============================
-       Response Handling
-    =============================== */
-
-    if (!balances.length) {
-      return helper.getSuccessResponse(
-        true,
-        "success",
-        "No opening balance found",
-        {
-          total_balance: 0,
-          data: null,
-        },
-        secret
-      );
-    }
-
-    const totalBalance = balances.reduce(
-      (sum, row) => sum + Number(row.balance_amount || 0),
-      0
-    );
-
-    return helper.getSuccessResponse(
-      true,
-      "success",
-      "Opening balance fetched successfully",
-      {
-        total_balance: totalBalance,
-        data: balances,
-      },
-      secret
-    );
-  } catch (er) {
-    return helper.getErrorResponse(
-      false,
-      "error",
-      "Internal server error",
-      er.message,
-      secret
-    );
-  }
-}
 module.exports = {
   getSubscriptionInvoice,
   getSalesInvoice,
@@ -4285,6 +3858,4 @@ module.exports = {
   getDashboardDetails,
   updatePaymentDetails,
   getReceiptFile,
-  addOpeningBalance,
-  getOpeningBalance,
 };
