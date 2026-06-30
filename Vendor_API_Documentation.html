@@ -1,0 +1,1575 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Vendor Management API Documentation</title>
+    <style>
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        line-height: 1.6;
+        margin: 40px;
+        color: #333;
+      }
+      h1 {
+        color: #2c3e50;
+        border-bottom: 3px solid #3498db;
+        padding-bottom: 10px;
+      }
+      h2 {
+        color: #34495e;
+        margin-top: 30px;
+        border-left: 4px solid #3498db;
+        padding-left: 15px;
+      }
+      h3 {
+        color: #2980b9;
+        margin-top: 25px;
+      }
+      h4 {
+        color: #27ae60;
+        margin-top: 20px;
+      }
+      .route {
+        background-color: #ecf0f1;
+        padding: 10px;
+        border-radius: 5px;
+        font-family: "Courier New", monospace;
+        font-weight: bold;
+        color: #e74c3c;
+      }
+      .json {
+        background-color: #f8f9fa;
+        border: 1px solid #e9ecef;
+        border-radius: 5px;
+        padding: 15px;
+        font-family: "Courier New", monospace;
+        font-size: 14px;
+        overflow-x: auto;
+        white-space: pre-wrap;
+      }
+      .success {
+        border-left: 4px solid #27ae60;
+        background-color: #d5f4e6;
+      }
+      .error {
+        border-left: 4px solid #e74c3c;
+        background-color: #fdf2f2;
+      }
+      .info {
+        background-color: #ebf3fd;
+        border: 1px solid #bee5eb;
+        border-radius: 5px;
+        padding: 15px;
+        margin: 15px 0;
+      }
+      ul {
+        margin: 10px 0;
+        padding-left: 20px;
+      }
+      li {
+        margin: 5px 0;
+      }
+      .table-container {
+        overflow-x: auto;
+        margin: 20px 0;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 20px 0;
+      }
+      th,
+      td {
+        border: 1px solid #ddd;
+        padding: 12px;
+        text-align: left;
+      }
+      th {
+        background-color: #f2f2f2;
+        font-weight: bold;
+      }
+      .page-break {
+        page-break-before: always;
+      }
+      .toc {
+        background-color: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 5px;
+        padding: 20px;
+        margin: 20px 0;
+      }
+      .toc ul {
+        list-style-type: none;
+        padding-left: 0;
+      }
+      .toc li {
+        margin: 8px 0;
+        padding-left: 20px;
+      }
+      .toc a {
+        text-decoration: none;
+        color: #3498db;
+      }
+      .toc a:hover {
+        text-decoration: underline;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Vendor Management API Documentation</h1>
+
+    <div class="info">
+      <strong>Overview:</strong> This document provides comprehensive
+      information about the Vendor Management APIs with complete KYC (Know Your
+      Customer) implementation including document upload capabilities for
+      registration certificates, PAN cards, cancelled cheques, and company
+      logos. The system supports vendor onboarding, product management, RFQ
+      processing with multi-channel communication (email and WhatsApp),
+      quotation management, and comprehensive document management with
+      individual upload handlers for better error control.
+    </div>
+
+    <div class="toc">
+      <h2>Table of Contents</h2>
+      <ul>
+        <li><a href="#add-vendor">1. Add Vendor (KYC)</a></li>
+        <li><a href="#get-vendor">2. Get Vendor (KYC)</a></li>
+        <li>
+          <a href="#update-registration-cert"
+            >3. Update Vendor Registration Certificate</a
+          >
+        </li>
+        <li><a href="#update-pan">4. Update Vendor PAN</a></li>
+        <li>
+          <a href="#update-cancelled-cheque"
+            >5. Update Vendor Cancelled Cheque</a
+          >
+        </li>
+        <li><a href="#update-logo">6. Update Vendor Logo</a></li>
+        <li><a href="#add-quotation">7. Add Quotation</a></li>
+        <li>
+          <a href="#vendor-details-preloader"
+            >8. Vendor Details Preloader (RFQ ID Generator)</a
+          >
+        </li>
+        <li><a href="#get-process-list">9. Get Process List</a></li>
+        <li><a href="#get-sub-process-list">10. Get Sub Process List</a></li>
+        <li><a href="#post-rfq">11. Post RFQ</a></li>
+        <li><a href="#get-products">12. Get Products</a></li>
+        <li><a href="#common-response-codes">13. Common Response Codes</a></li>
+        <li><a href="#authentication">14. Authentication</a></li>
+        <li><a href="#security">15. Security</a></li>
+        <li><a href="#error-handling">16. Error Handling</a></li>
+      </ul>
+    </div>
+
+    <div class="page-break"></div>
+
+    <h2 id="add-vendor">1. Add Vendor (KYC)</h2>
+
+    <h3>Route</h3>
+    <div class="route">POST /vendor/addvendor</div>
+
+    <h3>Description</h3>
+    <p>
+      Creates a new vendor with comprehensive KYC (Know Your Customer)
+      information including document uploads for registration certificate, PAN
+      card, cancelled cheque, and company logo. Documents are processed
+      individually using specialized upload handlers for better error handling
+      and control.
+    </p>
+
+    <h3>Request Body</h3>
+    <ul>
+      <li><strong>Content-Type:</strong> multipart/form-data</li>
+      <li>
+        <strong>File Fields:</strong>
+        <ul>
+          <li>registration_certificate: PDF/Image file (optional)</li>
+          <li>pan_upload: PDF/Image file (optional)</li>
+          <li>cancelled_cheque: PDF/Image file (optional)</li>
+          <li>logo_upload: PDF/Image file (optional)</li>
+        </ul>
+      </li>
+      <li>
+        <strong>Form Fields:</strong>
+        <ul>
+          <li>STOKEN: Session token</li>
+          <li>querystring: Encrypted data containing vendor KYC details</li>
+        </ul>
+      </li>
+    </ul>
+
+    <h3>Decrypted Querystring Data</h3>
+    <div class="json">
+      { "vendorname": "JK Construction", "address": "123 Main Street,
+      Coimbatore", "state": "Tamil Nadu", "pincode": "641001",
+      "contactpersonname": "John Doe", "contactpersondesignation": "Manager",
+      "contactpersonphone": "8393923242", "email": "jk@gmail.com",
+      "businesstype": "Manufacturer", "yearofestablishment": 2010, "gstnumber":
+      "33ABCD43wsd123", "pannumber": "ABCPD1234E", "annualturnover":
+      50000000.00, "productsservices": "Construction materials, cement, steel",
+      "hsnsaccode": "2523,7207", "description": "Leading manufacturer of
+      construction materials", "bankname": "State Bank of India", "branchname":
+      "Coimbatore Main", "accountnumber": "1234567890", "ifsccode":
+      "SBIN0001234", "isocertification": "ISO 9001:2015", "othercertifications":
+      "BIS certification for cement" }
+    </div>
+
+    <h3>Response Body</h3>
+    <h4>Success Response</h4>
+    <div class="json success">
+      { "code": true, "message": "Vendor Added Successfully", "Value": {
+      "vendorid": 1, "registration_certificate_uploaded": true,
+      "pan_upload_uploaded": true, "cancelled_cheque_uploaded": true,
+      "logo_uploaded": true } }
+    </div>
+
+    <h4>Error Response</h4>
+    <div class="json error">
+      { "code": false, "message": "Error message describing the issue", "Value":
+      "ADD VENDOR" }
+    </div>
+
+    <h3>Required Fields</h3>
+    <div class="table-container">
+      <table>
+        <tr>
+          <th>Field</th>
+          <th>Type</th>
+          <th>Required</th>
+          <th>Description</th>
+        </tr>
+        <tr>
+          <td>vendorname</td>
+          <td>String</td>
+          <td>Yes</td>
+          <td>Vendor company name</td>
+        </tr>
+        <tr>
+          <td>contactpersonphone</td>
+          <td>String</td>
+          <td>Yes</td>
+          <td>Contact person phone number</td>
+        </tr>
+        <tr>
+          <td>email</td>
+          <td>String</td>
+          <td>Yes</td>
+          <td>Vendor email address</td>
+        </tr>
+        <tr>
+          <td>businesstype</td>
+          <td>Enum</td>
+          <td>Yes</td>
+          <td>Manufacturer/Distributor/Service Provider/Others</td>
+        </tr>
+        <tr>
+          <td>yearofestablishment</td>
+          <td>Year</td>
+          <td>Yes</td>
+          <td>Year company was established</td>
+        </tr>
+        <tr>
+          <td>gstnumber</td>
+          <td>String</td>
+          <td>Yes</td>
+          <td>GST registration number</td>
+        </tr>
+        <tr>
+          <td>pannumber</td>
+          <td>String</td>
+          <td>Yes</td>
+          <td>PAN card number</td>
+        </tr>
+        <tr>
+          <td>annualturnover</td>
+          <td>Decimal</td>
+          <td>Yes</td>
+          <td>Annual turnover in INR</td>
+        </tr>
+        <tr>
+          <td>productsservices</td>
+          <td>Text</td>
+          <td>Yes</td>
+          <td>List of products/services offered</td>
+        </tr>
+        <tr>
+          <td>hsnsaccode</td>
+          <td>String</td>
+          <td>Yes</td>
+          <td>HSN/SAC codes</td>
+        </tr>
+        <tr>
+          <td>bankname</td>
+          <td>String</td>
+          <td>Yes</td>
+          <td>Bank name for payments</td>
+        </tr>
+        <tr>
+          <td>branchname</td>
+          <td>String</td>
+          <td>Yes</td>
+          <td>Bank branch name</td>
+        </tr>
+        <tr>
+          <td>accountnumber</td>
+          <td>String</td>
+          <td>Yes</td>
+          <td>Bank account number</td>
+        </tr>
+        <tr>
+          <td>ifsccode</td>
+          <td>String</td>
+          <td>Yes</td>
+          <td>Bank IFSC code</td>
+        </tr>
+      </table>
+    </div>
+
+    <h3>Optional Fields</h3>
+    <ul>
+      <li><strong>address:</strong> Company address</li>
+      <li><strong>state:</strong> State/Province</li>
+      <li><strong>pincode:</strong> Postal/ZIP code</li>
+      <li><strong>contactpersonname:</strong> Contact person name</li>
+      <li>
+        <strong>contactpersondesignation:</strong> Contact person designation
+      </li>
+      <li><strong>description:</strong> Company description</li>
+      <li><strong>isocertification:</strong> ISO certification details</li>
+      <li><strong>othercertifications:</strong> Other certifications</li>
+    </ul>
+
+    <h3>File Upload Requirements</h3>
+    <ul>
+      <li><strong>Format:</strong> PDF, JPG, PNG, JPEG</li>
+      <li><strong>Size:</strong> Maximum 5MB per file</li>
+      <li>
+        <strong>Storage:</strong>
+        /filestorage/YYYY/Month/DD/VendorKYC/{DocumentType}/
+      </li>
+      <li>
+        <strong>Fields:</strong> registration_certificate, pan_upload,
+        cancelled_cheque, logo_upload (all optional)
+      </li>
+      <li>
+        <strong>Processing:</strong> Each document type is processed
+        individually with dedicated upload handlers
+      </li>
+      <li>
+        <strong>Storage Folders:</strong>
+        <ul>
+          <li>registration_certificate → RegistrationCertificate/</li>
+          <li>pan_upload → PAN/</li>
+          <li>cancelled_cheque → CancelledCheque/</li>
+          <li>logo_upload → Logo/</li>
+        </ul>
+      </li>
+    </ul>
+
+    <div class="page-break"></div>
+
+    <h2 id="get-vendor">2. Get Vendor (KYC)</h2>
+
+    <h3>Route</h3>
+    <div class="route">POST /vendor/getvendor</div>
+
+    <h3>Description</h3>
+    <p>
+      Retrieves comprehensive vendor KYC information including all company
+      details, contact information, business details, bank information,
+      certifications, and uploaded documents converted to binary format for
+      display.
+    </p>
+
+    <h3>Request Body</h3>
+    <div class="json">
+      { "STOKEN": "your_session_token_here", "querystring":
+      "encrypted_data_containing_filter_criteria" }
+    </div>
+
+    <h3>Decrypted Querystring Data</h3>
+    <div class="json">{ "vendorid": 1 }</div>
+    <div class="info">
+      <strong>Note:</strong> Use vendorid: 0 or omit vendorid to fetch all
+      vendors.
+    </div>
+
+    <h3>Response Body</h3>
+    <h4>Success Response</h4>
+    <div class="json success">
+      { "code": true, "message": "Vendor Fetched Successfully", "Value": [ {
+      "vendorid": 1, "vendor_name": "JK Construction", "address": "123 Main
+      Street, Coimbatore", "state": "Tamil Nadu", "pincode": "641001",
+      "contact_person_name": "John Doe", "contact_person_designation":
+      "Manager", "contact_person_phone": "8393923242", "email": "jk@gmail.com",
+      "business_type": "Manufacturer", "year_of_establishment": 2010,
+      "gst_number": "33ABCD43wsd123", "pan_number": "ABCPD1234E",
+      "annual_turnover": 50000000.00, "products_services": "Construction
+      materials, cement, steel", "hsn_sac_code": "2523,7207", "description":
+      "Leading manufacturer of construction materials", "bank_name": "State Bank
+      of India", "branch_name": "Coimbatore Main", "account_number":
+      "1234567890", "ifsc_code": "SBIN0001234", "iso_certification": "ISO
+      9001:2015", "other_certifications": "BIS certification for cement",
+      "registration_certificate_path": "/path/to/registration.pdf",
+      "pan_upload_path": "/path/to/pan.pdf", "cancelled_cheque_path":
+      "/path/to/cheque.pdf", "logo_path": "/path/to/logo.png",
+      "registration_certificate_binary": "base64_encoded_data_or_null",
+      "pan_upload_binary": "base64_encoded_data_or_null",
+      "cancelled_cheque_binary": "base64_encoded_data_or_null", "logo_binary":
+      "base64_encoded_data_or_null", "created_at": "2025-07-07 10:30:00",
+      "updated_at": "2025-07-07 10:30:00" } ] }
+    </div>
+
+    <h4>Error Response</h4>
+    <div class="json error">
+      { "code": false, "message": "Error message describing the issue", "Value":
+      "FETCH VENDOR" }
+    </div>
+
+    <h3>Response Fields Description</h3>
+    <div class="table-container">
+      <table>
+        <tr>
+          <th>Field Category</th>
+          <th>Field</th>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+        <tr>
+          <td rowspan="5">Company Info</td>
+          <td>id</td>
+          <td>Integer</td>
+          <td>Unique vendor ID</td>
+        </tr>
+        <tr>
+          <td>vendor_name</td>
+          <td>String</td>
+          <td>Company name</td>
+        </tr>
+        <tr>
+          <td>address</td>
+          <td>Text</td>
+          <td>Company address</td>
+        </tr>
+        <tr>
+          <td>state</td>
+          <td>String</td>
+          <td>State/Province</td>
+        </tr>
+        <tr>
+          <td>pincode</td>
+          <td>String</td>
+          <td>Postal/ZIP code</td>
+        </tr>
+        <tr>
+          <td rowspan="4">Contact Info</td>
+          <td>contact_person_name</td>
+          <td>String</td>
+          <td>Contact person name</td>
+        </tr>
+        <tr>
+          <td>contact_person_designation</td>
+          <td>String</td>
+          <td>Contact person designation</td>
+        </tr>
+        <tr>
+          <td>contact_person_phone</td>
+          <td>String</td>
+          <td>Contact phone number</td>
+        </tr>
+        <tr>
+          <td>email</td>
+          <td>String</td>
+          <td>Company email</td>
+        </tr>
+        <tr>
+          <td rowspan="8">Business Info</td>
+          <td>business_type</td>
+          <td>Enum</td>
+          <td>Manufacturer/Distributor/Service Provider/Others</td>
+        </tr>
+        <tr>
+          <td>year_of_establishment</td>
+          <td>Year</td>
+          <td>Year company was established</td>
+        </tr>
+        <tr>
+          <td>gst_number</td>
+          <td>String</td>
+          <td>GST registration number</td>
+        </tr>
+        <tr>
+          <td>pan_number</td>
+          <td>String</td>
+          <td>PAN card number</td>
+        </tr>
+        <tr>
+          <td>annual_turnover</td>
+          <td>Decimal</td>
+          <td>Annual turnover in INR</td>
+        </tr>
+        <tr>
+          <td>products_services</td>
+          <td>Text</td>
+          <td>Products/services offered</td>
+        </tr>
+        <tr>
+          <td>hsn_sac_code</td>
+          <td>String</td>
+          <td>HSN/SAC codes</td>
+        </tr>
+        <tr>
+          <td>description</td>
+          <td>Text</td>
+          <td>Company description</td>
+        </tr>
+        <tr>
+          <td rowspan="4">Bank Details</td>
+          <td>bank_name</td>
+          <td>String</td>
+          <td>Bank name</td>
+        </tr>
+        <tr>
+          <td>branch_name</td>
+          <td>String</td>
+          <td>Bank branch name</td>
+        </tr>
+        <tr>
+          <td>account_number</td>
+          <td>String</td>
+          <td>Bank account number</td>
+        </tr>
+        <tr>
+          <td>ifsc_code</td>
+          <td>String</td>
+          <td>Bank IFSC code</td>
+        </tr>
+        <tr>
+          <td rowspan="8">Documents</td>
+          <td>registration_certificate_path</td>
+          <td>String</td>
+          <td>File path to registration certificate</td>
+        </tr>
+        <tr>
+          <td>pan_upload_path</td>
+          <td>String</td>
+          <td>File path to PAN document</td>
+        </tr>
+        <tr>
+          <td>cancelled_cheque_path</td>
+          <td>String</td>
+          <td>File path to cancelled cheque</td>
+        </tr>
+        <tr>
+          <td>registration_certificate_binary</td>
+          <td>Base64</td>
+          <td>Base64 encoded registration certificate for display</td>
+        </tr>
+        <tr>
+          <td>pan_upload_binary</td>
+          <td>Base64</td>
+          <td>Base64 encoded PAN document for display</td>
+        </tr>
+        <tr>
+          <td>cancelled_cheque_binary</td>
+          <td>Base64</td>
+          <td>Base64 encoded cancelled cheque for display</td>
+        </tr>
+        <tr>
+          <td>logo_path</td>
+          <td>String</td>
+          <td>File path to company logo</td>
+        </tr>
+        <tr>
+          <td>logo_binary</td>
+          <td>Base64</td>
+          <td>Base64 encoded company logo for display</td>
+        </tr>
+      </table>
+    </div>
+
+    <h3>RFQ Response Fields Description</h3>
+    <div class="table-container">
+      <table>
+        <tr>
+          <th>Field Category</th>
+          <th>Field</th>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+        <tr>
+          <td rowspan="7">RFQ Process</td>
+          <td>vprocess_id</td>
+          <td>Integer</td>
+          <td>Vendor process master ID</td>
+        </tr>
+        <tr>
+          <td>process_id</td>
+          <td>Integer</td>
+          <td>Process list ID</td>
+        </tr>
+        <tr>
+          <td>vendor_name</td>
+          <td>String</td>
+          <td>Name of the vendor</td>
+        </tr>
+        <tr>
+          <td>rfq_id</td>
+          <td>String</td>
+          <td>RFQ identifier</td>
+        </tr>
+        <tr>
+          <td>emailsent</td>
+          <td>Boolean</td>
+          <td>Email delivery status</td>
+        </tr>
+        <tr>
+          <td>whatsappsent</td>
+          <td>Boolean</td>
+          <td>WhatsApp delivery status</td>
+        </tr>
+        <tr>
+          <td>messagetype</td>
+          <td>Integer</td>
+          <td>Message type used (1=email, 2=WhatsApp, 3=both)</td>
+        </tr>
+      </table>
+    </div>
+
+    <div class="page-break"></div>
+
+    <h2 id="update-registration-cert">
+      3. Update Vendor Registration Certificate
+    </h2>
+
+    <h3>Route</h3>
+    <div class="route">POST /vendor/updateregistrationcert</div>
+
+    <h3>Description</h3>
+    <p>Updates the registration certificate document for an existing vendor.</p>
+
+    <h3>Request Body</h3>
+    <ul>
+      <li><strong>Content-Type:</strong> multipart/form-data</li>
+      <li>
+        <strong>File Field:</strong> registration_certificate (PDF/Image file,
+        max 5MB)
+      </li>
+      <li>
+        <strong>Form Fields:</strong>
+        <ul>
+          <li>STOKEN: Session token</li>
+          <li>querystring: Encrypted data containing vendorid</li>
+        </ul>
+      </li>
+    </ul>
+
+    <h3>Decrypted Querystring Data</h3>
+    <div class="json">{ "vendorid": 1 }</div>
+
+    <h3>Response Body</h3>
+    <h4>Success Response</h4>
+    <div class="json success">
+      { "code": true, "message": "Registration Certificate Updated
+      Successfully", "Value": { "vendorid": 1, "file_path":
+      "/filestorage/2025/July/07/VendorKYC/RegistrationCertificate/1720354892_registration.pdf"
+      } }
+    </div>
+
+    <h4>Error Response</h4>
+    <div class="json error">
+      { "code": false, "message": "Error message describing the issue", "Value":
+      "UPDATE VENDOR REGISTRATION CERT" }
+    </div>
+
+    <h3>File Requirements</h3>
+    <ul>
+      <li><strong>Format:</strong> PDF, JPG, PNG, JPEG</li>
+      <li><strong>Size:</strong> Maximum 5MB</li>
+      <li>
+        <strong>Storage:</strong>
+        /filestorage/YYYY/Month/DD/VendorKYC/RegistrationCertificate/
+      </li>
+    </ul>
+
+    <div class="page-break"></div>
+
+    <h2 id="update-pan">4. Update Vendor PAN</h2>
+
+    <h3>Route</h3>
+    <div class="route">POST /vendor/updatepan</div>
+
+    <h3>Description</h3>
+    <p>Updates the PAN card document for an existing vendor.</p>
+
+    <h3>Request Body</h3>
+    <ul>
+      <li><strong>Content-Type:</strong> multipart/form-data</li>
+      <li><strong>File Field:</strong> pan_upload (PDF/Image file, max 5MB)</li>
+      <li>
+        <strong>Form Fields:</strong>
+        <ul>
+          <li>STOKEN: Session token</li>
+          <li>querystring: Encrypted data containing vendorid</li>
+        </ul>
+      </li>
+    </ul>
+
+    <h3>Decrypted Querystring Data</h3>
+    <div class="json">{ "vendorid": 1 }</div>
+
+    <h3>Response Body</h3>
+    <h4>Success Response</h4>
+    <div class="json success">
+      { "code": true, "message": "PAN Document Updated Successfully", "Value": {
+      "vendorid": 1, "file_path":
+      "/filestorage/2025/July/07/VendorKYC/PAN/1720354892_pan_card.pdf" } }
+    </div>
+
+    <h4>Error Response</h4>
+    <div class="json error">
+      { "code": false, "message": "Error message describing the issue", "Value":
+      "UPDATE VENDOR PAN" }
+    </div>
+
+    <h3>File Requirements</h3>
+    <ul>
+      <li><strong>Format:</strong> PDF, JPG, PNG, JPEG</li>
+      <li><strong>Size:</strong> Maximum 5MB</li>
+      <li>
+        <strong>Storage:</strong> /filestorage/YYYY/Month/DD/VendorKYC/PAN/
+      </li>
+    </ul>
+
+    <div class="page-break"></div>
+
+    <h2 id="update-cancelled-cheque">5. Update Vendor Cancelled Cheque</h2>
+
+    <h3>Route</h3>
+    <div class="route">POST /vendor/updatecancelledcheque</div>
+
+    <h3>Description</h3>
+    <p>Updates the cancelled cheque document for an existing vendor.</p>
+
+    <h3>Request Body</h3>
+    <ul>
+      <li><strong>Content-Type:</strong> multipart/form-data</li>
+      <li>
+        <strong>File Field:</strong> cancelled_cheque (PDF/Image file, max 5MB)
+      </li>
+      <li>
+        <strong>Form Fields:</strong>
+        <ul>
+          <li>STOKEN: Session token</li>
+          <li>querystring: Encrypted data containing vendorid</li>
+        </ul>
+      </li>
+    </ul>
+
+    <h3>Decrypted Querystring Data</h3>
+    <div class="json">{ "vendorid": 1 }</div>
+
+    <h3>Response Body</h3>
+    <h4>Success Response</h4>
+    <div class="json success">
+      { "code": true, "message": "Cancelled Cheque Updated Successfully",
+      "Value": { "vendorid": 1, "file_path":
+      "/filestorage/2025/July/07/VendorKYC/CancelledCheque/1720354892_cancelled_cheque.pdf"
+      } }
+    </div>
+
+    <h4>Error Response</h4>
+    <div class="json error">
+      { "code": false, "message": "Error message describing the issue", "Value":
+      "UPDATE VENDOR CANCELLED CHEQUE" }
+    </div>
+
+    <h3>File Requirements</h3>
+    <ul>
+      <li><strong>Format:</strong> PDF, JPG, PNG, JPEG</li>
+      <li><strong>Size:</strong> Maximum 5MB</li>
+      <li>
+        <strong>Storage:</strong>
+        /filestorage/YYYY/Month/DD/VendorKYC/CancelledCheque/
+      </li>
+    </ul>
+
+    <div class="page-break"></div>
+
+    <h2 id="update-logo">6. Update Vendor Logo</h2>
+
+    <h3>Route</h3>
+    <div class="route">POST /vendor/updatelogo</div>
+
+    <h3>Description</h3>
+    <p>Updates the company logo for an existing vendor.</p>
+
+    <h3>Request Body</h3>
+    <ul>
+      <li><strong>Content-Type:</strong> multipart/form-data</li>
+      <li>
+        <strong>File Field:</strong> logo_upload (PDF/Image file, max 5MB)
+      </li>
+      <li>
+        <strong>Form Fields:</strong>
+        <ul>
+          <li>STOKEN: Session token</li>
+          <li>querystring: Encrypted data containing vendorid</li>
+        </ul>
+      </li>
+    </ul>
+
+    <h3>Decrypted Querystring Data</h3>
+    <div class="json">{ "vendorid": 1 }</div>
+
+    <h3>Response Body</h3>
+    <h4>Success Response</h4>
+    <div class="json success">
+      { "code": true, "message": "Logo Updated Successfully", "Value": {
+      "vendorid": 1, "file_path":
+      "/filestorage/2025/July/07/VendorKYC/Logo/1720354892_logo.png" } }
+    </div>
+
+    <h4>Error Response</h4>
+    <div class="json error">
+      { "code": false, "message": "Error message describing the issue", "Value":
+      "UPDATE VENDOR LOGO" }
+    </div>
+
+    <h3>File Requirements</h3>
+    <ul>
+      <li><strong>Format:</strong> PDF, JPG, PNG, JPEG</li>
+      <li><strong>Size:</strong> Maximum 5MB</li>
+      <li>
+        <strong>Storage:</strong> /filestorage/YYYY/Month/DD/VendorKYC/Logo/
+      </li>
+    </ul>
+
+    <div class="page-break"></div>
+
+    <h2 id="add-quotation">7. Add Quotation</h2>
+
+    <h3>Route</h3>
+    <div class="route">POST /vendor/addquotation</div>
+
+    <h3>Description</h3>
+    <p>Uploads a vendor quotation PDF file and associates it with an RFQ ID.</p>
+
+    <h3>Request Body</h3>
+    <ul>
+      <li><strong>Content-Type:</strong> multipart/form-data</li>
+      <li><strong>File Field:</strong> file (PDF file, max 5MB)</li>
+      <li>
+        <strong>Form Fields:</strong>
+        <ul>
+          <li>STOKEN: Session token</li>
+          <li>querystring: Encrypted data containing RFQ details</li>
+        </ul>
+      </li>
+    </ul>
+
+    <h3>Decrypted Querystring Data</h3>
+    <div class="json">{ "rfqid": "SSIPL-RFQ/2507/01" }</div>
+
+    <h3>Response Body</h3>
+    <h4>Success Response</h4>
+    <div class="json success">
+      { "code": true, "message": "Quotation Added Successfully", "Value": 1 }
+    </div>
+
+    <h4>Error Response</h4>
+    <div class="json error">
+      { "code": false, "message": "Error message describing the issue", "Value":
+      "ADD QUOTATION" }
+    </div>
+
+    <h3>File Requirements</h3>
+    <ul>
+      <li><strong>Format:</strong> PDF only</li>
+      <li><strong>Size:</strong> Maximum 5MB</li>
+      <li>
+        <strong>Storage:</strong> Saved in
+        /filestorage/YYYY/Month/DD/VendorQuotation/
+      </li>
+    </ul>
+
+    <div class="page-break"></div>
+
+    <h2 id="vendor-details-preloader">
+      8. Vendor Details Preloader (RFQ ID Generator)
+    </h2>
+
+    <h3>Route</h3>
+    <div class="route">POST /vendor/detailspreloader</div>
+
+    <h3>Description</h3>
+    <p>Generates a unique RFQ ID for creating new RFQ processes.</p>
+
+    <h3>Request Body</h3>
+    <div class="json">{ "STOKEN": "your_session_token_here" }</div>
+
+    <h3>Response Body</h3>
+    <h4>Success Response</h4>
+    <div class="json success">
+      { "code": true, "message": "RFQ ID generated successfully", "rfq_id":
+      "SSIPL-RFQ/2507/01" }
+    </div>
+
+    <h4>Error Response</h4>
+    <div class="json error">
+      { "code": false, "message": "Error message describing the issue",
+      "rfq_id": null }
+    </div>
+
+    <h3>RFQ ID Format</h3>
+    <ul>
+      <li><strong>Pattern:</strong> SSIPL-RFQ/{YYMM}/{counter}</li>
+      <li><strong>YYMM:</strong> Year-Month (e.g., 2507 for July 2025)</li>
+      <li>
+        <strong>Counter:</strong> 2-digit sequential number (01, 02, etc.)
+      </li>
+      <li><strong>Generated By:</strong> Gen_vendor_rfqId stored procedure</li>
+      <li><strong>Storage:</strong> vendor_rfq_ids table</li>
+    </ul>
+
+    <div class="page-break"></div>
+
+    <h2 id="get-process-list">9. Get Process List</h2>
+
+    <h3>Route</h3>
+    <div class="route">POST /vendor/getprocesslist</div>
+
+    <h3>Description</h3>
+    <p>
+      Retrieves vendor process records with optional filtering capabilities.
+    </p>
+
+    <h3>Request Body</h3>
+    <div class="json">
+      { "STOKEN": "your_session_token_here", "querystring":
+      "encrypted_data_containing_optional_filters" }
+    </div>
+
+    <h3>Decrypted Querystring Data (Optional Filters)</h3>
+    <div class="json">{ "vprocess_id": 1, "vendor_id": 1, "status": 1 }</div>
+
+    <h3>Response Body</h3>
+    <h4>Success Response</h4>
+    <div class="json success">
+      { "code": true, "message": "Process list fetched successfully", "Value": [
+      { "vprocess_id": 1, "vendor_name": "JK constructiond", "Process_date":
+      "2025-07-04", "Vendor_id": 1, "Customer_id": null, "Row_updated_date":
+      "2025-07-04 15:50:53", "status": 1, "deleted_flag": 0, "archive_data": 0,
+      "Created_by": 4, "cprocess_id": 4, "feedback": null, "vprocess_gen_id":
+      "SSIPL-RFQ/2507/01" } ] }
+    </div>
+
+    <h4>Error Response</h4>
+    <div class="json error">
+      { "code": false, "message": "Error message describing the issue", "Value":
+      "GET PROCESS LIST" }
+    </div>
+
+    <h3>Filter Options</h3>
+    <ul>
+      <li><strong>vprocess_id:</strong> Specific process ID</li>
+      <li><strong>vendor_id:</strong> Filter by vendor</li>
+      <li>
+        <strong>status:</strong> Filter by status (1 = active, 0 = inactive)
+      </li>
+    </ul>
+
+    <div class="page-break"></div>
+
+    <h2 id="get-sub-process-list">10. Get Sub Process List</h2>
+
+    <h3>Route</h3>
+    <div class="route">POST /vendor/getsubprocesslist</div>
+
+    <h3>Description</h3>
+    <p>
+      Retrieves subprocess records from vprocesslist table where vprocess_id
+      equals the provided process ID. This API is used to fetch all related
+      subprocess activities for a specific parent process.
+    </p>
+
+    <h3>Request Body</h3>
+    <div class="json">
+      { "STOKEN": "your_session_token_here", "querystring":
+      "encrypted_data_containing_process_id" }
+    </div>
+
+    <h3>Decrypted Querystring Data</h3>
+    <div class="json">{ "vprocess_id": 1 }</div>
+    <div class="info">
+      <strong>Note:</strong> vprocess_id is required - this is the parent
+      process ID to fetch subprocess list for.
+    </div>
+
+    <h3>Response Body</h3>
+    <h4>Success Response</h4>
+    <div class="json success">
+      { "code": true, "message": "Sub process list fetched successfully",
+      "Value": [ { "process_id": 1, "process_name": "RFQ", "Process_filepath":
+      "/filestorage/2025/July/04/PostRFQ/1720098765_RFQ_Document.pdf",
+      "Process_date": "2025-07-04", "Approved_status": 0, "status": 1,
+      "deleted_flag": 0, "Created_by": 4, "vprocess_gen_id":
+      "SSIPL-RFQ/2507/01", "process_type": "RFQ", "vendor_address":
+      "chinnverampatti,udumallai", "vendor_name": "JK constructiond",
+      "Row_updated_date": "2025-07-04 15:50:53" }, { "process_id": 2,
+      "process_name": "QUOTATION", "Process_filepath":
+      "/filestorage/2025/July/04/VendorQuotation/1720098890_Quote.pdf",
+      "Process_date": "2025-07-04", "Approved_status": 0, "status": 1,
+      "deleted_flag": 0, "Created_by": 5, "vprocess_gen_id":
+      "SSIPL-RFQ/2507/01", "process_type": "QUOTATION", "vendor_address":
+      "chinnverampatti,udumallai", "vendor_name": "JK constructiond",
+      "Row_updated_date": "2025-07-04 16:20:15" } ] }
+    </div>
+
+    <h4>Error Response</h4>
+    <div class="json error">
+      { "code": false, "message": "Error message describing the issue", "Value":
+      "GET SUB PROCESS LIST" }
+    </div>
+
+    <h3>Required Fields</h3>
+    <ul>
+      <li>
+        <strong>vprocess_id:</strong> Parent process ID (required) - must be a
+        valid process ID from vendorprocessmaster table
+      </li>
+    </ul>
+
+    <h3>Response Fields Description</h3>
+    <ul>
+      <li><strong>process_id:</strong> Unique subprocess ID</li>
+      <li>
+        <strong>process_name:</strong> Type of subprocess (RFQ, QUOTATION, etc.)
+      </li>
+      <li>
+        <strong>Process_filepath:</strong> Full path to uploaded document/file
+      </li>
+      <li><strong>Process_date:</strong> Date when subprocess was created</li>
+      <li>
+        <strong>Approved_status:</strong> Approval status (0 = pending, 1 =
+        approved)
+      </li>
+      <li><strong>status:</strong> Active status (1 = active, 0 = inactive)</li>
+      <li>
+        <strong>process_type:</strong> Category of process (RFQ, QUOTATION,
+        etc.)
+      </li>
+      <li><strong>vendor_address:</strong> Associated vendor address</li>
+      <li><strong>vendor_name:</strong> Associated vendor name</li>
+      <li>
+        <strong>vprocess_gen_id:</strong> RFQ ID linking to parent process
+      </li>
+    </ul>
+
+    <h3>Common Use Cases</h3>
+    <ul>
+      <li>
+        <strong>RFQ Tracking:</strong> View all documents and activities under a
+        specific RFQ
+      </li>
+      <li>
+        <strong>Process Drilling:</strong> Navigate from main process to
+        detailed subprocess activities
+      </li>
+      <li>
+        <strong>Document Management:</strong> See all files and documents
+        related to a process
+      </li>
+      <li>
+        <strong>Audit Trail:</strong> Chronological view of all subprocess
+        activities
+      </li>
+      <li>
+        <strong>Status Monitoring:</strong> Track progress of individual
+        subprocess items
+      </li>
+    </ul>
+
+    <div class="page-break"></div>
+
+    <h2 id="post-rfq">11. Post RFQ</h2>
+
+    <h3>Route</h3>
+    <div class="route">POST /vendor/postrfq</div>
+
+    <h3>Description</h3>
+    <p>
+      Posts an RFQ to a vendor including PDF upload, database storage, and email
+      notification.
+    </p>
+
+    <h3>Request Body</h3>
+    <ul>
+      <li><strong>Content-Type:</strong> multipart/form-data</li>
+      <li><strong>File Field:</strong> file (PDF file, max 10MB)</li>
+      <li>
+        <strong>Form Fields:</strong>
+        <ul>
+          <li>STOKEN: Session token</li>
+          <li>querystring: Encrypted data containing RFQ details</li>
+        </ul>
+      </li>
+    </ul>
+
+    <h3>Decrypted Querystring Data</h3>
+    <div class="json">
+      { "vendorname": "JK Constructiond", "vendorid": 1, "GSTIN":
+      "33AATFN1941J1Z0", "PAN": "NAEPK8086H", "Contact_person": "Ravi Kumar",
+      "vendoraddress": "Chinnverampatti, Udumallai", "product": [ {
+      "productsno": 1, "productname": "Mechanical Keyboard", "productquantity":
+      8 }, { "productsno": 2, "productname": "keyboard", "productquantity": 4 }
+      ], "notes": ["6ythgnb"], "messagetype": 3, "feedback": "", "title": "656",
+      "emailid": "jk@gmail.com", "phoneno": "9344268155", "date": "2025-07-07
+      13:53:14.216385", "rfqgenid": "SSIPL-RFQ/250740", "ccemail": "" }
+    </div>
+
+    <h4>RFQ Storage Fields (stored in vendor_rfq_details table)</h4>
+    <p>
+      <strong>Note:</strong> All vendor and product details are stored directly
+      from the querystring parameters in a single table with JSON columns for
+      products and notes.
+    </p>
+    <ul>
+      <li>
+        <strong>rfqgenid:</strong> RFQ Generation ID (e.g., SSIPL-RFQ/250740)
+      </li>
+      <li><strong>vendor_id:</strong> Vendor ID (for reference)</li>
+      <li><strong>vendor_name:</strong> Vendor company name</li>
+      <li><strong>gstin:</strong> GST identification number</li>
+      <li><strong>pan:</strong> PAN card number</li>
+      <li><strong>contact_person:</strong> Contact person name</li>
+      <li><strong>vendor_address:</strong> Vendor address</li>
+      <li><strong>title:</strong> Title or reference number</li>
+      <li><strong>email_id:</strong> Vendor email address</li>
+      <li><strong>phone_no:</strong> Contact phone number</li>
+      <li><strong>cc_email:</strong> CC email address</li>
+      <li>
+        <strong>message_type:</strong> Message delivery type (1=email,
+        2=WhatsApp, 3=both)
+      </li>
+      <li><strong>feedback:</strong> RFQ feedback text</li>
+      <li><strong>rfq_date:</strong> RFQ creation date and time</li>
+      <li><strong>notes:</strong> JSON array of note IDs</li>
+      <li>
+        <strong>products:</strong> JSON array of product details with
+        productname, productquantity, etc.
+      </li>
+      <li><strong>notes:</strong> RFQ notes or feedback</li>
+      <li>
+        <strong>created_at/updated_at:</strong> Timestamps (auto-generated)
+      </li>
+    </ul>
+
+    <h4>Notes Storage (vendor_notesmaster table)</h4>
+    <p>
+      <strong>Note:</strong> If notes are provided in the RFQ, they are stored
+      separately in the vendor_notesmaster table. Duplicate notes are
+      automatically prevented - if the same note content already exists in the
+      database, it will not be inserted again.
+    </p>
+    <ul>
+      <li><strong>notes_id:</strong> Auto-generated primary key</li>
+      <li>
+        <strong>notes:</strong> RFQ notes content (checked for duplicates)
+      </li>
+      <li><strong>row_updated_date:</strong> Timestamp (auto-generated)</li>
+      <li><strong>status:</strong> 1 (active)</li>
+      <li><strong>deleted_flag:</strong> 0 (not deleted)</li>
+    </ul>
+
+    <h3>Message Type Options</h3>
+    <ul>
+      <li><strong>1:</strong> Email only (default)</li>
+      <li><strong>2:</strong> WhatsApp only</li>
+      <li><strong>3:</strong> Both email and WhatsApp</li>
+    </ul>
+
+    <h3>Response Body</h3>
+    <h4>Success Response</h4>
+    <div class="json success">
+      { "code": true, "message": "RFQ Posted Successfully", "Value": {
+      "vprocess_id": 1, "process_id": 2, "vendor_name": "JK constructiond",
+      "rfq_id": "SSIPL-RFQ/250740", "emailsent": true, "whatsappsent": false,
+      "messagetype": 1 } }
+    </div>
+
+    <h4>Error Response</h4>
+    <div class="json error">
+      { "code": false, "message": "Error message describing the issue", "Value":
+      "POST RFQ" }
+    </div>
+
+    <h3>Process Flow</h3>
+    <ol>
+      <li>
+        <strong>File Upload:</strong> PDF saved to
+        /filestorage/YYYY/Month/DD/PostRFQ/
+      </li>
+      <li>
+        <strong>Vendor Authentication:</strong> Validates vendor exists and is
+        active
+      </li>
+      <li>
+        <strong>RFQ Details Storage:</strong> Creates record in
+        vendor_rfq_details table using values from querystring parameters (not
+        fetched from vendors table)
+      </li>
+      <li>
+        <strong>Notes Storage:</strong> If notes are provided, creates record in
+        vendor_notesmaster table
+      </li>
+      <li>
+        <strong>Database Storage:</strong>
+        <ul>
+          <li>Creates record in vendorprocessmaster</li>
+          <li>Creates record in vprocesslist</li>
+        </ul>
+      </li>
+      <li>
+        <strong>Message Type Processing:</strong>
+        <ul>
+          <li>messagetype 1: Email only</li>
+          <li>messagetype 2: WhatsApp only</li>
+          <li>messagetype 3: Both email and WhatsApp</li>
+        </ul>
+      </li>
+      <li>
+        <strong>Email Notification (if messagetype 1 or 3):</strong>
+        <ul>
+          <li>Sends RFQ email to vendor using VENDORRFQ template</li>
+          <li>Includes PDF attachment</li>
+          <li>Uses module tag VENDORRFQ for email settings</li>
+          <li>Supports CC email functionality</li>
+        </ul>
+      </li>
+      <li>
+        <strong>WhatsApp Notification (if messagetype 2 or 3):</strong>
+        <ul>
+          <li>Sends PDF via WhatsApp to vendor's phone number</li>
+          <li>Uses external API (192.168.0.165:4444/billing/sendpdf)</li>
+          <li>Supports multiple phone numbers (comma-separated)</li>
+          <li>Uses feedback message for WhatsApp content</li>
+        </ul>
+      </li>
+      <li>
+        <strong>Response Status:</strong>
+        <ul>
+          <li>Returns emailsent status (true/false)</li>
+          <li>Returns whatsappsent status (true/false)</li>
+          <li>Includes messagetype used for transparency</li>
+        </ul>
+      </li>
+    </ol>
+
+    <h3>Required Fields</h3>
+    <ul>
+      <li><strong>rfq_id:</strong> Valid RFQ ID (generated from preloader)</li>
+      <li><strong>vendorid:</strong> Valid vendor ID</li>
+    </ul>
+
+    <h3>Optional Fields</h3>
+    <ul>
+      <li><strong>cc_email:</strong> CC email address</li>
+      <li><strong>notes:</strong> Additional notes for email</li>
+      <li><strong>feedback:</strong> WhatsApp message text</li>
+      <li>
+        <strong>messagetype:</strong> 1 (email), 2 (WhatsApp), 3 (both) -
+        defaults to 1
+      </li>
+      <li>
+        <strong>product_name:</strong> Name of the product being requested
+      </li>
+      <li>
+        <strong>product_quantity:</strong> Quantity of the product being
+        requested
+      </li>
+    </ul>
+
+    <h3>File Requirements</h3>
+    <ul>
+      <li><strong>Format:</strong> PDF recommended</li>
+      <li><strong>Size:</strong> Maximum 10MB</li>
+      <li><strong>Storage:</strong> /filestorage/YYYY/Month/DD/PostRFQ/</li>
+    </ul>
+
+    <div class="page-break"></div>
+
+    <h2 id="get-products">12. Get Products</h2>
+
+    <h3>Route</h3>
+    <div class="route">POST /vendor/getproducts</div>
+
+    <h3>Description</h3>
+    <p>
+      Retrieves all products associated with a specific vendor from the
+      vendorproducts table.
+    </p>
+
+    <h3>Request Body</h3>
+    <div class="json">
+      { "STOKEN": "your_session_token_here", "querystring":
+      "encrypted_data_containing_vendor_id" }
+    </div>
+
+    <h3>Decrypted Querystring Data</h3>
+    <div class="json">{ "vendorid": 1 }</div>
+
+    <h3>Response Body</h3>
+    <h4>Success Response</h4>
+    <div class="json success">
+      { "code": true, "message": "Products fetched successfully", "Value": [ {
+      "id": 1, "productname": "Cement", "gstpercent": 18.0, "hsn": "2523",
+      "price": 350.00, "vendor_id": 1, "status": 1, "deleted_flag": 0,
+      "created_at": "2025-07-07 10:30:00", "updated_at": "2025-07-07 10:30:00"
+      }, { "id": 2, "productname": "Steel", "gstpercent": 18.0, "hsn": "7207",
+      "price": 600.00, "vendor_id": 1, "status": 1, "deleted_flag": 0,
+      "created_at": "2025-07-07 10:30:00", "updated_at": "2025-07-07 10:30:00" }
+      ] }
+    </div>
+
+    <h4>Error Response</h4>
+    <div class="json error">
+      { "code": false, "message": "Error message describing the issue", "Value":
+      "GET PRODUCTS" }
+    </div>
+
+    <h3>Required Fields</h3>
+    <ul>
+      <li><strong>vendorid:</strong> Valid vendor ID (required)</li>
+    </ul>
+
+    <h3>Response Fields Description</h3>
+    <ul>
+      <li><strong>id:</strong> Unique product ID</li>
+      <li><strong>productname:</strong> Name of the product</li>
+      <li><strong>gstpercent:</strong> GST percentage applicable</li>
+      <li><strong>hsn:</strong> HSN/SAC code for the product</li>
+      <li><strong>price:</strong> Product price</li>
+      <li><strong>vendor_id:</strong> Associated vendor ID</li>
+      <li>
+        <strong>status:</strong> Product status (1 = active, 0 = inactive)
+      </li>
+      <li>
+        <strong>deleted_flag:</strong> Deletion status (0 = not deleted, 1 =
+        deleted)
+      </li>
+      <li><strong>created_at:</strong> Product creation timestamp</li>
+      <li><strong>updated_at:</strong> Last update timestamp</li>
+    </ul>
+
+    <h3>Use Cases</h3>
+    <ul>
+      <li>
+        <strong>Product Catalog:</strong> Display all products offered by a
+        vendor
+      </li>
+      <li><strong>RFQ Creation:</strong> Select products when creating RFQs</li>
+      <li>
+        <strong>Price Comparison:</strong> Compare prices across different
+        vendors
+      </li>
+      <li>
+        <strong>Inventory Management:</strong> Track vendor product offerings
+      </li>
+    </ul>
+
+    <div class="page-break"></div>
+
+    <h2 id="common-response-codes">13. Common Response Codes</h2>
+
+    <h3>Success Response Structure</h3>
+    <div class="json success">
+      { "code": true, "message": "Success message", "Value": "Response data" }
+    </div>
+
+    <h3>Error Response Structure</h3>
+    <div class="json error">
+      { "code": false, "message": "Error description", "Value": "Error context"
+      }
+    </div>
+
+    <h2 id="authentication">14. Authentication</h2>
+
+    <p>All endpoints require a valid session token (STOKEN) that:</p>
+    <ul>
+      <li>Must be between 30-50 characters in length</li>
+      <li>
+        Is validated against the database using SP_STOKEN_CHECK stored procedure
+      </li>
+      <li>
+        First 16 characters are used as encryption key for querystring data
+      </li>
+    </ul>
+
+    <h2 id="security">15. Security</h2>
+
+    <ul>
+      <li>
+        <strong>Encrypted Communication:</strong> All sensitive data in
+        querystring is encrypted using AES encryption
+      </li>
+      <li>
+        <strong>Session Validation:</strong> Session tokens are validated on
+        every request using SP_STOKEN_CHECK stored procedure
+      </li>
+      <li>
+        <strong>File Upload Security:</strong>
+        <ul>
+          <li>
+            File uploads are restricted by size (5MB max for KYC documents)
+          </li>
+          <li>File type validation for documents (PDF, JPG, PNG, JPEG)</li>
+          <li>
+            Files stored with timestamp prefixes to prevent naming conflicts
+          </li>
+          <li>Organized folder structure by date and document type</li>
+        </ul>
+      </li>
+      <li>
+        <strong>SQL Injection Protection:</strong> Parameterized queries used
+        throughout all database operations
+      </li>
+      <li>
+        <strong>Document Security:</strong>
+        <ul>
+          <li>KYC documents stored in secure file system locations</li>
+          <li>Document access controlled through API authentication</li>
+          <li>Binary conversion for secure document transmission</li>
+        </ul>
+      </li>
+      <li>
+        <strong>Data Validation:</strong> Comprehensive validation for all KYC
+        fields including business type enum validation
+      </li>
+    </ul>
+
+    <h3>KYC Security Features</h3>
+    <ul>
+      <li>
+        <strong>Document Integrity:</strong> Files are stored with original
+        names plus timestamps
+      </li>
+      <li>
+        <strong>Access Control:</strong> All document operations require valid
+        session tokens
+      </li>
+      <li>
+        <strong>Audit Trail:</strong> Created/updated timestamps for all vendor
+        records
+      </li>
+      <li>
+        <strong>Secure Storage:</strong> Documents organized in date-based
+        folder hierarchy
+      </li>
+      <li>
+        <strong>Binary Encoding:</strong> Documents converted to base64 for
+        secure API transmission
+      </li>
+    </ul>
+
+    <h2 id="error-handling">16. Error Handling</h2>
+
+    <p>Common error scenarios:</p>
+    <ul>
+      <li>
+        <strong>Authentication Errors:</strong>
+        <ul>
+          <li>Invalid or missing session token</li>
+          <li>Session token size validation failures</li>
+          <li>Expired or unauthorized session tokens</li>
+        </ul>
+      </li>
+      <li>
+        <strong>Data Validation Errors:</strong>
+        <ul>
+          <li>Missing required KYC fields</li>
+          <li>Invalid business type values</li>
+          <li>Malformed or invalid querystring data</li>
+          <li>Invalid vendor ID for updates</li>
+        </ul>
+      </li>
+      <li>
+        <strong>File Upload Errors:</strong>
+        <ul>
+          <li>File size exceeding 5MB limit</li>
+          <li>Unsupported file formats</li>
+          <li>File upload processing failures</li>
+          <li>Missing file in upload requests</li>
+        </ul>
+      </li>
+      <li>
+        <strong>Database Errors:</strong>
+        <ul>
+          <li>Database connection issues</li>
+          <li>Vendor not found errors</li>
+          <li>Constraint violation errors</li>
+          <li>Record update failures</li>
+        </ul>
+      </li>
+      <li>
+        <strong>System Errors:</strong>
+        <ul>
+          <li>File system access issues</li>
+          <li>Document conversion errors</li>
+          <li>Internal server errors</li>
+          <li>Encryption/decryption failures</li>
+        </ul>
+      </li>
+    </ul>
+
+    <h3>Error Response Format</h3>
+    <p>All errors follow a standardized response structure:</p>
+    <div class="json error">
+      { "code": false, "message": "error", "Value": "Context or operation
+      description", "Data": "Detailed error message (internal errors only)" }
+    </div>
+
+    <h3>KYC-Specific Error Messages</h3>
+    <ul>
+      <li>
+        <strong
+          >"Business type must be one of: Manufacturer, Distributor, Service
+          Provider, Others"</strong
+        >
+        - Invalid business type provided
+      </li>
+      <li>
+        <strong>"Could not upload KYC documents"</strong> - File upload
+        processing failed
+      </li>
+      <li>
+        <strong>"Vendor not found or no changes made"</strong> - Invalid vendor
+        ID for document updates
+      </li>
+      <li>
+        <strong>"Please upload a [document type] file!"</strong> - Missing
+        required file in document update requests
+      </li>
+    </ul>
+
+    <hr style="margin-top: 40px; border: 1px solid #ddd" />
+
+    <div
+      style="text-align: center; margin-top: 30px; color: #666; font-size: 14px"
+    >
+      <p><strong>Generated on:</strong> July 7, 2025</p>
+      <p>
+        <strong>API Version:</strong> 3.0 (Complete Vendor Management System)
+      </p>
+      <p><strong>Base URL:</strong> /vendor/</p>
+      <p>
+        <strong>Features:</strong> Complete KYC Support, Document Upload,
+        Multi-file Handling, Product Management, RFQ Processing, Multi-channel
+        Communication (Email & WhatsApp), Individual Document Upload Handlers
+      </p>
+    </div>
+  </body>
+</html>
